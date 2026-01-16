@@ -2,7 +2,10 @@ package main
 
 // TODO
 //
-// - make cli flags work
+// - --zebra
+// - --placeholders
+// - --row-numbers
+// - filename "-" and also work with stdin
 // - graphemes
 // - feature: row numbers
 // - feature: placeholders
@@ -17,6 +20,8 @@ package main
 // https://github.com/uber-go/fx/blob/master/Makefile
 // https://github.com/antonmedv/fx/blob/master/scripts/build.mjs
 // https://github.com/charmbracelet/lipgloss/blob/f2d1864a58cd455ca118e04123feae177d7d2eef/style.go
+//
+// 	Align string `help:"xxx" short:"a" type:"align" enum:"left,right" default:"left"`
 //
 
 import (
@@ -36,12 +41,14 @@ var (
 
 type Options struct {
 	File         string           `arg:"" type:"existingfile"`
-	Color        string           `help:"Set color to never, always or auto" enum:"never,auto,always" default:"auto"`
-	Placeholders bool             `help:"Turn on/off placeholders for empty cells" negatable:"" default:"true"`
-	RowNumbers   bool             `help:"Turn on row numbers" negatable:""`
-	Zebra        bool             `help:"Turn on/off zebra stripes" negatable:""`
+	Color        string           `help:"Set color to auto|never|always" enum:"auto,never,always" default:"auto"`
+	Placeholders bool             `short:"p" help:"Turn on/off placeholders for empty cells" negatable:"" default:"true"`
+	RowNumbers   bool             `short:"n" help:"Turn on row numbers" negatable:""`
+	Zebra        bool             `short:"z" help:"Turn on/off zebra stripes" negatable:""`
 	Version      kong.VersionFlag `short:"v" help:"Print the version number"`
 }
+
+// 	Align string `help:"xxx" short:"a" type:"align" enum:"left,right" default:"left"`
 
 func main() {
 	//
