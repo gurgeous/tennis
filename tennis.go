@@ -7,7 +7,7 @@ package main
 // - grapheme/truncation (and benchmarks)
 // - feature: row numbers
 // - feature: placeholders
-//
+// - how slow is fit?
 
 import (
 	"encoding/csv"
@@ -23,13 +23,14 @@ type State struct {
 }
 
 func Tennis(args *Options) {
+	state := &State{}
+
+	// open file
 	file, err := os.Open(args.File)
 	if err != nil {
 		Fatal("error opening file", err)
 	}
 	defer file.Close()
-
-	state := &State{}
 
 	// read CSV
 	state.csv = csv.NewReader(file)
@@ -47,6 +48,9 @@ func Tennis(args *Options) {
 
 	// render
 	Render(state)
+
+	// fmt.Println(Tailwind["Rose"].c50)
+	// fmt.Println(Tailwind["Zinc"].c950)
 }
 
 //

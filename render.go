@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"strings"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
 var (
@@ -28,15 +30,18 @@ var (
 	BAR  = rune(BOX[0][1])
 	PIPE = rune(BOX[1][0])
 
-	ELLIPSIS = '…'
+	ELLIPSIS = "…"
 )
 
 func Render(state *State) {
 	renderSep(state.layout, NW, N, NE)
-	renderRow(state.rows[0], state.layout)
+	renderRow(state.rows[0], state.layout, true)
 	renderSep(state.layout, W, C, E)
-	for _, row := range state.rows {
-		renderRow(row, state.layout)
+	for ii, row := range state.rows {
+		if ii == 0 {
+			continue
+		}
+		renderRow(row, state.layout, false)
 	}
 	renderSep(state.layout, SW, S, SE)
 }
@@ -54,30 +59,38 @@ func renderSep(layout []int, l, m, r rune) {
 		}
 	}
 	buf.WriteRune(r)
-	fmt.Println(buf.String())
+	fmt.Println(Field.Render(buf.String()))
 }
 
-func renderRow(record []string, layout []int) {
+func renderRow(record []string, layout []int, header bool) {
+	pipe := Chrome.Render(string(PIPE))
+
 	var buf strings.Builder
-	buf.WriteRune(PIPE)
+	buf.WriteString(pipe)
 	for ii, data := range record {
+		var style *lipgloss.Style
+		if header {
+			style = &Headers[ii%len(Headers)]
+		} else {
+			style = &Field
+		}
+		data = fit(data, layout[ii])
+		data = style.Render(data)
+
 		buf.WriteString(" ")
-		cell(&buf, data, layout[ii])
+		buf.WriteString(data)
 		buf.WriteString(" ")
-		buf.WriteRune(PIPE)
+		buf.WriteString(pipe)
 	}
 	fmt.Println(buf.String())
 }
 
-func cell(buf *strings.Builder, str string, width int) {
+func fit(str string, width int) string {
 	if width == 0 {
-		return
+		return ""
 	}
 	if len(str) <= width {
-		buf.WriteString(str)
-		buf.WriteString(strings.Repeat(" ", width-len(str)))
-	} else {
-		buf.WriteString(str[:width-1])
-		buf.WriteRune(ELLIPSIS)
+		return str + strings.Repeat(" ", width-len(str))
 	}
+	return str[:width-1] + ELLIPSIS
 }
