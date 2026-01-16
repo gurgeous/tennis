@@ -45,7 +45,7 @@ type Options struct {
 	Placeholders bool             `short:"p" help:"Turn on/off placeholders for empty cells" negatable:"" default:"true"`
 	RowNumbers   bool             `short:"n" help:"Turn on row numbers" negatable:""`
 	Zebra        bool             `short:"z" help:"Turn on/off zebra stripes" negatable:""`
-	Version      kong.VersionFlag `short:"v" help:"Print the version number"`
+	Version      kong.VersionFlag `help:"Print the version number"`
 }
 
 // 	Align string `help:"xxx" short:"a" type:"align" enum:"left,right" default:"left"`

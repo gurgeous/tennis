@@ -29,15 +29,17 @@ var (
 	BAR  = BOX[0][1]
 	PIPE = BOX[1][0]
 
-	ELLIPSIS = "…"
+	// PLACEHOLDER = "—"
+	PLACEHOLDER = "-"
+	ELLIPSIS    = "…"
 )
 
 func Render(table *Table) {
 	renderSep(table.layout, NW, N, NE)
-	renderRow(table.headers, table.layout, true)
+	renderRow(table, table.headers, true)
 	renderSep(table.layout, W, C, E)
 	for _, row := range table.rows {
-		renderRow(row, table.layout, false)
+		renderRow(table, row, false)
 	}
 	renderSep(table.layout, SW, S, SE)
 }
@@ -58,22 +60,28 @@ func renderSep(layout []int, l, m, r rune) {
 	fmt.Println(Chrome.Render(buf.String()))
 }
 
-func renderRow(record []string, layout []int, header bool) {
+func renderRow(table *Table, record []string, header bool) {
 	PIPE_STYLED := Chrome.Render(string(PIPE))
 
 	var buf strings.Builder
 
 	buf.WriteString(PIPE_STYLED)
 	for ii, data := range record {
-		data = fit(data, layout[ii])
+		if len(data) == 0 && table.opts.Placeholders {
+			data = PLACEHOLDER
+		}
 
 		// render w/ style
 		var style *lipgloss.Style
 		if header {
 			style = &Headers[ii%len(Headers)]
+		} else if data == "-" {
+			style = &Chrome
 		} else {
 			style = &Field
 		}
+
+		data = fit(data, table.layout[ii])
 
 		buf.WriteString(" ")
 		buf.WriteString(style.Render(data))

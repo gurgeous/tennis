@@ -7,7 +7,7 @@ import (
 )
 
 type Table struct {
-	args    *Options
+	opts    *Options
 	csv     *csv.Reader
 	headers []string
 	rows    [][]string
@@ -15,11 +15,11 @@ type Table struct {
 	layout  []int
 }
 
-func Tennis(args *Options) {
-	table := &Table{args: args}
+func Tennis(opts *Options) {
+	table := &Table{opts: opts}
 
 	// open file
-	file, err := os.Open(args.File)
+	file, err := os.Open(opts.File)
 	if err != nil {
 		Fatal("error opening file", err)
 	}
