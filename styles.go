@@ -14,7 +14,7 @@ var (
 	})
 
 	// colors
-	chrome  = lipgloss.AdaptiveColor{Light: Tailwind.Gray.c500, Dark: Tailwind.Gray.c500}
+	chrome  = lipgloss.Color(Tailwind.Gray.c500)
 	field   = lipgloss.AdaptiveColor{Light: Tailwind.Gray.c800, Dark: Tailwind.Gray.c200}
 	headers = []lipgloss.AdaptiveColor{
 		{Light: "#ee4066", Dark: "#ff6188"}, // red/pink

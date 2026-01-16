@@ -2,7 +2,6 @@ package main
 
 // TODO
 //
-// - styles
 // - cli flags (zebra, color=always or whatever)
 // - grapheme/truncation (and benchmarks)
 // - feature: row numbers

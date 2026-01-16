@@ -16,19 +16,19 @@ var (
 	}
 
 	// take these from BOX
-	NW = rune(BOX[0][0])
-	N  = rune(BOX[0][2])
-	NE = rune(BOX[0][4])
-	W  = rune(BOX[2][0])
-	C  = rune(BOX[2][2])
-	E  = rune(BOX[2][4])
-	SW = rune(BOX[3][0])
-	S  = rune(BOX[3][2])
-	SE = rune(BOX[3][4])
+	NW = BOX[0][0]
+	N  = BOX[0][2]
+	NE = BOX[0][4]
+	W  = BOX[2][0]
+	C  = BOX[2][2]
+	E  = BOX[2][4]
+	SW = BOX[3][0]
+	S  = BOX[3][2]
+	SE = BOX[3][4]
 
 	// horizontal and vertical lines
-	BAR  = rune(BOX[0][1])
-	PIPE = rune(BOX[1][0])
+	BAR  = BOX[0][1]
+	PIPE = BOX[1][0]
 
 	ELLIPSIS = "…"
 )
@@ -59,7 +59,7 @@ func renderSep(layout []int, l, m, r rune) {
 		}
 	}
 	buf.WriteRune(r)
-	fmt.Println(Field.Render(buf.String()))
+	fmt.Println(Chrome.Render(buf.String()))
 }
 
 func renderRow(record []string, layout []int, header bool) {
