@@ -1,10 +1,3 @@
-formatters:
-  enable:
-    - gofumpt
-    - goimports
-  exclusions:
-    generated: lax
-
 linters:
   enable:
     - asasalint # checks for pass []any as any in variadic func(...any)
@@ -56,7 +49,6 @@ linters:
     - wastedassign # finds wasted assignment statements
     - whitespace # detects leading and trailing whitespace
     - wrapcheck # check that errors from external packages
-
   exclusions:
     generated: lax
     presets:
@@ -66,4 +58,10 @@ linters:
   settings:
     exhaustive:
       default-signifies-exhaustive: true
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  exclusions:
+    generated: lax
 version: "2"
