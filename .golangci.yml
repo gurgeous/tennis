@@ -1,0 +1,69 @@
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  exclusions:
+    generated: lax
+
+linters:
+  enable:
+    - asasalint # checks for pass []any as any in variadic func(...any)
+    - asciicheck # checks that your code does not contain non-ASCII identifiers
+    - bidichk # checks for dangerous unicode character sequences
+    - bodyclose # checks whether HTTP response body is closed successfully
+    - canonicalheader # checks whether net/http.Header uses canonical header
+    - copyloopvar # detects places where loop variables are copied (Go 1.22+)
+    - dupl # tool for code clone detection
+    - durationcheck # checks for two durations multiplied together
+    - errname # checks that sentinel errors are prefixed with the Err and error types are suffixed with the Error
+    - errorlint # finds code that will cause problems with the error wrapping scheme introduced in Go 1.13
+    - exhaustive # checks exhaustiveness of enum switch statements
+    - exptostd # detects functions from golang.org/x/exp/ that can be replaced by std functions
+    - fatcontext # detects nested contexts in loops
+    - gocheckcompilerdirectives # validates go compiler directive comments (//go:)
+    - goconst # finds repeated strings that could be replaced by a constant
+    - gocritic # provides diagnostics that check for bugs, performance and style issues
+    - gomoddirectives # manages the use of 'replace', 'retract', and 'excludes' directives in go.mod
+    - goprintffuncname # checks that printf-like functions are named with f at the end
+    - gosec # inspects source code for security problems
+    - iface # checks the incorrect use of interfaces, helping developers avoid interface pollution
+    - intrange # finds places where for loops could make use of an integer range
+    - makezero # finds slice declarations with non-zero initial length
+    - mirror # reports wrong mirror patterns of bytes/strings usage
+    - misspell # correct commonly misspelled English words
+    - modernize # suggests simplifications to Go code, using modern language and library features
+    - musttag # enforces field tags in (un)marshaled structs
+    - nakedret # finds naked returns in functions greater than a specified function length
+    - nestif # reports deeply nested if statements
+    - nilerr # finds the code that returns nil even if it checks that the error is not nil
+    - noctx # finds sending http request without context.Context
+    - nolintlint # reports ill-formed or insufficient nolint directives
+    - nosprintfhostport # checks for misuse of Sprintf to construct a host with port in a URL
+    - prealloc # report slices that could potentially be preallocated
+    - predeclared # finds code that shadows one of Go's predeclared identifiers
+    - reassign # checks that package variables are not reassigned
+    - revive # fast, configurable, extensible, flexible, and beautiful linter for Go, drop-in replacement of golint
+    - rowserrcheck # checks whether Err of rows is checked successfully
+    - sloglint # ensure consistent code style when using log/slog
+    - spancheck # checks for mistakes with OpenTelemetry/Census spans
+    - sqlclosecheck # checks that sql.Rows and sql.Stmt are closed
+    - staticcheck # is a go vet on steroids, applying a ton of static analysis checks
+    - tparallel # detects inappropriate usage of t.Parallel() method in your Go test codes
+    - unconvert # removes unnecessary type conversions
+    - unparam # reports unused function parameters
+    - usestdlibvars # detects the possibility to use variables/constants from the Go standard library
+    - usetesting # reports uses of functions with replacement inside the testing package
+    - wastedassign # finds wasted assignment statements
+    - whitespace # detects leading and trailing whitespace
+    - wrapcheck # check that errors from external packages
+
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - std-error-handling
+  settings:
+    exhaustive:
+      default-signifies-exhaustive: true
+version: "2"
