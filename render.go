@@ -8,14 +8,13 @@ import (
 )
 
 var (
+	// box and friends
 	BOX = [][]rune{
 		[]rune("╭─┬─╮"), // 0
 		[]rune("│ │ │"), // 1
 		[]rune("├─┼─┤"), // 2
 		[]rune("╰─┴─╯"), // 3
 	}
-
-	// take these from BOX
 	NW = BOX[0][0]
 	N  = BOX[0][2]
 	NE = BOX[0][4]
@@ -33,17 +32,14 @@ var (
 	ELLIPSIS = "…"
 )
 
-func Render(state *State) {
-	renderSep(state.layout, NW, N, NE)
-	renderRow(state.rows[0], state.layout, true)
-	renderSep(state.layout, W, C, E)
-	for ii, row := range state.rows {
-		if ii == 0 {
-			continue
-		}
-		renderRow(row, state.layout, false)
+func Render(table *Table) {
+	renderSep(table.layout, NW, N, NE)
+	renderRow(table.headers, table.layout, true)
+	renderSep(table.layout, W, C, E)
+	for _, row := range table.rows {
+		renderRow(row, table.layout, false)
 	}
-	renderSep(state.layout, SW, S, SE)
+	renderSep(table.layout, SW, S, SE)
 }
 
 func renderSep(layout []int, l, m, r rune) {
@@ -63,32 +59,32 @@ func renderSep(layout []int, l, m, r rune) {
 }
 
 func renderRow(record []string, layout []int, header bool) {
-	pipe := Chrome.Render(string(PIPE))
+	PIPE_STYLED := Chrome.Render(string(PIPE))
 
 	var buf strings.Builder
-	buf.WriteString(pipe)
+
+	buf.WriteString(PIPE_STYLED)
 	for ii, data := range record {
+		data = fit(data, layout[ii])
+
+		// render w/ style
 		var style *lipgloss.Style
 		if header {
 			style = &Headers[ii%len(Headers)]
 		} else {
 			style = &Field
 		}
-		data = fit(data, layout[ii])
-		data = style.Render(data)
 
 		buf.WriteString(" ")
-		buf.WriteString(data)
+		buf.WriteString(style.Render(data))
 		buf.WriteString(" ")
-		buf.WriteString(pipe)
+		buf.WriteString(PIPE_STYLED)
 	}
+
 	fmt.Println(buf.String())
 }
 
 func fit(str string, width int) string {
-	if width == 0 {
-		return ""
-	}
 	if len(str) <= width {
 		return str + strings.Repeat(" ", width-len(str))
 	}

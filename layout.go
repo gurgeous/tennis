@@ -15,25 +15,25 @@ import (
 
 const FUDGE = 2
 
-func AutoLayout(dataWidth []int, termWidth int) []int {
-	chromeWidth := len(dataWidth)*3 + 1
-	tableWidth := lo.Sum(dataWidth)
+func AutoLayout(widths []int, termWidth int) []int {
+	chromeWidth := len(widths)*3 + 1
+	tableWidth := lo.Sum(widths)
 
 	// How much space is available, and do we already fit?
 	available := termWidth - chromeWidth - FUDGE
 	if available >= tableWidth {
-		return slices.Clone(dataWidth)
+		return slices.Clone(widths)
 	}
 
 	// We don't fit, so we are going to shrink (truncate) some columns. Potentially all the way down
 	// to a lower bound. But what is the lower bound? It's nice to have a generous value so that
 	// narrow columns have a shot at avoiding truncation. That isn't always possible, though.
-	lowerBound := lo.Clamp(available/len(dataWidth), 2, 10)
+	lowerBound := lo.Clamp(available/len(widths), 2, 10)
 
 	// Calculate a "min" and a "max" data width for each column, then allocate available space
 	// proportionally to each column. This is similar to the algorithm for HTML tables.
-	dmin := lo.Map(dataWidth, func(x int, _ int) int { return min(x, lowerBound) })
-	dmax := dataWidth
+	dmin := lo.Map(widths, func(x int, _ int) int { return min(x, lowerBound) })
+	dmax := widths
 
 	// W = difference between the available space and the minimum table width
 	// D = difference between maximum and minimum table width
@@ -46,13 +46,13 @@ func AutoLayout(dataWidth []int, termWidth int) []int {
 	}
 
 	// col.width = col.min + ((col.max - col.min) * ratio)
-	diffs := MapIndex(dataWidth, func(ii int) int { return dmax[ii] - dmin[ii] })
-	layout := MapIndex(dataWidth, func(ii int) int { return dmin[ii] + int(float64(diffs[ii])*ratio) })
+	diffs := MapIndex(widths, func(ii int) int { return dmax[ii] - dmin[ii] })
+	layout := MapIndex(widths, func(ii int) int { return dmin[ii] + int(float64(diffs[ii])*ratio) })
 	tableWidth = lo.Sum(layout)
 
 	// because we always round down, there might be some extra space to distribute
 	if extraSpace := available - tableWidth; extraSpace > 0 {
-		indexes := lo.Range(len(dataWidth))
+		indexes := lo.Range(len(widths))
 		sort.SliceStable(indexes, func(a, b int) bool { return diffs[b] < diffs[a] })
 		for i := 0; i < extraSpace && i < len(indexes); i++ {
 			layout[indexes[i]]++
