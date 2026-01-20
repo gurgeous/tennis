@@ -1,85 +1,22 @@
 package tennis
 
-import "encoding/csv"
+import (
+	"bufio"
+	"encoding/csv"
+	"os"
+)
 
 //
-// initial features
-// - autolayout
-// - colors/themes
-// - print tables
-// - separators
-// - placeholders
-// - row numbers
+// table config & state
 //
-// exhaustive list of features
-// - color scales
-// - digits for formatting floats
-// - layout:true/false/hardcoded
-// - mark rows
-// - override header names
-// - save CSV
-// - search cells
-// - separators
-// - theme selection
-// - title
-// - titleize column headers
-// - turning color off/on
-// - type coercion
-// - zebra
-//
-// go get charm.land/bubbletea/v2
-// go get charm.land/bubbles/v2
-// go get charm.land/lipgloss/v2
-//
-// compat.HasDarkBackground = lipgloss.HasDarkBackground(os.Stdin, os.Stderr)
-// compat.Profile = colorprofile.Detect(os.Stderr, os.Environ())
-//
-// s := someStyle.Render("Fancy Lip Gloss Output")
-// // Before
-// fmt.Println(s)
-// // After
-// lipgloss.Println(s)
-//
-//// Detect the background color. Notice we're writing to stderr.
-// hasDarkBG, err := lipgloss.HasDarkBackground(os.Stdin, os.Stderr)
-// if err != nil {
-//     log.Fatal("Oof:", err)
-// }
-//
-// // Create a helper for choosing the appropriate color.
-// lightDark := lipgloss.LightDark(hasDarkBG)
-//
-// // Declare some colors.
-// thisColor := lightDark("#C5ADF9", "#864EFF")
-// thatColor := lightDark("#37CD96", "#22C78A")
-//
-// // Render some styles.
-// a := lipgloss.NewStyle().Foreground(thisColor).Render("this")
-// b := lipgloss.NewStyle().Foreground(thatColor).Render("that")
-//
-// // Print to stderr.
-// lipgloss.Fprintf(os.Stderr, "my fave colors are %s and %s...for now.", a, b)
-//
-
-// - autolayout
-// - colors/themes
-// - print tables
-// - separators
-// - placeholders
-// - row numbers
 
 type Table struct {
-	// config
 	Color      Color
 	Theme      Theme
 	RowNumbers bool
-
-	// internal stuff
-	r       *csv.Reader
-	headers []string
-	rows    [][]string
-	layout  []int
-	widths  []int
+	rows       [][]string // csv data
+	layout     []int      // calculated column widths
+	w          *bufio.Writer
 }
 
 type Theme int
@@ -98,26 +35,53 @@ const (
 	ColorNever
 )
 
-func NewTable(r *csv.Reader) *Table {
-	return &Table{r: r}
+//
+// main entry points
+//
+
+// open csv
+// file, err := os.Open(options.File)
+// if err != nil {
+// 	tennis.Fatal("error opening file", err)
+// }
+// defer file.Close()
+// csv := csv.NewReader(file)
+
+// // setup table
+// table := tennis.NewTable(csv)
+// fmt.Printf("%#v\n", table)
+// if err := table.Print(); err != nil {
+// 	tennis.Fatal("table.Print failed", err)
+// }
+// fmt.Printf("%#v\n", "gub")
+
+func (t *Table) PrintFilename(name string) error {
+	file, err := os.Open(name)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	return t.PrintFile(file)
+}
+
+func (t *Table) PrintFile(file *os.File) error {
+	return t.PrintCsv(csv.NewReader(file))
+}
+
+func (t *Table) PrintCsv(r *csv.Reader) error {
+	// read all rows
+	rows, err := r.ReadAll()
+	if err != nil {
+		return err
+	}
+
+	// go!
+}
+
+func (t *Table) PrintTable(rows [][]string) {
 }
 
 // func Tennis(opts *Options) {
-// 	table := &Table{opts: opts}
-
-// 	// open file
-// 	file, err := os.Open(opts.File)
-// 	if err != nil {
-// 		Fatal("error opening file", err)
-// 	}
-// 	defer file.Close()
-
-// 	// read CSV
-// 	table.csv = csv.NewReader(file)
-// 	table.rows, err = table.csv.ReadAll()
-// 	if err != nil {
-// 		Fatal("error reading CSV", err)
-// 	}
 
 // 	// layout
 // 	analyze(table)
