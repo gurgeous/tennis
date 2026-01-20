@@ -8,7 +8,7 @@ init:
   @# go install golang.org/x/tools/gopls@latest
 
 build *ARGS:
-  @go build -o tennis ./cmd
+  @go build -o tennis ./cmd {{ ARGS }}
 
 build-release:
   @just build -ldflags=\"-s -w\"

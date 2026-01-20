@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/charmbracelet/colorprofile"
 	"github.com/charmbracelet/lipgloss/v2"
@@ -142,6 +143,8 @@ func (t *Table) measure() []int {
 	}
 	for _, record := range t.records {
 		for ii, data := range record {
+			data = strings.TrimSpace(data)
+			record[ii] = data
 			widths[ii] = max(widths[ii], len(data))
 		}
 	}

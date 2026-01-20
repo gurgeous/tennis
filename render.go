@@ -1,6 +1,7 @@
 package tennis
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss/v2"
@@ -33,20 +34,33 @@ var (
 	ELLIPSIS    = "…"
 )
 
-func (t *Table) render() {
-	t.renderSeparator(NW, N, NE)
-	t.renderRow(0)
-	t.renderSeparator(W, C, E)
+func (t *Table) render() error {
+	if err := t.writeSeparator(NW, N, NE); err != nil {
+		return err
+	}
+	if err := t.writeRow(0); err != nil {
+		return err
+	}
+	if err := t.writeSeparator(W, C, E); err != nil {
+		return err
+	}
 	for ii := range t.records {
 		if ii != 0 {
-			t.renderRow(ii)
+			if err := t.writeRow(ii); err != nil {
+				return err
+			}
 		}
 	}
-	t.renderSeparator(SW, S, SE)
-	t.w.Flush()
+	if err := t.writeSeparator(SW, S, SE); err != nil {
+		return err
+	}
+	if err := t.w.Flush(); err != nil {
+		return fmt.Errorf("error on tennis.render: %w", err)
+	}
+	return nil
 }
 
-func (t *Table) renderSeparator(l, m, r rune) {
+func (t *Table) writeSeparator(l, m, r rune) error {
 	var buf strings.Builder
 	for ii, width := range t.layout {
 		if ii == 0 {
@@ -59,43 +73,54 @@ func (t *Table) renderSeparator(l, m, r rune) {
 		}
 	}
 	buf.WriteRune(r)
-	str := buf.String()
-	str = t.styles.chrome.Render(str)
-	t.w.WriteString(str)
-	t.w.WriteRune('\n')
+	str := t.styles.chrome.Render(buf.String())
+	return t.writeLine(str)
 }
 
-func (t *Table) renderRow(row int) {
-	pipe := string(PIPE)
+func (t *Table) writeRow(row int) error {
+	var buf strings.Builder
+	pipe := t.styles.chrome.Render(string(PIPE))
 
-	w := t.w
-	w.WriteString(pipe)
-	for ii, str := range t.records[row] {
-		if len(str) == 0 {
-			str = PLACEHOLDER
+	buf.WriteString(pipe)
+	for ii, data := range t.records[row] {
+		// pre-process data
+		placeholder := len(data) == 0
+		if placeholder {
+			data = PLACEHOLDER
 		}
 
 		// layout
-		str = fit(str, t.layout[ii])
+		data = fit(data, t.layout[ii])
 
 		// style
 		var style *lipgloss.Style
-		// if header {
-		// 	style = &Headers[ii%len(Headers)]
-		if str == "-" {
+		switch {
+		case row == 0:
+			style = &t.styles.headers[ii%len(t.styles.headers)]
+		case placeholder:
 			style = &t.styles.chrome
-		} else {
+		default:
 			style = &t.styles.field
 		}
-		str = style.Render(str)
+		data = style.Render(data)
 
 		// write
-		w.WriteString(" ")
-		w.WriteString(str)
-		w.WriteString(" ")
-		w.WriteString(pipe)
+		buf.WriteRune(' ')
+		buf.WriteString(data)
+		buf.WriteRune(' ')
+		buf.WriteString(pipe)
 	}
-	w.WriteRune('\n')
+	return t.writeLine(buf.String())
+}
+
+func (t *Table) writeLine(str string) error {
+	if _, err := t.w.WriteString(str); err != nil {
+		return fmt.Errorf("error on tennis.writeLine: %w", err)
+	}
+	if _, err := t.w.WriteRune('\n'); err != nil {
+		return fmt.Errorf("error on tennis.writeLine: %w", err)
+	}
+	return nil
 }
 
 func fit(str string, width int) string {
