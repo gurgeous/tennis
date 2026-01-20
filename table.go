@@ -1,20 +1,23 @@
 package tennis
 
-//
-// TODO
-// theme/color
-// row numbers
-// main
-// tests
-
 import (
 	"bufio"
 	"fmt"
 	"io"
 	"os"
 
+	"github.com/charmbracelet/colorprofile"
+	"github.com/charmbracelet/lipgloss/v2"
 	"golang.org/x/term"
 )
+
+//
+// TODO
+// theme/color
+// downsampling colors?
+// row numbers
+// main
+// tests
 
 //
 // types
@@ -82,44 +85,43 @@ func (t *Table) WriteAll(records [][]string) error {
 		}
 	}
 
+	//
 	// setup
+	//
+
 	if t.TermWidth == 0 {
-		t.TermWidth = getTermWidth()
+		termwidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+		if err != nil {
+			t.TermWidth = DEFAULT_TERM_WIDTH
+		} else {
+			t.TermWidth = termwidth
+		}
 	}
 	if t.Color == ColorAuto {
-		t.Color = getColor()
+		if colorprofile.Detect(os.Stderr, os.Environ()) >= colorprofile.ANSI {
+			t.Color = ColorAlways
+		} else {
+			t.Color = ColorNever
+		}
 	}
-	if t.Theme == ThemeAuto {
-		t.Theme = getTheme()
+	if t.Theme == ThemeAuto && t.Color != ColorNever {
+		if lipgloss.HasDarkBackground(os.Stdin, os.Stderr) {
+			t.Theme = ThemeDark
+		} else {
+			t.Theme = ThemeLight
+		}
 	}
 
+	//
 	// layout
+	//
+
 	t.widths = t.measure()
 	t.layout = t.autolayout()
 
 	// render
 	t.render()
 	return nil
-}
-
-//
-// getters that have to do some work
-//
-
-func getColor() Color {
-	return ColorAlways
-}
-
-func getTheme() Theme {
-	return ThemeDark
-}
-
-func getTermWidth() int {
-	termwidth, _, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil {
-		termwidth = DEFAULT_TERM_WIDTH
-	}
-	return termwidth
 }
 
 // Measure the size of each column. Fails if the records are ragged
