@@ -8,7 +8,6 @@ import (
 
 	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/samber/lo"
-	"golang.org/x/term"
 )
 
 var (
@@ -57,14 +56,6 @@ func MapIndex[T, R any](collection []T, iteratee func(index int) R) []R {
 //
 // misc
 //
-
-func TermWidth() int {
-	termWidth, _, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil {
-		termWidth = 80
-	}
-	return termWidth
-}
 
 // type Number interface {
 // 	int | int64 | float32 | float64

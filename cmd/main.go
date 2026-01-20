@@ -34,21 +34,23 @@ func main() {
 	// parse cli options
 	options := options()
 
-	// open csv
+	// open file
 	file, err := os.Open(options.File)
 	if err != nil {
 		tennis.Fatal("error opening file", err)
 	}
 	defer file.Close()
-	csv := csv.NewReader(file)
 
-	// setup table
-	table := tennis.NewTable(csv)
-	fmt.Printf("%#v\n", table)
-	if err := table.Print(); err != nil {
-		tennis.Fatal("table.Print failed", err)
+	// read csv
+	csv := csv.NewReader(file)
+	rows, err := csv.ReadAll()
+	if err != nil {
+		tennis.Fatal("error opening file", err)
 	}
-	fmt.Printf("%#v\n", "gub")
+
+	// table
+	table := tennis.NewTable(os.Stdout)
+	table.WriteAll(rows)
 }
 
 func options() *Options {

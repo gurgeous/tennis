@@ -1,31 +1,37 @@
 package tennis
 
+//
+// TODO
+// theme/color
+// row numbers
+// main
+// tests
+
 import (
 	"bufio"
-	"encoding/csv"
+	"fmt"
+	"io"
 	"os"
+
+	"golang.org/x/term"
 )
 
 //
-// table config & state
+// types
 //
 
 type Table struct {
 	Color      Color
+	TermWidth  int
 	Theme      Theme
 	RowNumbers bool
-	rows       [][]string // csv data
-	layout     []int      // calculated column widths
-	w          *bufio.Writer
+	// state
+	w       *bufio.Writer
+	headers []string
+	records [][]string
+	widths  []int
+	layout  []int
 }
-
-type Theme int
-
-const (
-	ThemeAuto Theme = iota
-	ThemeDark
-	ThemeLight
-)
 
 type Color int
 
@@ -35,81 +41,98 @@ const (
 	ColorNever
 )
 
+type Theme int
+
+const (
+	ThemeAuto Theme = iota
+	ThemeDark
+	ThemeLight
+)
+
+const (
+	DEFAULT_TERM_WIDTH = 80
+	MIN_FIELD_WIDTH    = 2
+)
+
 //
-// main entry points
+// public
 //
 
-// open csv
-// file, err := os.Open(options.File)
-// if err != nil {
-// 	tennis.Fatal("error opening file", err)
-// }
-// defer file.Close()
-// csv := csv.NewReader(file)
-
-// // setup table
-// table := tennis.NewTable(csv)
-// fmt.Printf("%#v\n", table)
-// if err := table.Print(); err != nil {
-// 	tennis.Fatal("table.Print failed", err)
-// }
-// fmt.Printf("%#v\n", "gub")
-
-func (t *Table) PrintFilename(name string) error {
-	file, err := os.Open(name)
-	if err != nil {
-		return err
+func NewTable(w io.Writer) *Table {
+	return &Table{
+		w: bufio.NewWriter(w),
 	}
-	defer file.Close()
-	return t.PrintFile(file)
 }
 
-func (t *Table) PrintFile(file *os.File) error {
-	return t.PrintCsv(csv.NewReader(file))
-}
-
-func (t *Table) PrintCsv(r *csv.Reader) error {
-	// read all rows
-	rows, err := r.ReadAll()
-	if err != nil {
-		return err
+func (t *Table) WriteAll(records [][]string) error {
+	t.records = records
+	if len(t.records) == 0 {
+		return nil
+	}
+	t.headers = t.records[0]
+	if len(t.headers) == 0 {
+		return nil
 	}
 
-	// go!
+	// sanity check - we don't allow ragged
+	nfields := len(t.records[0])
+	for ii, record := range t.records {
+		if len(record) != nfields {
+			return fmt.Errorf("row %d has a different number of fields (can't be ragged)", ii+1)
+		}
+	}
+
+	// setup
+	if t.TermWidth == 0 {
+		t.TermWidth = getTermWidth()
+	}
+	if t.Color == ColorAuto {
+		t.Color = getColor()
+	}
+	if t.Theme == ThemeAuto {
+		t.Theme = getTheme()
+	}
+
+	// layout
+	t.widths = t.measure()
+	t.layout = t.autolayout()
+
+	// render
+	t.render()
+	return nil
 }
 
-func (t *Table) PrintTable(rows [][]string) {
+//
+// getters that have to do some work
+//
+
+func getColor() Color {
+	return ColorAlways
 }
 
-// func Tennis(opts *Options) {
+func getTheme() Theme {
+	return ThemeDark
+}
 
-// 	// layout
-// 	analyze(table)
-// 	table.layout = AutoLayout(table.widths, TermWidth())
+func getTermWidth() int {
+	termwidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
+		termwidth = DEFAULT_TERM_WIDTH
+	}
+	return termwidth
+}
 
-// 	// render
-// 	Render(table)
-// }
-
-// //
-// // helpers
-// //
-
-// func analyze(table *Table) {
-// 	if len(table.rows) == 0 {
-// 		Fatal("file is empty", nil)
-// 	}
-
-// 	nfields := table.csv.FieldsPerRecord
-// 	widths := make([]int, nfields)
-// 	for ii, row := range table.rows {
-// 		if len(row) != nfields {
-// 			Fatal(fmt.Sprintf("row %d has a different number of fields (can't be jagged)", ii+1), nil)
-// 		}
-// 		for ii, data := range row {
-// 			widths[ii] = max(widths[ii], len(data))
-// 		}
-// 	}
-// 	table.widths = widths
-// 	table.headers, table.rows = table.rows[0], table.rows[1:]
-// }
+// Measure the size of each column. Fails if the records are ragged
+func (t *Table) measure() []int {
+	nfields := len(t.headers)
+	widths := make([]int, nfields)
+	for ii := range nfields {
+		widths[ii] = MIN_FIELD_WIDTH
+	}
+	for _, record := range t.records {
+		for ii, data := range record {
+			widths[ii] = max(widths[ii], len(data))
+		}
+	}
+	return widths
+}

@@ -5,6 +5,7 @@ go 1.25.5
 require (
 	github.com/alecthomas/kong v1.13.0
 	github.com/charmbracelet/lipgloss/v2 v2.0.0-beta1
+	github.com/clipperhouse/displaywidth v0.7.0
 	github.com/samber/lo v1.52.0
 	golang.org/x/term v0.39.0
 )
@@ -14,6 +15,8 @@ require (
 	github.com/charmbracelet/x/ansi v0.8.0 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.13 // indirect
 	github.com/charmbracelet/x/term v0.2.1 // indirect
+	github.com/clipperhouse/stringish v0.1.1 // indirect
+	github.com/clipperhouse/uax29/v2 v2.3.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
