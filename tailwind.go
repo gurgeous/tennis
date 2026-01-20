@@ -1,6 +1,6 @@
-package main
+package tennis
 
-var Tailwind = &tailwind{
+const Tailwind = &tailwind{
 	Rose: palette{
 		c50:  "#fff1f2",
 		c100: "#ffe4e6",

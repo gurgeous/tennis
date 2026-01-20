@@ -1,10 +1,17 @@
-package main
+package tennis
 
 import (
 	"encoding/csv"
 	"fmt"
 	"os"
 )
+
+// func NewReader(r io.Reader) *Reader {
+// 	return &Reader{
+// 		Comma: ',',
+// 		r:     bufio.NewReader(r),
+// 	}
+// }
 
 type Table struct {
 	opts    *Options

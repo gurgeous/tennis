@@ -22,6 +22,7 @@ package main
 // https://github.com/charmbracelet/lipgloss/blob/f2d1864a58cd455ca118e04123feae177d7d2eef/style.go
 //
 // 	Align string `help:"xxx" short:"a" type:"align" enum:"left,right" default:"left"`
+// https://github.com/cli/cli
 //
 
 import (
@@ -31,6 +32,7 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/gurgeous/tennis"
 	"github.com/muesli/termenv"
 )
 
@@ -94,7 +96,7 @@ func main() {
 		kong.FatalIfErrorf(err)
 	}
 
-	// --color
+	// --color=auto/always/never
 	// https://github.com/charmbracelet/lipgloss/issues/445
 	switch options.Color {
 	case "never":
@@ -111,5 +113,5 @@ func main() {
 	}
 
 	// go
-	Tennis(options)
+	tennis.Tennis(options)
 }
