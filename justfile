@@ -8,10 +8,9 @@ init:
   @# go install golang.org/x/tools/gopls@latest
 
 build *ARGS:
-  @go build {{ARGS}} ./...
+  @go build -o tennis ./cmd
 
 build-release:
-  #@ note - upx doesn't work on macos
   @just build -ldflags=\"-s -w\"
 
 run *ARGS: build

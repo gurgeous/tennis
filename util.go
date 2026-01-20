@@ -2,10 +2,11 @@ package tennis
 
 import (
 	"fmt"
+	"image/color"
 	"os"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/samber/lo"
 	"golang.org/x/term"
 )
@@ -24,7 +25,7 @@ var (
 // banner
 //
 
-func banner(msg string, bg lipgloss.Color) {
+func banner(msg string, bg color.Color) {
 	msg = fmt.Sprintf("[%s] %s", time.Now().Format("15:04:05"), msg)
 	fmt.Fprintln(os.Stdout, BASE.Background(bg).Render(msg))
 }
