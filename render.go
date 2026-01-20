@@ -3,6 +3,7 @@ package tennis
 import (
 	"strings"
 
+	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/clipperhouse/displaywidth"
 )
 
@@ -36,56 +37,63 @@ func (t *Table) render() {
 	t.renderSeparator(NW, N, NE)
 	t.renderRow(0)
 	t.renderSeparator(W, C, E)
-	for ii := range t.records[1:] {
-		t.renderRow(ii)
+	for ii := range t.records {
+		if ii != 0 {
+			t.renderRow(ii)
+		}
 	}
 	t.renderSeparator(SW, S, SE)
 	t.w.Flush()
 }
 
 func (t *Table) renderSeparator(l, m, r rune) {
-	w := t.w
+	var buf strings.Builder
 	for ii, width := range t.layout {
 		if ii == 0 {
-			w.WriteRune(l)
+			buf.WriteRune(l)
 		} else {
-			w.WriteRune(m)
+			buf.WriteRune(m)
 		}
 		for range width + 2 {
-			w.WriteRune(BAR)
+			buf.WriteRune(BAR)
 		}
 	}
-	w.WriteRune(r)
-	w.WriteRune('\n')
+	buf.WriteRune(r)
+	str := buf.String()
+	str = t.styles.chrome.Render(str)
+	t.w.WriteString(str)
+	t.w.WriteRune('\n')
 }
 
 func (t *Table) renderRow(row int) {
-	PIPE_STYLED := string(PIPE)
+	pipe := string(PIPE)
 
 	w := t.w
-	w.WriteString(PIPE_STYLED)
-	for ii, data := range t.records[row] {
-		if len(data) == 0 {
-			data = PLACEHOLDER
+	w.WriteString(pipe)
+	for ii, str := range t.records[row] {
+		if len(str) == 0 {
+			str = PLACEHOLDER
 		}
 
-		// render w/ style
-		// var style *lipgloss.Style
+		// layout
+		str = fit(str, t.layout[ii])
+
+		// style
+		var style *lipgloss.Style
 		// if header {
 		// 	style = &Headers[ii%len(Headers)]
-		// } else if data == "-" {
-		// 	style = &Chrome
-		// } else {
-		// 	style = &Field
-		// }
-		// data = style.Render(data)
+		if str == "-" {
+			style = &t.styles.chrome
+		} else {
+			style = &t.styles.field
+		}
+		str = style.Render(str)
 
-		data = fit(data, t.layout[ii])
-
+		// write
 		w.WriteString(" ")
-		w.WriteString(data)
+		w.WriteString(str)
 		w.WriteString(" ")
-		w.WriteString(PIPE_STYLED)
+		w.WriteString(pipe)
 	}
 	w.WriteRune('\n')
 }

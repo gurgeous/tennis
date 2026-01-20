@@ -18,6 +18,7 @@ import (
 // row numbers
 // main
 // tests
+//
 
 //
 // types
@@ -34,6 +35,7 @@ type Table struct {
 	records [][]string
 	widths  []int
 	layout  []int
+	styles  *styles
 }
 
 type Color int
@@ -68,6 +70,10 @@ func NewTable(w io.Writer) *Table {
 }
 
 func (t *Table) WriteAll(records [][]string) error {
+	//
+	// sanity checks
+	//
+
 	t.records = records
 	if len(t.records) == 0 {
 		return nil
@@ -77,7 +83,6 @@ func (t *Table) WriteAll(records [][]string) error {
 		return nil
 	}
 
-	// sanity check - we don't allow ragged
 	nfields := len(t.records[0])
 	for ii, record := range t.records {
 		if len(record) != nfields {
@@ -89,19 +94,19 @@ func (t *Table) WriteAll(records [][]string) error {
 	// setup
 	//
 
+	if t.Color == ColorAuto {
+		if colorprofile.Detect(os.Stderr, os.Environ()) >= colorprofile.ANSI {
+			t.Color = ColorAlways
+		} else {
+			t.Color = ColorNever
+		}
+	}
 	if t.TermWidth == 0 {
 		termwidth, _, err := term.GetSize(int(os.Stdout.Fd()))
 		if err != nil {
 			t.TermWidth = DEFAULT_TERM_WIDTH
 		} else {
 			t.TermWidth = termwidth
-		}
-	}
-	if t.Color == ColorAuto {
-		if colorprofile.Detect(os.Stderr, os.Environ()) >= colorprofile.ANSI {
-			t.Color = ColorAlways
-		} else {
-			t.Color = ColorNever
 		}
 	}
 	if t.Theme == ThemeAuto && t.Color != ColorNever {
@@ -118,8 +123,12 @@ func (t *Table) WriteAll(records [][]string) error {
 
 	t.widths = t.measure()
 	t.layout = t.autolayout()
+	t.styles = t.createStyles()
 
+	//
 	// render
+	//
+
 	t.render()
 	return nil
 }
