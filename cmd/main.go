@@ -37,20 +37,22 @@ func main() {
 	// open file
 	file, err := os.Open(options.File)
 	if err != nil {
-		tennis.Fatal("error opening file", err)
+		fatal("error opening file", err)
 	}
 	defer file.Close()
 
 	// read csv
 	csv := csv.NewReader(file)
-	rows, err := csv.ReadAll()
+	records, err := csv.ReadAll()
 	if err != nil {
-		tennis.Fatal("error opening file", err)
+		fatal("error opening file", err)
 	}
 
 	// table
 	table := tennis.NewTable(os.Stdout)
-	table.WriteAll(rows)
+	if err := table.WriteAll(records); err != nil {
+		fatal("table error", err)
+	}
 }
 
 func options() *Options {

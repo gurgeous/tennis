@@ -2,7 +2,6 @@ package tennis
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -26,11 +25,11 @@ import (
 //
 
 type Table struct {
-	Color      Color
-	TermWidth  int
-	Theme      Theme
-	RowNumbers bool
-	// state
+	ColorChoice ColorChoice
+	TermWidth   int
+	ThemeChoice ThemeChoice
+	RowNumbers  bool
+	// internal
 	w       *bufio.Writer
 	headers []string
 	records [][]string
@@ -39,25 +38,25 @@ type Table struct {
 	styles  *styles
 }
 
-type Color int
+type ColorChoice int
 
 const (
-	ColorAuto Color = iota
-	ColorAlways
-	ColorNever
+	ColorChoiceAuto ColorChoice = iota
+	ColorChoiceAlways
+	ColorChoiceNever
 )
 
-type Theme int
+type ThemeChoice int
 
 const (
-	ThemeAuto Theme = iota
-	ThemeDark
-	ThemeLight
+	ThemeChoiceAuto ThemeChoice = iota
+	ThemeChoiceDark
+	ThemeChoiceLight
 )
 
 const (
-	DEFAULT_TERM_WIDTH = 80
-	MIN_FIELD_WIDTH    = 2
+	defaultTermWidth = 80
+	minFieldWidth    = 2
 )
 
 //
@@ -71,50 +70,40 @@ func NewTable(w io.Writer) *Table {
 }
 
 func (t *Table) WriteAll(records [][]string) error {
-	//
-	// sanity checks
-	//
-
+	// edge cases
 	t.records = records
 	if len(t.records) == 0 {
 		return nil
 	}
-	t.headers = t.records[0]
+	t.headers = records[0]
 	if len(t.headers) == 0 {
 		return nil
-	}
-
-	nfields := len(t.records[0])
-	for ii, record := range t.records {
-		if len(record) != nfields {
-			return fmt.Errorf("row %d has a different number of fields (can't be ragged)", ii+1)
-		}
 	}
 
 	//
 	// setup
 	//
 
-	if t.Color == ColorAuto {
+	if t.ColorChoice == ColorChoiceAuto {
 		if colorprofile.Detect(os.Stderr, os.Environ()) >= colorprofile.ANSI {
-			t.Color = ColorAlways
+			t.ColorChoice = ColorChoiceAlways
 		} else {
-			t.Color = ColorNever
+			t.ColorChoice = ColorChoiceNever
 		}
 	}
 	if t.TermWidth == 0 {
 		termwidth, _, err := term.GetSize(int(os.Stdout.Fd()))
 		if err != nil {
-			t.TermWidth = DEFAULT_TERM_WIDTH
+			t.TermWidth = defaultTermWidth
 		} else {
 			t.TermWidth = termwidth
 		}
 	}
-	if t.Theme == ThemeAuto && t.Color != ColorNever {
+	if t.ThemeChoice == ThemeChoiceAuto && t.ColorChoice != ColorChoiceNever {
 		if lipgloss.HasDarkBackground(os.Stdin, os.Stderr) {
-			t.Theme = ThemeDark
+			t.ThemeChoice = ThemeChoiceDark
 		} else {
-			t.Theme = ThemeLight
+			t.ThemeChoice = ThemeChoiceLight
 		}
 	}
 
@@ -130,7 +119,10 @@ func (t *Table) WriteAll(records [][]string) error {
 	// render
 	//
 
-	t.render()
+	if err := t.render(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -139,7 +131,7 @@ func (t *Table) measure() []int {
 	nfields := len(t.headers)
 	widths := make([]int, nfields)
 	for ii := range nfields {
-		widths[ii] = MIN_FIELD_WIDTH
+		widths[ii] = minFieldWidth
 	}
 	for _, record := range t.records {
 		for ii, data := range record {

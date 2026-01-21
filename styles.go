@@ -20,7 +20,7 @@ type styles struct {
 }
 
 func (t *Table) createStyles() *styles {
-	lightDark := lipgloss.LightDark(t.Theme != ThemeLight)
+	lightDark := lipgloss.LightDark(t.ThemeChoice != ThemeChoiceLight)
 
 	chrome := lipgloss.Color(Tailwind.Gray.c500)
 	field := lightDark(
