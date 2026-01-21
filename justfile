@@ -4,6 +4,7 @@ default:
 init:
   @# note: golangci-lint has a zed extension, but requires install
   brew install go golangci-lint
+  go install golang.org/x/tools/cmd/stringer@latest
   @# note: zed installs gopls
   @# go install golang.org/x/tools/gopls@latest
 

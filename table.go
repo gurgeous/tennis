@@ -41,6 +41,7 @@ type Table struct {
 
 type Color int
 
+//go:generate stringer -type=Color
 const (
 	ColorAuto Color = iota
 	ColorAlways
@@ -49,6 +50,7 @@ const (
 
 type Theme int
 
+//go:generate stringer -type=Theme
 const (
 	ThemeAuto Theme = iota
 	ThemeDark
