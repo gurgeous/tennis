@@ -1,3 +1,4 @@
+
 default:
   @just --list
 
@@ -8,23 +9,41 @@ init:
   @# note: zed installs gopls
   @# go install golang.org/x/tools/gopls@latest
 
+# REMIND: sha, version, etc
+# see ~/sync/vectrogo/justfile for goreleaser
 build *ARGS:
+  @just banner build...
   go generate
-  go build -o tennis {{ ARGS }} ./cmd
+  go build -o tennis {{ARGS}} ./cmd
   @ls -lh tennis
 
 build-release:
   @just build -ldflags=\"-s -w\"
 
-run *ARGS:
-  go run ./cmd {{ ARGS }}
 
 #
 # dev
 #
 
-lint:
-  golangci-lint run
+kong: build
+  @clear
+  @just banner  "kong: no args"  ; ./tennis
+  @just banner  "kong: --help"   ; ./tennis --help
+  @just banner  "kong: w/file"   ; ./tennis test.csv
+  @just banner  "kong: stdin -"  ; cat test.csv | ./tennis -
+  @just banner  "kong: stdin"    ; cat test.csv | ./tennis
+  @just warning "kong: bad file" ; ./tennis bogus || true
+  @just warning "kong: missing"  ; ./tennis -n || true
+  @just banner Done
+
+lint *ARGS:
+  golangci-lint run {{ARGS}}
+
+run *ARGS:
+  @go run ./... {{ARGS}}
+
+test *ARGS:
+  @go test ./... {{ARGS}}
 
 tidy:
   go mod tidy
