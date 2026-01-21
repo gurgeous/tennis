@@ -1,23 +1,19 @@
-//nolint:unused
 package tennis
 
 import (
 	"github.com/samber/lo"
 )
 
-//
-// collections
-//
-
+// map range to something else
 func mapIndex[T, R any](collection []T, iteratee func(index int) R) []R {
 	return lo.Map(collection, func(_ T, index int) R { return iteratee(index) })
 }
 
-func push[T any](array *[]T, el T) {
+func push[T any](array *[]T, el T) { //nolint:unused
 	*array = append(*array, el)
 }
 
-func pop[T any](array *[]T) (T, bool) {
+func pop[T any](array *[]T) (T, bool) { //nolint:unused
 	if len(*array) == 0 {
 		var out T
 		return out, false
@@ -28,7 +24,7 @@ func pop[T any](array *[]T) (T, bool) {
 	return el, true
 }
 
-func shift[T any](array *[]T) (T, bool) {
+func shift[T any](array *[]T) (T, bool) { //nolint:unused
 	if len(*array) == 0 {
 		var out T
 		return out, false

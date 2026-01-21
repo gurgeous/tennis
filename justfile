@@ -45,6 +45,9 @@ run *ARGS:
 test *ARGS:
   @go test ./... {{ARGS}}
 
+test-watch *ARGS:
+  @watchexec --watch . --clear=reset just test "{{ARGS}}"
+
 tidy:
   go mod tidy
 
