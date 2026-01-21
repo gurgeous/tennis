@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/colorprofile"
@@ -13,7 +14,6 @@ import (
 
 //
 // TODO
-// theme/color
 // downsampling colors?
 // row numbers
 // main
@@ -36,6 +36,8 @@ type Table struct {
 	widths  []int
 	layout  []int
 	styles  *styles
+	buf     strings.Builder
+	pipe    string
 }
 
 type ColorChoice int
@@ -64,9 +66,7 @@ const (
 //
 
 func NewTable(w io.Writer) *Table {
-	return &Table{
-		w: bufio.NewWriter(w),
-	}
+	return &Table{w: bufio.NewWriter(w)}
 }
 
 func (t *Table) WriteAll(records [][]string) error {
@@ -85,7 +85,8 @@ func (t *Table) WriteAll(records [][]string) error {
 	//
 
 	if t.ColorChoice == ColorChoiceAuto {
-		if colorprofile.Detect(os.Stderr, os.Environ()) >= colorprofile.ANSI {
+		profile := colorprofile.Detect(t.w, os.Environ())
+		if profile >= colorprofile.ANSI {
 			t.ColorChoice = ColorChoiceAlways
 		} else {
 			t.ColorChoice = ColorChoiceNever
@@ -107,6 +108,8 @@ func (t *Table) WriteAll(records [][]string) error {
 		}
 	}
 
+	// setup buffered write with downsampling
+
 	//
 	// layout
 	//
@@ -126,11 +129,14 @@ func (t *Table) WriteAll(records [][]string) error {
 	return nil
 }
 
+//
+// helpers
+//
+
 // Measure the size of each column. Fails if the records are ragged
 func (t *Table) measure() []int {
-	nfields := len(t.headers)
-	widths := make([]int, nfields)
-	for ii := range nfields {
+	widths := make([]int, len(t.headers))
+	for ii := range widths {
 		widths[ii] = minFieldWidth
 	}
 	for _, record := range t.records {
@@ -139,6 +145,11 @@ func (t *Table) measure() []int {
 			record[ii] = data
 			widths[ii] = max(widths[ii], len(data))
 		}
+	}
+	if t.RowNumbers {
+		n := len(t.records) - 1
+		ndigits := len(strconv.Itoa(n))
+		unshift(&widths, max(ndigits, minFieldWidth))
 	}
 	return widths
 }

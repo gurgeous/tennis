@@ -2,6 +2,7 @@ package tennis
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss/v2"
@@ -35,23 +36,25 @@ var (
 )
 
 func (t *Table) render() error {
-	if err := t.writeSeparator(NW, N, NE); err != nil {
+	t.pipe = t.styles.chrome.Render(string(PIPE))
+
+	if err := t.renderSep(NW, N, NE); err != nil {
 		return err
 	}
-	if err := t.writeRow(0); err != nil {
+	if err := t.renderRow(0); err != nil {
 		return err
 	}
-	if err := t.writeSeparator(W, C, E); err != nil {
+	if err := t.renderSep(W, C, E); err != nil {
 		return err
 	}
 	for ii := range t.records {
 		if ii != 0 {
-			if err := t.writeRow(ii); err != nil {
+			if err := t.renderRow(ii); err != nil {
 				return err
 			}
 		}
 	}
-	if err := t.writeSeparator(SW, S, SE); err != nil {
+	if err := t.renderSep(SW, S, SE); err != nil {
 		return err
 	}
 	if err := t.w.Flush(); err != nil {
@@ -60,8 +63,9 @@ func (t *Table) render() error {
 	return nil
 }
 
-func (t *Table) writeSeparator(l, m, r rune) error {
-	var buf strings.Builder
+func (t *Table) renderSep(l, m, r rune) error {
+	buf := &t.buf
+	buf.Reset()
 	for ii, width := range t.layout {
 		if ii == 0 {
 			buf.WriteRune(l)
@@ -77,48 +81,68 @@ func (t *Table) writeSeparator(l, m, r rune) error {
 	return t.writeLine(str)
 }
 
-func (t *Table) writeRow(row int) error {
-	var buf strings.Builder
-	pipe := t.styles.chrome.Render(string(PIPE))
+func (t *Table) renderRow(row int) error {
+	col := 0
+	buf := &t.buf
+	buf.Reset()
+	buf.WriteString(t.pipe)
 
-	buf.WriteString(pipe)
-	for ii, data := range t.records[row] {
-		// pre-process data
-		placeholder := len(data) == 0
-		if placeholder {
-			data = PLACEHOLDER
+	if t.RowNumbers {
+		var data string
+		if row == 0 {
+			data = "#"
+		} else {
+			data = strconv.Itoa(row)
 		}
+		t.renderCell(data, row, col)
+		col++
+	}
 
-		// layout
-		data = fit(data, t.layout[ii])
-
-		// style
-		var style *lipgloss.Style
-		switch {
-		case row == 0:
-			style = &t.styles.headers[ii%len(t.styles.headers)]
-		case placeholder:
-			style = &t.styles.chrome
-		default:
-			style = &t.styles.field
-		}
-		data = style.Render(data)
-
-		// write
-		buf.WriteRune(' ')
-		buf.WriteString(data)
-		buf.WriteRune(' ')
-		buf.WriteString(pipe)
+	for _, data := range t.records[row] {
+		t.renderCell(data, row, col)
+		col++
 	}
 	return t.writeLine(buf.String())
 }
 
+func (t *Table) renderCell(data string, row int, col int) {
+	buf := &t.buf
+
+	placeholder := len(data) == 0
+	if placeholder {
+		data = PLACEHOLDER
+	}
+
+	// layout
+	data = fit(data, t.layout[col])
+
+	// style
+	var style *lipgloss.Style
+	switch {
+	case row == 0:
+		style = &t.styles.headers[col%len(t.styles.headers)]
+	case placeholder:
+		style = &t.styles.chrome
+	case col == 0 && t.RowNumbers:
+		style = &t.styles.chrome
+	default:
+		style = &t.styles.field
+	}
+	data = style.Render(data)
+
+	// append
+	buf.WriteRune(' ')
+	buf.WriteString(data)
+	buf.WriteRune(' ')
+	buf.WriteString(t.pipe)
+}
+
 func (t *Table) writeLine(str string) error {
 	if _, err := t.w.WriteString(str); err != nil {
-		return fmt.Errorf("error on tennis.writeLine: %w", err)
+		return fmt.Errorf("tennis.writeLine: %w", err)
 	}
 	if _, err := t.w.WriteRune('\n'); err != nil {
-		return fmt.Errorf("error on tennis.writeLine: %w", err)
+		return fmt.Errorf("tennis.writeLine: %w", err)
 	}
 	return nil
 }

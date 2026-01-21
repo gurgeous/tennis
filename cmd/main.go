@@ -50,6 +50,9 @@ func main() {
 
 	// table
 	table := tennis.NewTable(os.Stdout)
+	if options.RowNumbers {
+		table.RowNumbers = true
+	}
 	if err := table.WriteAll(records); err != nil {
 		fatal("table error", err)
 	}

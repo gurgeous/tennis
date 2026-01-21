@@ -7,24 +7,15 @@ import (
 	"github.com/samber/lo"
 )
 
-// |•xxxx•|•xxxx•|•xxxx•|•xxxx•|•xxxx•|•xxxx•|•xxxx•|•xxxx•|
-// ↑↑    ↑                                                 ↑
-// 12    3    <-   three chrome chars per column           │
-//                                                         │
-//                                           extra chrome char at the end
-
 const (
 	FUDGE = 2
 )
 
 func (t *Table) autolayout() []int {
-	widths := t.widths
-	chromeWidth := len(widths)*3 + 1
-	tableWidth := lo.Sum(widths)
-
 	// How much space is available, and do we already fit?
-	available := t.TermWidth - chromeWidth - FUDGE
-	if available >= tableWidth {
+	widths := t.widths
+	available := t.TermWidth - chromeWidth(widths) - FUDGE
+	if available >= tableWidth(widths) {
 		return slices.Clone(widths)
 	}
 
@@ -49,12 +40,11 @@ func (t *Table) autolayout() []int {
 	}
 
 	// col.width = col.min + ((col.max - col.min) * ratio)
-	diffs := MapIndex(widths, func(ii int) int { return dmax[ii] - dmin[ii] })
-	layout := MapIndex(widths, func(ii int) int { return dmin[ii] + int(float64(diffs[ii])*ratio) })
-	tableWidth = lo.Sum(layout)
+	diffs := mapIndex(widths, func(ii int) int { return dmax[ii] - dmin[ii] })
+	layout := mapIndex(widths, func(ii int) int { return dmin[ii] + int(float64(diffs[ii])*ratio) })
 
 	// because we always round down, there might be some extra space to distribute
-	if extraSpace := available - tableWidth; extraSpace > 0 {
+	if extraSpace := available - tableWidth(layout); extraSpace > 0 {
 		indexes := lo.Range(len(widths))
 		sort.SliceStable(indexes, func(a, b int) bool { return diffs[b] < diffs[a] })
 		for i := 0; i < extraSpace && i < len(indexes); i++ {

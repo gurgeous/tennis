@@ -16,12 +16,19 @@ build-release:
 run *ARGS: build
   ./tennis {{ARGS}}
 
+#
+# dev
+#
+
+lint:
+  golangci-lint run
+
 tidy:
   go mod tidy
 
-# don't use this
-evil-deep-clean:
-  sudo rm -rf ~/.go ~/.local/share/go ~/Library/Caches/golangci-lint
+#
+# banner
+#
 
 banner +ARGS: (_banner BG_GREEN ARGS)
 warning +ARGS: (_banner BG_YELLOW ARGS)
