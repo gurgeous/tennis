@@ -10,13 +10,13 @@ import (
 )
 
 const (
-	FUDGE = 2
+	fudge = 2
 )
 
 func (t *Table) constructLayout() []int {
 	// How much space is available, and do we already fit?
 	dataWidths := t.measureDataWidths()
-	available := t.TermWidth - chromeWidth(dataWidths) - FUDGE
+	available := t.TermWidth - chromeWidth(dataWidths) - fudge
 	if available >= tableWidth(dataWidths) {
 		return slices.Clone(dataWidths)
 	}

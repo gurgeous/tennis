@@ -1,7 +1,6 @@
 package tennis
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -9,61 +8,50 @@ import (
 	"github.com/clipperhouse/displaywidth"
 )
 
+const (
+	placeholder = "—"
+	ellipsis    = "…"
+)
+
 var (
 	// box and friends
-	BOX = [][]rune{
+	box = [][]rune{
 		[]rune("╭─┬─╮"), // 0
 		[]rune("│ │ │"), // 1
 		[]rune("├─┼─┤"), // 2
 		[]rune("╰─┴─╯"), // 3
 	}
-	NW = BOX[0][0]
-	N  = BOX[0][2]
-	NE = BOX[0][4]
-	W  = BOX[2][0]
-	C  = BOX[2][2]
-	E  = BOX[2][4]
-	SW = BOX[3][0]
-	S  = BOX[3][2]
-	SE = BOX[3][4]
+	nw = box[0][0]
+	n  = box[0][2]
+	ne = box[0][4]
+	w  = box[2][0]
+	c  = box[2][2]
+	e  = box[2][4]
+	sw = box[3][0]
+	s  = box[3][2]
+	se = box[3][4]
 
 	// horizontal and vertical lines
-	BAR  = BOX[0][1]
-	PIPE = BOX[1][0]
-
-	PLACEHOLDER = "—"
-	ELLIPSIS    = "…"
+	bar  = box[0][1]
+	pipe = box[1][0]
 )
 
-func (t *Table) render() error {
-	t.pipe = t.styles.chrome.Render(string(PIPE))
+func (t *Table) render() {
+	t.pipe = t.styles.chrome.Render(string(pipe))
 
-	if err := t.renderSep(NW, N, NE); err != nil {
-		return err
-	}
-	if err := t.renderRow(0); err != nil {
-		return err
-	}
-	if err := t.renderSep(W, C, E); err != nil {
-		return err
-	}
+	t.renderSep(nw, n, ne)
+	t.renderRow(0)
+	t.renderSep(w, c, e)
 	for ii := range t.records {
 		if ii != 0 {
-			if err := t.renderRow(ii); err != nil {
-				return err
-			}
+			t.renderRow(ii)
 		}
 	}
-	if err := t.renderSep(SW, S, SE); err != nil {
-		return err
-	}
-	if err := t.w.Flush(); err != nil {
-		return fmt.Errorf("error on tennis.render: %w", err)
-	}
-	return nil
+	t.renderSep(sw, s, se)
+	_ = t.w.Flush()
 }
 
-func (t *Table) renderSep(l, m, r rune) error {
+func (t *Table) renderSep(l, m, r rune) {
 	buf := &t.buf
 	buf.Reset()
 	for ii, width := range t.layout {
@@ -73,15 +61,15 @@ func (t *Table) renderSep(l, m, r rune) error {
 			buf.WriteRune(m)
 		}
 		for range width + 2 {
-			buf.WriteRune(BAR)
+			buf.WriteRune(bar)
 		}
 	}
 	buf.WriteRune(r)
 	str := t.styles.chrome.Render(buf.String())
-	return t.writeLine(str)
+	t.writeLine(str)
 }
 
-func (t *Table) renderRow(row int) error {
+func (t *Table) renderRow(row int) {
 	col := 0
 	buf := &t.buf
 	buf.Reset()
@@ -102,32 +90,33 @@ func (t *Table) renderRow(row int) error {
 		t.renderCell(data, row, col)
 		col++
 	}
-	return t.writeLine(buf.String())
+	t.writeLine(buf.String())
 }
 
 func (t *Table) renderCell(data string, row int, col int) {
 	buf := &t.buf
 
-	placeholder := len(data) == 0
-	if placeholder {
-		data = PLACEHOLDER
+	// is this cell empty?
+	isPlaceholder := len(data) == 0
+	if isPlaceholder {
+		data = placeholder
 	}
 
-	// layout
-	data = exactly(data, t.layout[col])
-
-	// style
+	// choose style
 	var style *lipgloss.Style
 	switch {
 	case row == 0:
 		style = &t.styles.headers[col%len(t.styles.headers)]
-	case placeholder:
+	case isPlaceholder:
 		style = &t.styles.chrome
 	case col == 0 && t.RowNumbers:
 		style = &t.styles.chrome
 	default:
 		style = &t.styles.field
 	}
+
+	// render
+	data = exactly(data, t.layout[col])
 	data = style.Render(data)
 
 	// append
@@ -137,14 +126,10 @@ func (t *Table) renderCell(data string, row int, col int) {
 	buf.WriteString(t.pipe)
 }
 
-func (t *Table) writeLine(str string) error {
-	if _, err := t.w.WriteString(str); err != nil {
-		return fmt.Errorf("tennis.writeLine: %w", err)
-	}
-	if _, err := t.w.WriteRune('\n'); err != nil {
-		return fmt.Errorf("tennis.writeLine: %w", err)
-	}
-	return nil
+func (t *Table) writeLine(str string) {
+	// errors can be checked later on the writer
+	_, _ = t.w.WriteString(str)
+	_, _ = t.w.WriteRune('\n')
 }
 
 func exactly(str string, width int) string {
@@ -152,5 +137,5 @@ func exactly(str string, width int) string {
 	if n <= width {
 		return str + strings.Repeat(" ", width-n)
 	}
-	return displaywidth.TruncateString(str, width, ELLIPSIS)
+	return displaywidth.TruncateString(str, width, ellipsis)
 }

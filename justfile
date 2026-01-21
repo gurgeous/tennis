@@ -14,6 +14,9 @@ build *ARGS:
 build-release:
   @just build -ldflags=\"-s -w\"
 
+generate:
+  go generate
+
 run *ARGS: build
   ./tennis {{ARGS}}
 

@@ -22,7 +22,7 @@ var (
 type Options struct {
 	File       string           `arg:"" type:"existingfile"`
 	Color      string           `help:"Turn color off and on with auto|never|always" enum:"auto,never,always" default:"auto"`
-	Theme      string           `help:"Select color theme auto|dark|light" enum:"auto,never,always" default:"auto"`
+	Theme      string           `help:"Select color theme auto|dark|light" enum:"auto,dark,light" default:"auto"`
 	RowNumbers bool             `short:"n" help:"Turn on row numbers" negatable:""`
 	Version    kong.VersionFlag `help:"Print the version number"`
 }
@@ -51,23 +51,11 @@ func main() {
 
 	// table
 	table := tennis.NewTable(os.Stdout)
-	// table.Color = options.Color
-	// table.Theme = options.Theme
-	if options.RowNumbers {
-		table.RowNumbers = true
-	}
-	if err := table.WriteAll(records); err != nil {
-		fatal("table error", err)
-	}
+	table.Color = tennis.StringToColor(options.Color)
+	table.Theme = tennis.StringToTheme(options.Theme)
+	table.RowNumbers = options.RowNumbers
+	table.WriteAll(records)
 }
-
-// var MapEnumStringToUSState = func() map[string]USState {
-//     m := make(map[string]USState)
-//     for i := Alabama; i <= Wyoming; i++ {
-//         m[i.String()] = i
-//     }
-//     return m
-// }()
 
 func options() *Options {
 	// sha/version

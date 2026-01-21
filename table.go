@@ -41,21 +41,39 @@ type Table struct {
 
 type Color int
 
-//go:generate stringer -type=Color
+//go:generate stringer -type=Color -trimprefix=Color
 const (
 	ColorAuto Color = iota
 	ColorAlways
 	ColorNever
 )
 
+func StringToColor(str string) Color {
+	for i := ColorAuto; i <= ColorNever; i++ {
+		if strings.EqualFold(str, i.String()) {
+			return i
+		}
+	}
+	return ColorAuto
+}
+
 type Theme int
 
-//go:generate stringer -type=Theme
+//go:generate stringer -type=Theme -trimprefix=Theme
 const (
 	ThemeAuto Theme = iota
 	ThemeDark
 	ThemeLight
 )
+
+func StringToTheme(str string) Theme {
+	for i := ThemeAuto; i <= ThemeLight; i++ {
+		if strings.EqualFold(str, i.String()) {
+			return i
+		}
+	}
+	return ThemeAuto
+}
 
 const (
 	defaultTermWidth = 80
@@ -70,18 +88,18 @@ func NewTable(w io.Writer) *Table {
 	return &Table{Forward: w}
 }
 
-func (t *Table) WriteAll(records [][]string) error {
+func (t *Table) WriteAll(records [][]string) {
 	//
 	// edge cases
 	//
 
 	t.records = records
 	if len(t.records) == 0 {
-		return nil
+		return
 	}
 	t.headers = records[0]
 	if len(t.headers) == 0 {
-		return nil
+		return
 	}
 
 	//
@@ -125,9 +143,5 @@ func (t *Table) WriteAll(records [][]string) error {
 	//
 
 	t.layout = t.constructLayout()
-	if err := t.render(); err != nil {
-		return err
-	}
-
-	return nil
+	t.render()
 }
