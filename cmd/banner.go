@@ -1,3 +1,4 @@
+//nolint:unused
 package main
 
 import (
@@ -24,13 +25,13 @@ func banner0(msg string, bg color.Color) {
 	fmt.Fprintln(os.Stdout, BASE.Background(bg).Render(msg))
 }
 
-// func banner(msg string) {
-// 	banner0(msg, GREEN)
-// }
+func banner(msg string) {
+	banner0(msg, GREEN)
+}
 
-// func warning(msg string) {
-// 	banner0(msg, YELLOW)
-// }
+func warning(msg string) {
+	banner0(msg, YELLOW)
+}
 
 func fatal(msg string, err error) {
 	if err != nil {

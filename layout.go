@@ -77,3 +77,27 @@ func (t *Table) measureDataWidths() []int {
 	}
 	return dataWidths
 }
+
+//
+// helpers
+//
+
+// |•xxxx•|•xxxx•|•xxxx•|•xxxx•|•xxxx•|•xxxx•|•xxxx•|•xxxx•|
+// ↑↑    ↑                                                 ↑
+// 12    3    <-   three chrome chars per column           │
+//                                                         │
+//                                           extra chrome char at the end
+
+func chromeWidth(layout []int) int {
+	return len(layout)*3 + 1
+}
+
+// width of all data in one row according to this layout
+func dataWidth(layout []int) int {
+	return lo.Sum(layout)
+}
+
+// total width of table, according to this layout
+func tableWidth(layout []int) int {
+	return chromeWidth(layout) + dataWidth(layout)
+}

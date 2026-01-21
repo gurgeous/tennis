@@ -48,7 +48,7 @@ func (t *Table) render() {
 		}
 	}
 	t.renderSep(sw, s, se)
-	_ = t.w.Flush()
+	t.w.Flush() //nolint:gosec
 }
 
 func (t *Table) renderSep(l, m, r rune) {
@@ -126,10 +126,12 @@ func (t *Table) renderCell(data string, row int, col int) {
 	buf.WriteString(t.pipe)
 }
 
+// errors can be checked later on the writer
+//
+//nolint:errcheck,gosec
 func (t *Table) writeLine(str string) {
-	// errors can be checked later on the writer
-	_, _ = t.w.WriteString(str)
-	_, _ = t.w.WriteRune('\n')
+	t.w.WriteString(str)
+	t.w.WriteRune('\n')
 }
 
 func exactly(str string, width int) string {

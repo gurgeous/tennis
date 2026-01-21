@@ -1,6 +1,9 @@
 package tennis
 
+//
 // tailwind colors in golang
+//
+
 var Tailwind = &tailwind{
 	Rose: palette{
 		c50:  "#fff1f2",
