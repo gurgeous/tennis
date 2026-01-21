@@ -9,8 +9,6 @@ init:
   @# note: zed installs gopls
   @# go install golang.org/x/tools/gopls@latest
 
-# REMIND: sha, version, etc
-# see ~/sync/vectrogo/justfile for goreleaser
 build *ARGS:
   @just banner build...
   go generate

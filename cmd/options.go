@@ -47,6 +47,7 @@ func options(args []string, exit func(int)) *Options {
 		kong.ConfigureHelp(kong.HelpOptions{Compact: true, Summary: false}),
 		kong.Description("CSV pretty printer."),
 		kong.Exit(exit),
+		kong.Name("tennis"),
 		kong.Vars{
 			"version":       version,
 			"versionNumber": Version,
