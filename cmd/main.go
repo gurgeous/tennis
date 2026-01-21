@@ -96,19 +96,25 @@ func options() *Options {
 		panic(err)
 	}
 
-	stat, _ := os.Stdin.Stat()
-	if (stat.Mode() & os.ModeCharDevice) == 0 {
-		fmt.Println("data is being piped to stdin")
-	} else {
-		fmt.Println("stdin is from a terminal")
+	// automatically do the "-" thing
+	args := make([]string, len(os.Args)-1)
+	copy(args, os.Args[1:])
+	if len(args) == 0 {
+		stat, _ := os.Stdin.Stat()
+		if (stat.Mode() & os.ModeCharDevice) == 0 {
+			args = append(args, "-")
+		}
 	}
 
 	// parse args
-	_, err = kong.Parse(os.Args[1:])
+	_, err = kong.Parse(args)
 	if err != nil {
 		fmt.Printf("%:v\n", err)
+	}
+
+	if err != nil {
 		fmt.Println("tennis: try 'tennis --help' for more information")
-		if len(os.Args) == 1 {
+		if len(args) == 0 {
 			os.Exit(0)
 		}
 		kong.FatalIfErrorf(err)

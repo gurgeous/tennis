@@ -9,16 +9,15 @@ init:
   @# go install golang.org/x/tools/gopls@latest
 
 build *ARGS:
-  @go build -o tennis ./cmd {{ ARGS }}
+  go generate
+  go build -o tennis {{ ARGS }} ./cmd
+  @ls -lh tennis
 
 build-release:
   @just build -ldflags=\"-s -w\"
 
-generate:
-  go generate
-
-run *ARGS: build
-  ./tennis {{ARGS}}
+run *ARGS:
+  go run ./cmd -- {{ ARGS }}
 
 #
 # dev
