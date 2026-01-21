@@ -17,7 +17,7 @@ build-release:
   @just build -ldflags=\"-s -w\"
 
 run *ARGS:
-  go run ./cmd -- {{ ARGS }}
+  go run ./cmd {{ ARGS }}
 
 #
 # dev
