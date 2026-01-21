@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"io"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/colorprofile"
@@ -14,10 +13,9 @@ import (
 
 //
 // TODO
-// downsampling colors?
-// row numbers
 // main
 // tests
+// env variables?
 //
 
 //
@@ -25,35 +23,36 @@ import (
 //
 
 type Table struct {
-	ColorChoice ColorChoice
-	TermWidth   int
-	ThemeChoice ThemeChoice
-	RowNumbers  bool
+	Color      Color
+	Forward    io.Writer
+	TermWidth  int
+	Theme      Theme
+	RowNumbers bool
 	// internal
 	w       *bufio.Writer
 	headers []string
 	records [][]string
-	widths  []int
 	layout  []int
+	profile colorprofile.Profile
 	styles  *styles
 	buf     strings.Builder
 	pipe    string
 }
 
-type ColorChoice int
+type Color int
 
 const (
-	ColorChoiceAuto ColorChoice = iota
-	ColorChoiceAlways
-	ColorChoiceNever
+	ColorAuto Color = iota
+	ColorAlways
+	ColorNever
 )
 
-type ThemeChoice int
+type Theme int
 
 const (
-	ThemeChoiceAuto ThemeChoice = iota
-	ThemeChoiceDark
-	ThemeChoiceLight
+	ThemeAuto Theme = iota
+	ThemeDark
+	ThemeLight
 )
 
 const (
@@ -66,11 +65,14 @@ const (
 //
 
 func NewTable(w io.Writer) *Table {
-	return &Table{w: bufio.NewWriter(w)}
+	return &Table{Forward: w}
 }
 
 func (t *Table) WriteAll(records [][]string) error {
+	//
 	// edge cases
+	//
+
 	t.records = records
 	if len(t.records) == 0 {
 		return nil
@@ -81,17 +83,24 @@ func (t *Table) WriteAll(records [][]string) error {
 	}
 
 	//
-	// setup
+	// setup styles
 	//
 
-	if t.ColorChoice == ColorChoiceAuto {
-		profile := colorprofile.Detect(t.w, os.Environ())
-		if profile >= colorprofile.ANSI {
-			t.ColorChoice = ColorChoiceAlways
+	t.w = bufio.NewWriter(t.Forward)
+	t.profile = colorprofile.Detect(t.Forward, os.Environ())
+	switch t.Color {
+	case ColorAuto:
+		if t.profile >= colorprofile.ANSI256 {
+			t.Color = ColorAlways
 		} else {
-			t.ColorChoice = ColorChoiceNever
+			t.Color = ColorNever
 		}
+	case ColorAlways:
+		t.profile = colorprofile.TrueColor
+	case ColorNever:
+		t.profile = colorprofile.Ascii
 	}
+
 	if t.TermWidth == 0 {
 		termwidth, _, err := term.GetSize(int(os.Stdout.Fd()))
 		if err != nil {
@@ -100,56 +109,23 @@ func (t *Table) WriteAll(records [][]string) error {
 			t.TermWidth = termwidth
 		}
 	}
-	if t.ThemeChoice == ThemeChoiceAuto && t.ColorChoice != ColorChoiceNever {
+	if t.Theme == ThemeAuto && t.Color != ColorNever {
 		if lipgloss.HasDarkBackground(os.Stdin, os.Stderr) {
-			t.ThemeChoice = ThemeChoiceDark
+			t.Theme = ThemeDark
 		} else {
-			t.ThemeChoice = ThemeChoiceLight
+			t.Theme = ThemeLight
 		}
 	}
-
-	// setup buffered write with downsampling
-
-	//
-	// layout
-	//
-
-	t.widths = t.measure()
-	t.layout = t.autolayout()
-	t.styles = t.createStyles()
+	t.styles = t.constructStyles()
 
 	//
 	// render
 	//
 
+	t.layout = t.constructLayout()
 	if err := t.render(); err != nil {
 		return err
 	}
 
 	return nil
-}
-
-//
-// helpers
-//
-
-// Measure the size of each column. Fails if the records are ragged
-func (t *Table) measure() []int {
-	widths := make([]int, len(t.headers))
-	for ii := range widths {
-		widths[ii] = minFieldWidth
-	}
-	for _, record := range t.records {
-		for ii, data := range record {
-			data = strings.TrimSpace(data)
-			record[ii] = data
-			widths[ii] = max(widths[ii], len(data))
-		}
-	}
-	if t.RowNumbers {
-		n := len(t.records) - 1
-		ndigits := len(strconv.Itoa(n))
-		unshift(&widths, max(ndigits, minFieldWidth))
-	}
-	return widths
 }

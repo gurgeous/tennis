@@ -114,7 +114,7 @@ func (t *Table) renderCell(data string, row int, col int) {
 	}
 
 	// layout
-	data = fit(data, t.layout[col])
+	data = exactly(data, t.layout[col])
 
 	// style
 	var style *lipgloss.Style
@@ -147,7 +147,7 @@ func (t *Table) writeLine(str string) error {
 	return nil
 }
 
-func fit(str string, width int) string {
+func exactly(str string, width int) string {
 	n := displaywidth.String(str)
 	if n <= width {
 		return str + strings.Repeat(" ", width-n)
