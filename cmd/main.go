@@ -26,26 +26,26 @@ import (
 )
 
 func main() {
-	main0(os.Args[1:], os.Exit, os.Stdout)
+	main0(os.Args[1:], os.Exit, os.Stdin, os.Stdout)
 }
 
 // broken out for testing
-func main0(args []string, exit func(int), output io.Writer) {
+func main0(args []string, exit func(int), in *os.File, out io.Writer) {
 	// parse cli options
-	options := options(args, exit)
+	options := options(args, exit, in, out)
 	defer options.File.Close()
 
 	// read csv
 	csv := csv.NewReader(options.File)
 	records, err := csv.ReadAll()
 	if err != nil {
-		// REMIND: make this red!
-		fmt.Printf("tennis: could not read csv - %s", err.Error())
+		// REMIND: make this red?
+		fmt.Fprintf(out, "tennis: could not read csv - %s", err.Error())
 		exit(1)
 	}
 
 	// table
-	table := tennis.NewTable(output)
+	table := tennis.NewTable(out)
 	table.Color = tennis.StringToColor(options.Color)
 	table.Theme = tennis.StringToTheme(options.Theme)
 	table.RowNumbers = options.RowNumbers

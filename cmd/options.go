@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"runtime/debug"
 
@@ -25,7 +26,7 @@ type Options struct {
 	Version    kong.VersionFlag `help:"Print the version number"`
 }
 
-func options(args []string, exit func(int)) *Options {
+func options(args []string, exit func(int), in *os.File, out io.Writer) *Options {
 	// sha/version
 	if Version == "" {
 		if info, ok := debug.ReadBuildInfo(); ok && info.Main.Sum != "" {
@@ -48,6 +49,7 @@ func options(args []string, exit func(int)) *Options {
 		kong.Description("CSV pretty printer."),
 		kong.Exit(exit),
 		kong.Name("tennis"),
+		kong.Writers(out, out),
 		kong.Vars{
 			"version":       version,
 			"versionNumber": Version,
@@ -60,9 +62,9 @@ func options(args []string, exit func(int)) *Options {
 	// parse args
 	_, err = kong.Parse(args)
 	if err == nil && options.File == nil {
-		stat, _ := os.Stdin.Stat()
+		stat, _ := in.Stat()
 		if (stat.Mode() & os.ModeCharDevice) == 0 {
-			options.File = os.Stdin
+			options.File = in
 		} else {
 			err = fmt.Errorf("no file provided")
 		}
@@ -70,7 +72,7 @@ func options(args []string, exit func(int)) *Options {
 
 	// error handler
 	if err != nil {
-		fmt.Println("tennis: try 'tennis --help' for more information")
+		fmt.Fprintln(out, "tennis: try 'tennis --help' for more information")
 		if len(args) == 0 {
 			kong.Exit(0)
 		} else {
