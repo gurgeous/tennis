@@ -12,13 +12,6 @@ import (
 )
 
 //
-// TODO
-// main
-// tests
-// env variables?
-//
-
-//
 // types
 //
 

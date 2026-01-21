@@ -1,5 +1,13 @@
 package main
 
+//
+// TODO
+// tests
+// version stuff
+// goreleaser
+// https://github.com/antgroup/hugescm/blob/e47f394bbfe9ab56b1df2f2745b00755dfc52d3b/pkg/kong/mapper.go#L630
+//
+
 import (
 	"encoding/csv"
 	"fmt"
@@ -20,7 +28,7 @@ var (
 )
 
 type Options struct {
-	File       string           `arg:"" type:"existingfile"`
+	File       *os.File         `arg:"" type:"file"`
 	Color      string           `help:"Turn color off and on with auto|never|always" enum:"auto,never,always" default:"auto"`
 	Theme      string           `help:"Select color theme auto|dark|light" enum:"auto,dark,light" default:"auto"`
 	RowNumbers bool             `short:"n" help:"Turn on row numbers" negatable:""`
@@ -36,10 +44,11 @@ func main() {
 	options := options()
 
 	// open file
-	file, err := os.Open(options.File)
-	if err != nil {
-		fatal("error opening file", err)
-	}
+	// file, err := os.Open(options.File)
+	// if err != nil {
+	// 	fatal("error opening file", err)
+	// }
+	file := options.File
 	defer file.Close()
 
 	// read csv
@@ -87,9 +96,17 @@ func options() *Options {
 		panic(err)
 	}
 
+	stat, _ := os.Stdin.Stat()
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+		fmt.Println("data is being piped to stdin")
+	} else {
+		fmt.Println("stdin is from a terminal")
+	}
+
 	// parse args
 	_, err = kong.Parse(os.Args[1:])
 	if err != nil {
+		fmt.Printf("%:v\n", err)
 		fmt.Println("tennis: try 'tennis --help' for more information")
 		if len(os.Args) == 1 {
 			os.Exit(0)
