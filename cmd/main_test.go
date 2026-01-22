@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -27,10 +26,6 @@ c,d
 
 	_, stdout := captureMain(t, []string{}, strings.TrimSpace(input))
 	assert.Equal(t, strings.TrimSpace(exp), strings.TrimSpace(stdout))
-	fmt.Println(stdout)
-	// env := os.Environ()
-	// slices.Sort(env)
-	// fmt.Printf("% #v", env)
 }
 
 //

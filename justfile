@@ -45,6 +45,7 @@ refresh:
 run *ARGS:
   @go run ./... {{ARGS}}
 
+# use -v to see stdout
 test *ARGS:
   @go test ./... {{ARGS}}
 

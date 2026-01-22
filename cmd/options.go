@@ -14,6 +14,10 @@ import (
 // cli options
 //
 
+const (
+	banner = "tennis: try 'tennis --help' for more information"
+)
+
 var (
 	Version   = ""
 	CommitSHA = ""
@@ -27,6 +31,8 @@ type Options struct {
 	RowNumbers bool             `short:"n" help:"Turn on row numbers" negatable:""`
 	Version    kong.VersionFlag `help:"Print the version number"`
 }
+
+// REMIND add more helpers and stop using "capture", use something else for tests
 
 func options(exitFunc func(int)) *Options {
 	// sha/version
@@ -66,15 +72,27 @@ func options(exitFunc func(int)) *Options {
 
 	// run kong
 	_, err = kong.Parse(os.Args[1:])
+	if err != nil {
+		fmt.Println(banner)
+		kong.FatalIfErrorf(err)
+		return options
+	}
 
 	//
 	// post-process
 	//
 
-	if err == nil {
-		if options.Input == nil {
+	if err == nil && options.Input == nil {
+		// we don't have a file. can we use stdin?
+		stdinIsTty := isTTYForced() || term.IsTerminal(os.Stdin.Fd())
+		if !stdinIsTty {
 			options.Input = os.Stdin
-			if isTTYForced() || term.IsTerminal(options.Input.Fd()) {
+		} else {
+			if len(os.Args) == 1 {
+				// special case: they just ran the thing naked
+				fmt.Println(banner)
+				kong.Exit(0)
+			} else {
 				err = fmt.Errorf("no file provided")
 			}
 		}
@@ -82,18 +100,14 @@ func options(exitFunc func(int)) *Options {
 
 	// error handler
 	if err != nil {
-		fmt.Println("tennis: try 'tennis --help' for more information")
-		if len(os.Args) == 1 {
-			kong.Exit(0)
-		} else {
-			kong.FatalIfErrorf(err)
-		}
+		fmt.Println(banner)
+		kong.FatalIfErrorf(err)
 	}
 
 	return options
 }
 
 func isTTYForced() bool {
-	skip, _ := strconv.ParseBool(os.Getenv("TTY_FORCE"))
-	return skip
+	b, _ := strconv.ParseBool(os.Getenv("TTY_FORCE"))
+	return b
 }
