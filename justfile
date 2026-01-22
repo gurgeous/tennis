@@ -10,10 +10,7 @@ init:
   @# go install golang.org/x/tools/gopls@latest
 
 build *ARGS:
-  @just banner build...
-  go generate
-  go build -o tennis {{ARGS}} ./cmd
-  @ls -lh tennis
+  @go build -o tennis {{ARGS}} ./cmd
 
 build-release:
   @just build -ldflags=\"-s -w\"
@@ -41,6 +38,10 @@ check:
 lint *ARGS:
   golangci-lint run {{ARGS}}
 
+refresh:
+  go generate
+  go mod tidy
+
 run *ARGS:
   @go run ./... {{ARGS}}
 
@@ -50,8 +51,6 @@ test *ARGS:
 test-watch *ARGS:
   @watchexec --watch . --clear=reset just test "{{ARGS}}"
 
-tidy:
-  go mod tidy
 
 #
 # banner
