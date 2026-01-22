@@ -23,14 +23,15 @@ import (
 	"os"
 
 	"github.com/gurgeous/tennis"
+	_ "github.com/kr/pretty"
 )
 
 func main() {
-	main0(os.Exit)
+	_ = main0(os.Exit)
 }
 
 // broken out for testing
-func main0(exitFunc func(int)) {
+func main0(exitFunc func(int)) bool {
 	// parse cli options
 	options := options(exitFunc)
 	defer options.Input.Close()
@@ -49,5 +50,7 @@ func main0(exitFunc func(int)) {
 	table.Color = tennis.StringToColor(options.Color)
 	table.Theme = tennis.StringToTheme(options.Theme)
 	table.RowNumbers = options.RowNumbers
+
 	table.WriteAll(records)
+	return true
 }

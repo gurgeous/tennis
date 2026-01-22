@@ -112,14 +112,9 @@ func (t *Table) WriteAll(records [][]string) {
 	//
 
 	t.ctx.w = bufio.NewWriter(t.Forward)
-	t.ctx.profile = colorprofile.Detect(t.Forward, os.Environ())
 	switch t.Color {
 	case ColorAuto:
-		if t.ctx.profile >= colorprofile.ANSI256 {
-			t.Color = ColorAlways
-		} else {
-			t.Color = ColorNever
-		}
+		t.ctx.profile = colorprofile.Detect(t.Forward, os.Environ())
 	case ColorAlways:
 		t.ctx.profile = colorprofile.TrueColor
 	case ColorNever:

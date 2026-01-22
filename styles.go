@@ -3,6 +3,7 @@ package tennis
 import (
 	"image/color"
 
+	"github.com/charmbracelet/colorprofile"
 	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/samber/lo"
 )
@@ -14,6 +15,11 @@ type styles struct {
 }
 
 func (t *Table) constructStyles() *styles {
+	if t.ctx.profile <= colorprofile.Ascii {
+		nop := lipgloss.NewStyle()
+		return &styles{chrome: nop, field: nop, headers: []lipgloss.Style{nop}}
+	}
+
 	lightDark := lipgloss.LightDark(t.Theme != ThemeLight)
 	chrome := t.constructColor(Tailwind.Gray.c500)
 	field := lightDark(

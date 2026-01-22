@@ -1,29 +1,36 @@
 package main
 
 import (
+	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestMain0(_ *testing.T) {
-	// 	func main0(exitFunc func(int)) {
-	// 		// parse cli options
-	// 		options := options(exitFunc)
-	// 		defer options.Input.Close()
+func TestMain0(t *testing.T) {
+	// try something real basic/
+	const input = `
+a,b
+c,d
+`
 
-	// 		// read csv
-	// 		csv := csv.NewReader(options.Input)
-	// 		records, err := csv.ReadAll()
-	// 		if err != nil {
-	// 			// REMIND: make this red?
-	// 			fmt.Printf("tennis: could not read csv - %s", err.Error())
-	// 			exitFunc(1)
-	// 		}
+	const exp = `
+╭────┬────╮
+│ a  │ b  │
+├────┼────┤
+│ c  │ d  │
+╰────┴────╯
+`
 
-	// 		// table
-	// 		table := tennis.NewTable(os.Stdout)
-	// 		table.Color = tennis.StringToColor(options.Color)
-	// 		table.Theme = tennis.StringToTheme(options.Theme)
-	// 		table.RowNumbers = options.RowNumbers
-	// 		table.WriteAll(records)
-	// }
+	_, stdout := captureMain(t, []string{"--color=never"}, strings.TrimSpace(input))
+	assert.Equal(t, strings.TrimSpace(exp), strings.TrimSpace(stdout))
+}
+
+func captureMain(t *testing.T, args []string, stdin string) (exit int, stdout string) {
+	// mock exit
+	exit = didntExit
+	exitFn := func(code int) { exit = code }
+	// go
+	_, stdout = capture(t, args, stdin, func() bool { return main0(exitFn) })
+	return
 }

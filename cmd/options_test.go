@@ -41,11 +41,11 @@ func captureOptions(t *testing.T, args []string, stdin string) (opts *Options, e
 	exit = didntExit
 	exitFn := func(code int) { exit = code }
 	// go
-	stdout = capture(t, args, stdin, func() { opts = options(exitFn) })
+	opts, stdout = capture(t, args, stdin, func() *Options { return options(exitFn) })
 	return
 }
 
-func capture(t *testing.T, args []string, stdin string, fn func()) string {
+func capture[T any](t *testing.T, args []string, stdin string, fn func() T) (result T, stdout string) {
 	// mock args
 	os.Args = append([]string{"tennis"}, args...)
 	// mock stdin/stdout
@@ -60,13 +60,15 @@ func capture(t *testing.T, args []string, stdin string, fn func()) string {
 		t.Setenv("FAKE_IS_TERMINAL", "")
 	}
 	inWrite.WriteString(stdin)
+
 	// go
-	fn()
-	outWrite.Close()
+	inWrite.Close()
+	result = fn()
 
 	// collect stdout
 	obuf := bytes.NewBuffer(nil)
+	outWrite.Close()
 	io.Copy(obuf, outRead)
-	stdout := obuf.String()
-	return stdout
+	stdout = obuf.String()
+	return
 }
