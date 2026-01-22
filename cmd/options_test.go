@@ -1,9 +1,6 @@
 package main
 
 import (
-	"bytes"
-	"io"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -32,50 +29,10 @@ func TestOptionsBogus(t *testing.T) {
 	assert.Contains(t, stdout, "unknown flag --bogus")
 }
 
-//
-// test helpers
-//
-
-func captureMain(t *testing.T, args []string, stdin string) (exit int, stdout string) {
-	exit = didntExit
-	_, stdout = capture(t, args, stdin, func() bool {
-		return main0(func(code int) { exit = code })
-	})
-	return
-}
-
 func captureOptions(t *testing.T, args []string, stdin string) (opts *Options, exit int, stdout string) {
 	exit = didntExit
 	opts, stdout = capture(t, args, stdin, func() *Options {
 		return options(func(code int) { exit = code })
 	})
-	return
-}
-
-func capture[T any](t *testing.T, args []string, stdin string, fn func() T) (result T, stdout string) {
-	// mock args
-	os.Args = append([]string{"tennis"}, args...)
-	// mock stdin/stdout
-	oldStdin, oldStdout := os.Stdin, os.Stdout
-	defer func() { os.Stdin, os.Stdout = oldStdin, oldStdout }()
-	inRead, inWrite, _ := os.Pipe()
-	outRead, outWrite, _ := os.Pipe()
-	os.Stdin, os.Stdout = inRead, outWrite
-	if len(stdin) == 0 {
-		t.Setenv("FAKE_IS_TERMINAL", "1")
-	} else {
-		t.Setenv("FAKE_IS_TERMINAL", "")
-	}
-	inWrite.WriteString(stdin)
-
-	// go
-	inWrite.Close()
-	result = fn()
-
-	// collect stdout
-	obuf := bytes.NewBuffer(nil)
-	outWrite.Close()
-	io.Copy(obuf, outRead)
-	stdout = obuf.String()
 	return
 }

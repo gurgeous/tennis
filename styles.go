@@ -23,7 +23,10 @@ func constructStyles(profile colorprofile.Profile, theme Theme) *styles {
 		}
 	}
 
+	//
 	// dark/light colors
+	//
+
 	var chrome, field string
 	var headers []string
 	if theme == ThemeDark {
