@@ -19,33 +19,32 @@ package main
 import (
 	"encoding/csv"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/gurgeous/tennis"
 )
 
 func main() {
-	main0(os.Args[1:], os.Exit, os.Stdin, os.Stdout)
+	main0(os.Exit)
 }
 
 // broken out for testing
-func main0(args []string, exit func(int), in *os.File, out io.Writer) {
+func main0(exitFunc func(int)) {
 	// parse cli options
-	options := options(args, exit, in, out)
-	defer options.File.Close()
+	options := options(exitFunc)
+	defer options.Input.Close()
 
 	// read csv
-	csv := csv.NewReader(options.File)
+	csv := csv.NewReader(options.Input)
 	records, err := csv.ReadAll()
 	if err != nil {
 		// REMIND: make this red?
-		fmt.Fprintf(out, "tennis: could not read csv - %s", err.Error())
-		exit(1)
+		fmt.Printf("tennis: could not read csv - %s", err.Error())
+		exitFunc(1)
 	}
 
 	// table
-	table := tennis.NewTable(out)
+	table := tennis.NewTable(os.Stdout)
 	table.Color = tennis.StringToColor(options.Color)
 	table.Theme = tennis.StringToTheme(options.Theme)
 	table.RowNumbers = options.RowNumbers

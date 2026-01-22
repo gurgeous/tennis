@@ -1,7 +1,46 @@
 package main
 
-import "testing"
+import (
+	"bytes"
+	"io"
+	"os"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func testOptions(t *testing.T, args []string, stdin string) (exitCode int, stdout string) {
+	// mock args
+	os.Args = append([]string{"tennis"}, args...)
+	// mock stdin
+	// mock stdin/stdout
+	oldStdin, oldStdout := os.Stdin, os.Stdout
+	defer func() { os.Stdin, os.Stdout = oldStdin, oldStdout }()
+	inRead, inWrite, _ := os.Pipe()
+	outRead, outWrite, _ := os.Pipe()
+	os.Stdin, os.Stdout = inRead, outWrite
+	if len(stdin) == 0 {
+		t.Setenv("TENNIS_TERM", "1")
+	}
+	inWrite.WriteString(stdin) //nolint
+	// mock exit
+	exitCode = -1
+	exitFn := func(code int) { exitCode = code }
+
+	// go
+	options(exitFn)
+
+	// get stdout
+	obuf := bytes.NewBuffer(nil)
+	outWrite.Close()       //nolint
+	io.Copy(obuf, outRead) //nolint
+	stdout = obuf.String()
+
+	return
+}
 
 func TestOptions(t *testing.T) {
-	// func options(args []string, exit func(int), in *os.File, out io.Writer) *Options {
+	exitCode, stdout := testOptions(t, []string{}, "")
+	assert.Equal(t, 0, exitCode)
+	assert.Contains(t, stdout, "try 'tennis --help'")
 }

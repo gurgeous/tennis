@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"runtime/debug"
 
 	"github.com/alecthomas/kong"
+	"github.com/charmbracelet/x/term"
 )
 
 //
@@ -18,15 +18,16 @@ var (
 	CommitSHA = ""
 )
 
+// Output     *os.File         `short:"o" help:"Write output to this file." type:"file"`
 type Options struct {
-	File       *os.File         `arg:"" optional:"" type:"file"`
+	Input      *os.File         `arg:"" optional:"" type:"file"`
 	Color      string           `help:"Turn color off and on with auto|never|always" enum:"auto,never,always" default:"auto"`
 	Theme      string           `help:"Select color theme auto|dark|light" enum:"auto,dark,light" default:"auto"`
 	RowNumbers bool             `short:"n" help:"Turn on row numbers" negatable:""`
 	Version    kong.VersionFlag `help:"Print the version number"`
 }
 
-func options(args []string, exit func(int), in *os.File, out io.Writer) *Options {
+func options(exitFunc func(int)) *Options {
 	// sha/version
 	if Version == "" {
 		if info, ok := debug.ReadBuildInfo(); ok && info.Main.Sum != "" {
@@ -41,15 +42,18 @@ func options(args []string, exit func(int), in *os.File, out io.Writer) *Options
 		version += " (" + CommitSHA[:shaLen] + ")"
 	}
 
+	//
 	// setup kong
+	//
+
 	options := &Options{}
 	kong, err := kong.New(
 		options,
 		kong.ConfigureHelp(kong.HelpOptions{Compact: true, Summary: false}),
 		kong.Description("CSV pretty printer."),
-		kong.Exit(exit),
+		kong.Exit(exitFunc),
 		kong.Name("tennis"),
-		kong.Writers(out, out),
+		kong.Writers(os.Stdout, os.Stdout),
 		kong.Vars{
 			"version":       version,
 			"versionNumber": Version,
@@ -59,27 +63,31 @@ func options(args []string, exit func(int), in *os.File, out io.Writer) *Options
 		panic(err)
 	}
 
-	// parse args
-	_, err = kong.Parse(args)
-	if err == nil && options.File == nil {
-		stat, _ := in.Stat()
-		if (stat.Mode() & os.ModeCharDevice) == 0 {
-			options.File = in
-		} else {
-			err = fmt.Errorf("no file provided")
+	// run kong
+	_, err = kong.Parse(os.Args[1:])
+
+	//
+	// post-process
+	//
+
+	if err == nil {
+		if options.Input == nil {
+			options.Input = os.Stdin
+			if len(os.Getenv("TENNIS_TERM")) != 0 || term.IsTerminal(options.Input.Fd()) {
+				err = fmt.Errorf("no file provided")
+			}
 		}
 	}
 
 	// error handler
 	if err != nil {
-		fmt.Fprintln(out, "tennis: try 'tennis --help' for more information")
-		if len(args) == 0 {
+		fmt.Println("tennis: try 'tennis --help' for more information")
+		if len(os.Args) == 1 {
 			kong.Exit(0)
 		} else {
 			kong.FatalIfErrorf(err)
 		}
 	}
 
-	// fmt.Printf("%# v\n", pretty.Formatter(options))
 	return options
 }
