@@ -2,6 +2,7 @@ package tennis
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -17,10 +18,11 @@ import (
 
 type Table struct {
 	Color      Color
+	Debug      bool
 	Forward    io.Writer
+	RowNumbers bool
 	TermWidth  int
 	Theme      Theme
-	RowNumbers bool
 	ctx        context
 }
 
@@ -93,6 +95,10 @@ func NewTable(w io.Writer) *Table {
 }
 
 func (t *Table) WriteAll(records [][]string) {
+	if len(os.Getenv("TENNIS_DEBUG")) != 0 {
+		t.Debug = true
+	}
+
 	//
 	// edge cases
 	//
@@ -135,6 +141,18 @@ func (t *Table) WriteAll(records [][]string) {
 			t.Theme = ThemeLight
 		}
 	}
+
+	// debug
+	if t.Debug {
+		t.debugf("shape [%dx%d]", len(records[0]), len(records))
+		t.debugf("termwidth = %d", t.TermWidth)
+		keys := []string{"NO_COLOR", "CLICOLOR_FORCE", "TTY_FORCE"}
+		for _, key := range keys {
+			t.debugf("$%-14s = '%s'", key, os.Getenv(key))
+		}
+		t.debugf("color = %v, theme = %v, profile = %v", t.Color, t.Theme, t.ctx.profile)
+	}
+
 	t.ctx.styles = constructStyles(t.ctx.profile, t.Theme)
 
 	//
@@ -143,10 +161,26 @@ func (t *Table) WriteAll(records [][]string) {
 
 	dataWidths := t.measureDataWidths()
 	t.ctx.layout = constructLayout(dataWidths, t.TermWidth)
+	t.debugf("dataWidths = %v", dataWidths)
+	t.debugf("layout     = %v", t.ctx.layout)
 
 	//
 	// render
 	//
 
 	t.render()
+}
+
+// NO_COLOR
+// CLI_COLOR
+// CLICOLOR_FORCE
+// TTY_FORCE
+// COLORTERM
+// TERM
+
+func (t *Table) debugf(format string, a ...any) {
+	if t.Debug {
+		str := fmt.Sprintf(format, a...)
+		fmt.Fprintf(os.Stderr, "\033[1;37;42m[tennis]\033[0m %s\n", str)
+	}
 }

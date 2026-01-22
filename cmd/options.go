@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 	"runtime/debug"
-	"testing"
+	"strconv"
 
 	"github.com/alecthomas/kong"
 	"github.com/charmbracelet/x/term"
@@ -74,7 +74,7 @@ func options(exitFunc func(int)) *Options {
 	if err == nil {
 		if options.Input == nil {
 			options.Input = os.Stdin
-			if fakeIsTerminal() || term.IsTerminal(options.Input.Fd()) {
+			if isTTYForced() || term.IsTerminal(options.Input.Fd()) {
 				err = fmt.Errorf("no file provided")
 			}
 		}
@@ -93,6 +93,7 @@ func options(exitFunc func(int)) *Options {
 	return options
 }
 
-func fakeIsTerminal() bool {
-	return testing.Testing() && len(os.Getenv("FAKE_IS_TERMINAL")) != 0
+func isTTYForced() bool {
+	skip, _ := strconv.ParseBool(os.Getenv("TTY_FORCE"))
+	return skip
 }
