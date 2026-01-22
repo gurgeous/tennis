@@ -9,6 +9,7 @@ package main
 // - see ~/sync/vectrogo/justfile for goreleaser
 // - README/LICENSE
 // - demo.gif
+// - run with array of structs?
 // future - zebra, benchmarks, layout false,true, color scales, coerce/format numberics
 // future - mark/search, save csv, header names, titleize, themes
 //
@@ -18,7 +19,6 @@ package main
 //
 
 import (
-	"encoding/csv"
 	"fmt"
 	"os"
 
@@ -34,35 +34,24 @@ type MainContext struct {
 }
 
 func main() {
-	ctx := &MainContext{
-		Args:   os.Args[1:],
-		Stdin:  os.Stdin,
-		Stdout: os.Stdout,
-		Exit:   os.Exit,
-	}
-	_ = main0(ctx)
+	main0(&MainContext{Args: os.Args[1:], Stdin: os.Stdin, Stdout: os.Stdout, Exit: os.Exit})
 }
 
 // broken out for testing
-func main0(ctx *MainContext) bool {
+func main0(ctx *MainContext) {
 	// parse cli options
 	o := options(ctx)
 	defer o.Input.Close()
 
-	// read csv
-	csv := csv.NewReader(o.Input)
-	records, err := csv.ReadAll()
-	if err != nil {
+	// table
+	table := &tennis.Table{
+		Color:      tennis.StringToColor(o.Color),
+		Theme:      tennis.StringToTheme(o.Theme),
+		RowNumbers: o.RowNumbers,
+		Output:     ctx.Stdout,
+	}
+	if err := table.Write(o.Input); err != nil {
 		fmt.Printf("tennis: could not read csv - %s", err.Error())
 		ctx.Exit(1)
 	}
-
-	// table
-	table := tennis.NewTable(os.Stdout)
-	table.Color = tennis.StringToColor(o.Color)
-	table.Theme = tennis.StringToTheme(o.Theme)
-	table.RowNumbers = o.RowNumbers
-
-	table.WriteAll(records)
-	return true
 }

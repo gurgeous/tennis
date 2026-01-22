@@ -2,6 +2,7 @@ package tennis
 
 import (
 	"bufio"
+	"encoding/csv"
 	"fmt"
 	"io"
 	"os"
@@ -87,14 +88,26 @@ func StringToTheme(str string) Theme {
 }
 
 //
-// public
+// WriteXXX
 //
 
-func NewTable(w io.Writer) *Table {
-	return &Table{Output: w}
+// write entire csv file
+func (t *Table) Write(r io.Reader) error {
+	return t.WriteCsv(csv.NewReader(r))
 }
 
-func (t *Table) WriteAll(records [][]string) {
+// write entire csv reader
+func (t *Table) WriteCsv(r *csv.Reader) error {
+	records, err := r.ReadAll()
+	if err != nil {
+		return err
+	}
+	t.WriteRecords(records)
+	return nil
+}
+
+// write all records
+func (t *Table) WriteRecords(records [][]string) {
 	//
 	// edge cases
 	//
@@ -119,6 +132,9 @@ func (t *Table) WriteAll(records [][]string) {
 		t.ctx.profile = colorprofile.TrueColor
 	case ColorNever:
 		t.ctx.profile = colorprofile.Ascii
+	}
+	if t.Output == nil {
+		t.Output = os.Stdout
 	}
 	if t.Theme == ThemeAuto && t.Color != ColorNever {
 		if lipgloss.HasDarkBackground(os.Stdin, os.Stderr) {
