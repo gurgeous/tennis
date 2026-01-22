@@ -36,12 +36,19 @@ func TestOptionsBogus(t *testing.T) {
 // test helpers
 //
 
-func captureOptions(t *testing.T, args []string, stdin string) (opts *Options, exit int, stdout string) {
-	// mock exit
+func captureMain(t *testing.T, args []string, stdin string) (exit int, stdout string) {
 	exit = didntExit
-	exitFn := func(code int) { exit = code }
-	// go
-	opts, stdout = capture(t, args, stdin, func() *Options { return options(exitFn) })
+	_, stdout = capture(t, args, stdin, func() bool {
+		return main0(func(code int) { exit = code })
+	})
+	return
+}
+
+func captureOptions(t *testing.T, args []string, stdin string) (opts *Options, exit int, stdout string) {
+	exit = didntExit
+	opts, stdout = capture(t, args, stdin, func() *Options {
+		return options(func(code int) { exit = code })
+	})
 	return
 }
 
