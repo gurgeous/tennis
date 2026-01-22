@@ -14,10 +14,6 @@ import (
 // cli options
 //
 
-const (
-	banner = "tennis: try 'tennis --help' for more information"
-)
-
 var (
 	Version   = ""
 	CommitSHA = ""
@@ -33,7 +29,10 @@ type Options struct {
 }
 
 func options(ctx *MainContext) *Options {
+	//
 	// sha/version
+	//
+
 	if Version == "" {
 		if info, ok := debug.ReadBuildInfo(); ok && info.Main.Sum != "" {
 			Version = info.Main.Version
@@ -63,44 +62,39 @@ func options(ctx *MainContext) *Options {
 			"version":       version,
 			"versionNumber": Version,
 		},
+		kong.WithAfterApply(func(kong *kong.Kong) error {
+			if options.Input == nil {
+				options.Input = stdinInput(ctx.Stdin)
+				if options.Input == nil && len(ctx.Args) > 0 {
+					return fmt.Errorf("no input provided")
+				}
+			}
+			return nil
+		}),
 	)
 	if err != nil {
 		panic(err)
 	}
-	bail := func(err error) {
-		fmt.Println(banner)
+
+	//
+	// run kong
+	//
+
+	_, err = kong.Parse(ctx.Args)
+	if err != nil || options.Input == nil {
+		fmt.Println("tennis: try 'tennis --help' for more information")
 		if err == nil {
+			// running naked, this is fine
 			kong.Exit(0)
 		} else {
 			kong.FatalIfErrorf(err)
 		}
-		// we reach this spot if testing
+		return nil // only reached in test
 	}
-
-	// run kong
-	_, err = kong.Parse(ctx.Args)
 
 	//
-	// handle piped stdin
+	// success!
 	//
-
-	if err == nil && options.Input == nil {
-		options.Input = stdinInput(ctx.Stdin)
-		if options.Input == nil {
-			if len(ctx.Args) == 0 {
-				// running naked, this is fine
-				bail(nil)
-				return nil
-			}
-			err = fmt.Errorf("no file provided")
-		}
-	}
-
-	// error? bail
-	if err != nil {
-		bail(err)
-		return nil
-	}
 
 	return options
 }
