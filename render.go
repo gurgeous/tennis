@@ -37,24 +37,24 @@ var (
 )
 
 func (t *Table) render() {
-	t.pipe = t.styles.chrome.Render(string(pipe))
+	t.ctx.pipe = t.ctx.styles.chrome.Render(string(pipe))
 
 	t.renderSep(nw, n, ne)
 	t.renderRow(0)
 	t.renderSep(w, c, e)
-	for ii := range t.records {
+	for ii := range t.ctx.records {
 		if ii != 0 {
 			t.renderRow(ii)
 		}
 	}
 	t.renderSep(sw, s, se)
-	t.w.Flush() //nolint:gosec
+	t.ctx.w.Flush() //nolint:gosec
 }
 
 func (t *Table) renderSep(l, m, r rune) {
-	buf := &t.buf
+	buf := &t.ctx.buf
 	buf.Reset()
-	for ii, width := range t.layout {
+	for ii, width := range t.ctx.layout {
 		if ii == 0 {
 			buf.WriteRune(l)
 		} else {
@@ -65,15 +65,15 @@ func (t *Table) renderSep(l, m, r rune) {
 		}
 	}
 	buf.WriteRune(r)
-	str := t.styles.chrome.Render(buf.String())
+	str := t.ctx.styles.chrome.Render(buf.String())
 	t.writeLine(str)
 }
 
 func (t *Table) renderRow(row int) {
 	col := 0
-	buf := &t.buf
+	buf := &t.ctx.buf
 	buf.Reset()
-	buf.WriteString(t.pipe)
+	buf.WriteString(t.ctx.pipe)
 
 	if t.RowNumbers {
 		var data string
@@ -86,7 +86,7 @@ func (t *Table) renderRow(row int) {
 		col++
 	}
 
-	for _, data := range t.records[row] {
+	for _, data := range t.ctx.records[row] {
 		t.renderCell(data, row, col)
 		col++
 	}
@@ -94,7 +94,7 @@ func (t *Table) renderRow(row int) {
 }
 
 func (t *Table) renderCell(data string, row int, col int) {
-	buf := &t.buf
+	buf := &t.ctx.buf
 
 	// is this cell empty?
 	isPlaceholder := len(data) == 0
@@ -106,32 +106,32 @@ func (t *Table) renderCell(data string, row int, col int) {
 	var style *lipgloss.Style
 	switch {
 	case row == 0:
-		style = &t.styles.headers[col%len(t.styles.headers)]
+		style = &t.ctx.styles.headers[col%len(t.ctx.styles.headers)]
 	case isPlaceholder:
-		style = &t.styles.chrome
+		style = &t.ctx.styles.chrome
 	case col == 0 && t.RowNumbers:
-		style = &t.styles.chrome
+		style = &t.ctx.styles.chrome
 	default:
-		style = &t.styles.field
+		style = &t.ctx.styles.field
 	}
 
 	// render
-	data = exactly(data, t.layout[col])
+	data = exactly(data, t.ctx.layout[col])
 	data = style.Render(data)
 
 	// append
 	buf.WriteRune(' ')
 	buf.WriteString(data)
 	buf.WriteRune(' ')
-	buf.WriteString(t.pipe)
+	buf.WriteString(t.ctx.pipe)
 }
 
 // errors can be checked later on the writer
 //
 //nolint:errcheck,gosec
 func (t *Table) writeLine(str string) {
-	t.w.WriteString(str)
-	t.w.WriteRune('\n')
+	t.ctx.w.WriteString(str)
+	t.ctx.w.WriteRune('\n')
 }
 
 func exactly(str string, width int) string {

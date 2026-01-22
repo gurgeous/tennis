@@ -21,7 +21,11 @@ type Table struct {
 	TermWidth  int
 	Theme      Theme
 	RowNumbers bool
-	// internal
+	ctx        context
+}
+
+// internal context
+type context struct {
 	w       *bufio.Writer
 	headers []string
 	records [][]string
@@ -31,6 +35,15 @@ type Table struct {
 	buf     strings.Builder
 	pipe    string
 }
+
+const (
+	defaultTermWidth = 80
+	minFieldWidth    = 2
+)
+
+//
+// Color
+//
 
 type Color int
 
@@ -50,6 +63,10 @@ func StringToColor(str string) Color {
 	return ColorAuto
 }
 
+//
+// Theme
+//
+
 type Theme int
 
 //go:generate stringer -type=Theme -trimprefix=Theme
@@ -68,11 +85,6 @@ func StringToTheme(str string) Theme {
 	return ThemeAuto
 }
 
-const (
-	defaultTermWidth = 80
-	minFieldWidth    = 2
-)
-
 //
 // public
 //
@@ -86,12 +98,12 @@ func (t *Table) WriteAll(records [][]string) {
 	// edge cases
 	//
 
-	t.records = records
-	if len(t.records) == 0 {
+	t.ctx.records = records
+	if len(t.ctx.records) == 0 {
 		return
 	}
-	t.headers = records[0]
-	if len(t.headers) == 0 {
+	t.ctx.headers = records[0]
+	if len(t.ctx.headers) == 0 {
 		return
 	}
 
@@ -99,19 +111,19 @@ func (t *Table) WriteAll(records [][]string) {
 	// setup styles
 	//
 
-	t.w = bufio.NewWriter(t.Forward)
-	t.profile = colorprofile.Detect(t.Forward, os.Environ())
+	t.ctx.w = bufio.NewWriter(t.Forward)
+	t.ctx.profile = colorprofile.Detect(t.Forward, os.Environ())
 	switch t.Color {
 	case ColorAuto:
-		if t.profile >= colorprofile.ANSI256 {
+		if t.ctx.profile >= colorprofile.ANSI256 {
 			t.Color = ColorAlways
 		} else {
 			t.Color = ColorNever
 		}
 	case ColorAlways:
-		t.profile = colorprofile.TrueColor
+		t.ctx.profile = colorprofile.TrueColor
 	case ColorNever:
-		t.profile = colorprofile.Ascii
+		t.ctx.profile = colorprofile.Ascii
 	}
 
 	if t.TermWidth == 0 {
@@ -129,12 +141,12 @@ func (t *Table) WriteAll(records [][]string) {
 			t.Theme = ThemeLight
 		}
 	}
-	t.styles = t.constructStyles()
+	t.ctx.styles = t.constructStyles()
 
 	//
 	// render
 	//
 
-	t.layout = t.constructLayout()
+	t.ctx.layout = t.constructLayout()
 	t.render()
 }

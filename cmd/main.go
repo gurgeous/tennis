@@ -3,6 +3,7 @@ package main
 //
 // TODO
 // tests
+// - --output
 // - graphemes
 // - goreleaser & sha/version
 // - see ~/sync/vectrogo/justfile for goreleaser

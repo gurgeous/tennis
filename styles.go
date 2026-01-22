@@ -43,5 +43,5 @@ func (t *Table) constructStyles() *styles {
 
 func (t *Table) constructColor(s string) color.Color {
 	// create/downsample color to match profile
-	return t.profile.Convert(lipgloss.Color(s))
+	return t.ctx.profile.Convert(lipgloss.Color(s))
 }

@@ -59,11 +59,11 @@ func (t *Table) constructLayout() []int {
 
 // Measure the size of each column. Fails if the records are ragged
 func (t *Table) measureDataWidths() []int {
-	dataWidths := make([]int, len(t.headers))
+	dataWidths := make([]int, len(t.ctx.headers))
 	for ii := range dataWidths {
 		dataWidths[ii] = minFieldWidth
 	}
-	for _, record := range t.records {
+	for _, record := range t.ctx.records {
 		for ii, data := range record {
 			data = strings.TrimSpace(data)
 			record[ii] = data
@@ -71,7 +71,7 @@ func (t *Table) measureDataWidths() []int {
 		}
 	}
 	if t.RowNumbers {
-		n := len(t.records) - 1
+		n := len(t.ctx.records) - 1
 		ndigits := len(strconv.Itoa(n))
 		unshift(&dataWidths, max(ndigits, minFieldWidth))
 	}
