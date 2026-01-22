@@ -27,34 +27,39 @@ import (
 	_ "github.com/kr/pretty"
 )
 
-type MainContext struct {
-	Args   []string  // os.Args (except in test)
-	Input  io.Reader // os.Stdin (except in test)
-	Output io.Writer // os.Stdout (except in test)
-	Exit   func(int) // os.Exit (except in test)
-}
-
 func main() {
-	main0(&MainContext{
+	ctx := &MainContext{
 		Args:   os.Args[1:],
 		Input:  os.Stdin,
 		Output: os.Stdout,
 		Exit:   os.Exit,
-	})
+	}
+	_ = main0(ctx)
 	defer os.Stdin.Close()
 }
 
+//
 // broken out for testing
-func main0(ctx *MainContext) {
+//
+
+// os.XXX except in test
+type MainContext struct {
+	Args   []string
+	Input  io.Reader
+	Output io.Writer
+	Exit   func(int)
+}
+
+func main0(ctx *MainContext) bool {
 	// parse cli options
 	o := options(ctx)
 
 	// table
 	table := &tennis.Table{
 		Color:      o.Color,
-		Theme:      o.Theme,
+		Output:     o.Output,
 		RowNumbers: o.RowNumbers,
-		Output:     ctx.Output,
+		Theme:      o.Theme,
 	}
 
 	// write csv
@@ -62,4 +67,5 @@ func main0(ctx *MainContext) {
 		fmt.Printf("tennis: could not read csv - %s", err.Error())
 		ctx.Exit(1)
 	}
+	return true
 }

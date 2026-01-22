@@ -19,17 +19,6 @@ build-release:
 # dev
 #
 
-kong: build
-  @clear
-  @just banner  "kong: no args"  ; ./tennis
-  @just banner  "kong: --help"   ; ./tennis --help
-  @just banner  "kong: w/file"   ; ./tennis test.csv
-  @just banner  "kong: stdin -"  ; cat test.csv | ./tennis -
-  @just banner  "kong: stdin"    ; cat test.csv | ./tennis
-  @just warning "kong: bad file" ; ./tennis bogus || true
-  @just warning "kong: missing"  ; ./tennis -n || true
-  @just banner Done
-
 check:
   @just banner lint ; just lint
   @just banner test ; just test
@@ -48,6 +37,17 @@ run *ARGS:
 # use -v to see stdout
 test *ARGS:
   @go test ./... {{ARGS}}
+
+test-kong: build
+  @clear
+  @just banner  "kong: no args"  ; ./tennis
+  @just banner  "kong: --help"   ; ./tennis --help
+  @just banner  "kong: w/file"   ; ./tennis test.csv
+  @just banner  "kong: stdin -"  ; cat test.csv | ./tennis -
+  @just banner  "kong: stdin"    ; cat test.csv | ./tennis
+  @just warning "kong: bad file" ; ./tennis bogus || true
+  @just warning "kong: missing"  ; ./tennis -n || true
+  @just banner Done
 
 test-watch *ARGS:
   @watchexec --watch . --clear=reset just test "{{ARGS}}"

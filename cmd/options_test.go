@@ -1,78 +1,64 @@
 package main
 
-const didntExit = -999
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"os"
+	"testing"
 
-// func captureOptions
+	"github.com/gurgeous/tennis"
+	"github.com/stretchr/testify/assert"
+)
 
-// func TestOptions(t *testing.T) {
-// inRead, inWrite, _ := os.Pipe()
-// outRead, outWrite, _ := os.Pipe()
+func TestOptionsEmpty(t *testing.T) {
+	_, stdout, exitCode := withContext(t, []string{}, "", options)
+	assert.Equal(t, 0, exitCode)
+	assert.Contains(t, stdout, "try 'tennis --help'")
+}
 
-// exitCode := didntExit
-// ctx := &MainContext{
-// 	Args:   []string{},
-// 	Stdin:  inRead,
-// 	Stdout: outWrite,
-// 	Exit:   func(n int) { exitCode = n },
-// }
-// o := options(ctx)
-// fmt.Printf("%# v\n", o)
-// fmt.Printf("%# v\n", inWrite)
-// fmt.Printf("%# v\n", outRead)
-// fmt.Printf("%# v\n", exitCode)
+func TestOptionsBogus(t *testing.T) {
+	_, stdout, exitCode := withContext(t, []string{"--bogus"}, "", options)
+	assert.Equal(t, 80, exitCode)
+	assert.Contains(t, stdout, "unknown flag --bogus")
+}
 
-// options, exit, _ := captureOptions(t, []string{"-n", "--color=never", "--theme=light"}, "something")
-// assert.Equal(t, didntExit, exit)
-// assert.NotNil(t, options.Input)
-// assert.True(t, options.RowNumbers)
-// assert.Equal(t, options.Color, "never")
-// assert.Equal(t, options.Theme, "light")
-// }
+func TestOptions(t *testing.T) {
+	o, stdout, exitCode := withContext(t, []string{"-n", "--color=never", "--theme=light"}, "foo", options)
 
-// func TestOptionsEmpty(t *testing.T) {
-// _, exit, stdout := captureOptions(t, []string{}, "")
-// assert.Equal(t, 0, exit)
-// assert.Contains(t, stdout, "try 'tennis --help'")
-// }
+	fmt.Println(stdout)
+	assert.Equal(t, -1, exitCode)
+	assert.True(t, o.RowNumbers)
+	assert.Equal(t, o.Color, tennis.ColorNever)
+	assert.Equal(t, o.Theme, tennis.ThemeLight)
+}
 
-// func TestOptionsBogus(t *testing.T) {
-// 	_, exit, stdout := captureOptions(t, []string{"--bogus"}, "")
-// 	assert.Equal(t, 80, exit)
-// 	assert.Contains(t, stdout, "unknown flag --bogus")
-// }
+//
+// helpers
+//
 
-// func captureOptions(t *testing.T, args []string, stdin string) (opts *Options, exit int, stdout string) {
-// 	exit = didntExit
-// 	opts, stdout = capture(t, args, stdin, func() *Options {
-// 		return options(func(code int) { exit = code })
-// 	})
-// 	return
-// }
+func withContext[R any](t *testing.T, args []string, stdin string, fn func(ctx *MainContext) R) (result R, stdout string, exitCode int) {
+	// pipes
+	inRead, inWrite, _ := os.Pipe()
+	outRead, outWrite, _ := os.Pipe()
+	if len(stdin) == 0 {
+		t.Setenv("TTY_FORCE", "1")
+	} else {
+		t.Setenv("TTY_FORCE", "")
+	}
+	inWrite.WriteString(stdin)
+	inWrite.Close()
 
-// func capture[T any](t *testing.T, args []string, stdin string, fn func() T) (result T, stdout string) {
-// 	// mock args
-// 	os.Args = append([]string{"tennis"}, args...)
-// 	// mock stdin/stdout
-// 	oldStdin, oldStdout := os.Stdin, os.Stdout
-// 	defer func() { os.Stdin, os.Stdout = oldStdin, oldStdout }()
-// 	inRead, inWrite, _ := os.Pipe()
-// 	outRead, outWrite, _ := os.Pipe()
-// 	os.Stdin, os.Stdout = inRead, outWrite
-// 	if len(stdin) == 0 {
-// 		t.Setenv("FAKE_IS_TERMINAL", "1")
-// 	} else {
-// 		t.Setenv("FAKE_IS_TERMINAL", "")
-// 	}
-// 	inWrite.WriteString(stdin)
+	// run
+	exitCode = -1
+	ctx := &MainContext{Args: args, Input: inRead, Output: outWrite, Exit: func(n int) { exitCode = n }}
+	result = fn(ctx)
+	outWrite.Close()
 
-// 	// go
-// 	inWrite.Close()
-// 	result = fn()
+	// collect stdout
+	buf := bytes.NewBuffer(nil)
+	io.Copy(buf, outRead)
+	stdout = buf.String()
 
-// 	// collect stdout
-// 	obuf := bytes.NewBuffer(nil)
-// 	outWrite.Close()
-// 	io.Copy(obuf, outRead)
-// 	stdout = obuf.String()
-// 	return
-// }
+	return
+}

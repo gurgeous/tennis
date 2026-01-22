@@ -90,22 +90,29 @@ func options(ctx *MainContext) *Options {
 	}
 
 	//
-	// Input
+	// set Input, but only if we don't have a kargs error yet
 	//
 
-	switch {
-	case kargs.File != nil:
-		options.Input = kargs.File
-	case !isTty(ctx.Input):
-		options.Input = ctx.Input
-	case len(ctx.Args) > 0:
-		err = fmt.Errorf("no input provided")
+	if err == nil {
+		switch {
+		case kargs.File != nil:
+			options.Input = kargs.File
+		case !isTty(ctx.Input):
+			options.Input = ctx.Input
+		case len(ctx.Args) > 0:
+			err = fmt.Errorf("no input provided")
+		}
 	}
 
+	//
+	// error handling
+	//
+
 	if err != nil || options.Input == nil {
-		fmt.Println("tennis: try 'tennis --help' for more information")
+		fmt.Fprintln(ctx.Output, "tennis: try 'tennis --help' for more information")
 		kong.FatalIfErrorf(err)
 		if err == nil {
+			// this is fine
 			ctx.Exit(0)
 		}
 		return nil // only reached in test

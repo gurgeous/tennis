@@ -1,59 +1,30 @@
 package main
 
-// func TestMain0(t *testing.T) {
-// 	const input = `
-// a,b
-// c,d
-// `
+import (
+	"strings"
+	"testing"
 
-// 	const exp = `
-// ╭────┬────╮
-// │ a  │ b  │
-// ├────┼────┤
-// │ c  │ d  │
-// ╰────┴────╯
-// `
-
-// 	_, stdout := captureMain(t, []string{}, strings.TrimSpace(input))
-// 	assert.Equal(t, strings.TrimSpace(exp), strings.TrimSpace(stdout))
-// }
+	"github.com/stretchr/testify/assert"
+)
 
 //
-// all of our test helpers
+// simple end-to-end test
 //
 
-// func captureMain(t *testing.T, args []string, stdin string) (exit int, stdout string) {
-// 	exit = didntExit
-// 	_, stdout = capture(t, args, stdin, func() bool {
-// 		return main0(func(code int) { exit = code })
-// 	})
-// 	return
-// }
+func TestMain0(t *testing.T) {
+	const input = `
+a,b
+c,d
+`
 
-// func capture[T any](t *testing.T, args []string, stdin string, fn func() T) (result T, stdout string) {
-// 	// mock args
-// 	os.Args = append([]string{"tennis"}, args...)
-// 	// mock stdin/stdout
-// 	oldStdin, oldStdout := os.Stdin, os.Stdout
-// 	defer func() { os.Stdin, os.Stdout = oldStdin, oldStdout }()
-// 	inRead, inWrite, _ := os.Pipe()
-// 	outRead, outWrite, _ := os.Pipe()
-// 	os.Stdin, os.Stdout = inRead, outWrite
-// 	if len(stdin) == 0 {
-// 		t.Setenv("FAKE_IS_TERMINAL", "1")
-// 	} else {
-// 		t.Setenv("FAKE_IS_TERMINAL", "")
-// 	}
-// 	inWrite.WriteString(stdin)
+	const exp = `
+╭────┬────╮
+│ a  │ b  │
+├────┼────┤
+│ c  │ d  │
+╰────┴────╯
+`
 
-// 	// go
-// 	inWrite.Close()
-// 	result = fn()
-
-// 	// collect stdout
-// 	obuf := bytes.NewBuffer(nil)
-// 	outWrite.Close()
-// 	io.Copy(obuf, outRead)
-// 	stdout = obuf.String()
-// 	return
-// }
+	_, stdout, _ := withContext(t, []string{}, strings.TrimSpace(input), main0)
+	assert.Equal(t, strings.TrimSpace(exp), strings.TrimSpace(stdout))
+}
