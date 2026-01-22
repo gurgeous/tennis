@@ -135,7 +135,7 @@ func (t *Table) WriteAll(records [][]string) {
 			t.Theme = ThemeLight
 		}
 	}
-	t.ctx.styles = t.constructStyles()
+	t.ctx.styles = constructStyles(t.ctx.profile, t.Theme)
 
 	//
 	// layout

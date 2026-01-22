@@ -1,8 +1,6 @@
 package tennis
 
 import (
-	"image/color"
-
 	"github.com/charmbracelet/colorprofile"
 	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/samber/lo"
@@ -14,40 +12,43 @@ type styles struct {
 	headers []lipgloss.Style
 }
 
-func (t *Table) constructStyles() *styles {
-	if t.ctx.profile <= colorprofile.Ascii {
+func constructStyles(profile colorprofile.Profile, theme Theme) *styles {
+	// ascii? nop
+	if profile <= colorprofile.Ascii {
 		nop := lipgloss.NewStyle()
-		return &styles{chrome: nop, field: nop, headers: []lipgloss.Style{nop}}
+		return &styles{
+			chrome:  nop,
+			field:   nop,
+			headers: []lipgloss.Style{nop},
+		}
 	}
 
-	lightDark := lipgloss.LightDark(t.Theme != ThemeLight)
-	chrome := t.constructColor(Tailwind.Gray.c500)
-	field := lightDark(
-		t.constructColor(Tailwind.Gray.c800),
-		t.constructColor(Tailwind.Gray.c200),
-	)
-	headers := []color.Color{
-		lightDark(t.constructColor("#ee4066"), t.constructColor("#ff6188")), // red/pink
-		lightDark(t.constructColor("#da7645"), t.constructColor("#fc9867")), // orange
-		lightDark(t.constructColor("#ddb644"), t.constructColor("#ffd866")), // yellow
-		lightDark(t.constructColor("#87ba54"), t.constructColor("#a9dc76")), // green
-		lightDark(t.constructColor("#56bac6"), t.constructColor("#78dce8")), // cyan
-		lightDark(t.constructColor("#897bd0"), t.constructColor("#ab9df2")), // purple
+	// dark/light colors
+	var chrome, field string
+	var headers []string
+	if theme == ThemeDark {
+		chrome, field = Tailwind.Gray.c500, Tailwind.Gray.c200
+		headers = []string{"#ff6188", "#fc9867", "#ffd866", "#a9dc76", "#78dce8", "#ab9df2"}
+	} else {
+		chrome, field = Tailwind.Gray.c500, Tailwind.Gray.c800
+		headers = []string{"#ee4066", "#da7645", "#ddb644", "#87ba54", "#56bac6", "#897bd0"}
 	}
 
-	{
-		chrome := lipgloss.NewStyle().Foreground(chrome)
-		field := lipgloss.NewStyle().Foreground(field)
-		headers := lo.Map(headers, func(color color.Color, _ int) lipgloss.Style {
-			return lipgloss.NewStyle().Foreground(color).Bold(true)
-		})
+	//
+	// now styles
+	//
 
-		// styles
-		return &styles{chrome, field, headers}
-	}
-}
-
-func (t *Table) constructColor(s string) color.Color {
 	// create/downsample color to match profile
-	return t.ctx.profile.Convert(lipgloss.Color(s))
+	downsample := func(hex string) lipgloss.Style {
+		fg := profile.Convert(lipgloss.Color(hex))
+		return lipgloss.NewStyle().Foreground(fg)
+	}
+
+	return &styles{
+		chrome: downsample(chrome),
+		field:  downsample(field),
+		headers: lo.Map(headers, func(hex string, _ int) lipgloss.Style {
+			return downsample(hex).Bold(true)
+		}),
+	}
 }
