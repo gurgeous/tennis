@@ -17,27 +17,28 @@ import (
 //
 
 type Table struct {
-	Color      Color
-	Forward    io.Writer
-	RowNumbers bool
-	TermWidth  int
-	Theme      Theme
-	ctx        context
+	Color      Color     // auto/always/never
+	Output     io.Writer // where to write
+	RowNumbers bool      // true if row numbers on
+	TermWidth  int       // terminal width or 0 to autodetect
+	Theme      Theme     // auto/dark/light
+	ctx        context   // internal state
 }
 
 // internal context
 type context struct {
-	w       *bufio.Writer
-	headers []string
-	records [][]string
-	layout  []int
-	profile colorprofile.Profile
-	styles  *styles
-	buf     strings.Builder
-	pipe    string
+	w       *bufio.Writer        // bufio wrapper around forward
+	headers []string             // first row of records
+	records [][]string           // all records (including headers)
+	layout  []int                // width of each column in terminal
+	profile colorprofile.Profile // ascii/ansi256/truecolor/etc
+	styles  *styles              // colors
+	buf     strings.Builder      // re-usable scratch buffer
+	pipe    string               // stylized pipe character
 }
 
 const (
+	// use this if TermWidth
 	defaultTermWidth = 80
 )
 
@@ -90,7 +91,7 @@ func StringToTheme(str string) Theme {
 //
 
 func NewTable(w io.Writer) *Table {
-	return &Table{Forward: w}
+	return &Table{Output: w}
 }
 
 func (t *Table) WriteAll(records [][]string) {
@@ -111,23 +112,13 @@ func (t *Table) WriteAll(records [][]string) {
 	// setup styles
 	//
 
-	t.ctx.w = bufio.NewWriter(t.Forward)
 	switch t.Color {
 	case ColorAuto:
-		t.ctx.profile = colorprofile.Detect(t.Forward, os.Environ())
+		t.ctx.profile = colorprofile.Detect(t.Output, os.Environ())
 	case ColorAlways:
 		t.ctx.profile = colorprofile.TrueColor
 	case ColorNever:
 		t.ctx.profile = colorprofile.Ascii
-	}
-
-	if t.TermWidth == 0 {
-		termwidth, _, err := term.GetSize(int(os.Stdout.Fd()))
-		if err != nil {
-			t.TermWidth = defaultTermWidth
-		} else {
-			t.TermWidth = termwidth
-		}
 	}
 	if t.Theme == ThemeAuto && t.Color != ColorNever {
 		if lipgloss.HasDarkBackground(os.Stdin, os.Stderr) {
@@ -136,7 +127,16 @@ func (t *Table) WriteAll(records [][]string) {
 			t.Theme = ThemeLight
 		}
 	}
+	if t.TermWidth == 0 {
+		termwidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+		if err != nil {
+			t.TermWidth = defaultTermWidth
+		} else {
+			t.TermWidth = termwidth
+		}
+	}
 	t.ctx.styles = constructStyles(t.ctx.profile, t.Theme)
+	t.ctx.w = bufio.NewWriter(t.Output)
 
 	//
 	// layout
@@ -166,6 +166,9 @@ func (t *Table) WriteAll(records [][]string) {
 	//
 
 	t.render()
+
+	// free memory
+	t.ctx = context{}
 }
 
 func (t *Table) debugf(format string, args ...any) {

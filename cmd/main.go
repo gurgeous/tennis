@@ -26,30 +26,42 @@ import (
 	_ "github.com/kr/pretty"
 )
 
+type MainContext struct {
+	Args   []string  // os.Args (except in test)
+	Stdin  *os.File  // os.Stdin (except in test)
+	Stdout *os.File  // os.Stdout (except in test)
+	Exit   func(int) // os.Exit (except in test)
+}
+
 func main() {
-	_ = main0(os.Exit)
+	ctx := &MainContext{
+		Args:   os.Args[1:],
+		Stdin:  os.Stdin,
+		Stdout: os.Stdout,
+		Exit:   os.Exit,
+	}
+	_ = main0(ctx)
 }
 
 // broken out for testing
-func main0(exitFunc func(int)) bool {
+func main0(ctx *MainContext) bool {
 	// parse cli options
-	options := options(exitFunc)
-	defer options.Input.Close()
+	o := options(ctx)
+	defer o.Input.Close()
 
 	// read csv
-	csv := csv.NewReader(options.Input)
+	csv := csv.NewReader(o.Input)
 	records, err := csv.ReadAll()
 	if err != nil {
-		// REMIND: make this red?
 		fmt.Printf("tennis: could not read csv - %s", err.Error())
-		exitFunc(1)
+		ctx.Exit(1)
 	}
 
 	// table
 	table := tennis.NewTable(os.Stdout)
-	table.Color = tennis.StringToColor(options.Color)
-	table.Theme = tennis.StringToTheme(options.Theme)
-	table.RowNumbers = options.RowNumbers
+	table.Color = tennis.StringToColor(o.Color)
+	table.Theme = tennis.StringToTheme(o.Theme)
+	table.RowNumbers = o.RowNumbers
 
 	table.WriteAll(records)
 	return true

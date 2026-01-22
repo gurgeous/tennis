@@ -32,9 +32,7 @@ type Options struct {
 	Version    kong.VersionFlag `help:"Print the version number"`
 }
 
-// REMIND add more helpers and stop using "capture", use something else for tests
-
-func options(exitFunc func(int)) *Options {
+func options(ctx *MainContext) *Options {
 	// sha/version
 	if Version == "" {
 		if info, ok := debug.ReadBuildInfo(); ok && info.Main.Sum != "" {
@@ -58,9 +56,9 @@ func options(exitFunc func(int)) *Options {
 		options,
 		kong.ConfigureHelp(kong.HelpOptions{Compact: true, Summary: false}),
 		kong.Description("CSV pretty printer."),
-		kong.Exit(exitFunc),
+		kong.Exit(ctx.Exit),
 		kong.Name("tennis"),
-		kong.Writers(os.Stdout, os.Stdout),
+		kong.Writers(ctx.Stdout, ctx.Stdout),
 		kong.Vars{
 			"version":       version,
 			"versionNumber": Version,
@@ -69,39 +67,39 @@ func options(exitFunc func(int)) *Options {
 	if err != nil {
 		panic(err)
 	}
-
-	// run kong
-	_, err = kong.Parse(os.Args[1:])
-	if err != nil {
+	bail := func(err error) {
 		fmt.Println(banner)
-		kong.FatalIfErrorf(err)
-		return options
+		if err == nil {
+			kong.Exit(0)
+		} else {
+			kong.FatalIfErrorf(err)
+		}
+		// we reach this spot if testing
 	}
 
+	// run kong
+	_, err = kong.Parse(ctx.Args)
+
 	//
-	// post-process
+	// handle piped stdin
 	//
 
 	if err == nil && options.Input == nil {
-		// we don't have a file. can we use stdin?
-		stdinIsTty := isTTYForced() || term.IsTerminal(os.Stdin.Fd())
-		if !stdinIsTty {
-			options.Input = os.Stdin
-		} else {
-			if len(os.Args) == 1 {
-				// special case: they just ran the thing naked
-				fmt.Println(banner)
-				kong.Exit(0)
-			} else {
-				err = fmt.Errorf("no file provided")
+		options.Input = stdinInput(ctx.Stdin)
+		if options.Input == nil {
+			if len(ctx.Args) == 0 {
+				// running naked, this is fine
+				bail(nil)
+				return nil
 			}
+			err = fmt.Errorf("no file provided")
 		}
 	}
 
-	// error handler
+	// error? bail
 	if err != nil {
-		fmt.Println(banner)
-		kong.FatalIfErrorf(err)
+		bail(err)
+		return nil
 	}
 
 	return options
@@ -110,4 +108,14 @@ func options(exitFunc func(int)) *Options {
 func isTTYForced() bool {
 	b, _ := strconv.ParseBool(os.Getenv("TTY_FORCE"))
 	return b
+}
+
+func stdinInput(stdin *os.File) *os.File {
+	// we don't have a file. can we use stdin?
+	isTty := isTTYForced() || term.IsTerminal(stdin.Fd())
+	if !isTty {
+		// seems to be a file, go for it
+		return stdin
+	}
+	return nil // fmt.Errorf("no file provided")
 }
