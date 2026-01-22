@@ -20,6 +20,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/gurgeous/tennis"
@@ -28,28 +29,35 @@ import (
 
 type MainContext struct {
 	Args   []string  // os.Args (except in test)
-	Stdin  *os.File  // os.Stdin (except in test)
-	Stdout *os.File  // os.Stdout (except in test)
+	Input  io.Reader // os.Stdin (except in test)
+	Output io.Writer // os.Stdout (except in test)
 	Exit   func(int) // os.Exit (except in test)
 }
 
 func main() {
-	main0(&MainContext{Args: os.Args[1:], Stdin: os.Stdin, Stdout: os.Stdout, Exit: os.Exit})
+	main0(&MainContext{
+		Args:   os.Args[1:],
+		Input:  os.Stdin,
+		Output: os.Stdout,
+		Exit:   os.Exit,
+	})
+	defer os.Stdin.Close()
 }
 
 // broken out for testing
 func main0(ctx *MainContext) {
 	// parse cli options
 	o := options(ctx)
-	defer o.Input.Close()
 
 	// table
 	table := &tennis.Table{
-		Color:      tennis.StringToColor(o.Color),
-		Theme:      tennis.StringToTheme(o.Theme),
+		Color:      o.Color,
+		Theme:      o.Theme,
 		RowNumbers: o.RowNumbers,
-		Output:     ctx.Stdout,
+		Output:     ctx.Output,
 	}
+
+	// write csv
 	if err := table.Write(o.Input); err != nil {
 		fmt.Printf("tennis: could not read csv - %s", err.Error())
 		ctx.Exit(1)

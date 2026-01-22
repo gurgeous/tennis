@@ -18,11 +18,11 @@ import (
 //
 
 type Table struct {
-	Color      Color     // auto/always/never
 	Output     io.Writer // where to write
-	RowNumbers bool      // true if row numbers on
-	TermWidth  int       // terminal width or 0 to autodetect
+	Color      Color     // auto/always/never
 	Theme      Theme     // auto/dark/light
+	TermWidth  int       // terminal width or 0 to autodetect
+	RowNumbers bool      // true if row numbers on
 	ctx        context   // internal state
 }
 

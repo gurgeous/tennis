@@ -2,30 +2,27 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"runtime/debug"
 	"strconv"
 
 	"github.com/alecthomas/kong"
 	"github.com/charmbracelet/x/term"
+	"github.com/gurgeous/tennis"
 )
-
-//
-// cli options
-//
 
 var (
 	Version   = ""
 	CommitSHA = ""
 )
 
-// Output     *os.File         `short:"o" help:"Write output to this file." type:"file"`
 type Options struct {
-	Input      *os.File         `arg:"" optional:"" type:"file"`
-	Color      string           `help:"Turn color off and on with auto|never|always" enum:"auto,never,always" default:"auto"`
-	Theme      string           `help:"Select color theme auto|dark|light" enum:"auto,dark,light" default:"auto"`
-	RowNumbers bool             `short:"n" help:"Turn on row numbers" negatable:""`
-	Version    kong.VersionFlag `help:"Print the version number"`
+	Input      io.Reader    // where to read
+	Output     io.Writer    // where to write
+	Color      tennis.Color // auto/always/never
+	Theme      tennis.Theme // auto/dark/light
+	RowNumbers bool         // true if row numbers on
 }
 
 func options(ctx *MainContext) *Options {
@@ -50,27 +47,26 @@ func options(ctx *MainContext) *Options {
 	// setup kong
 	//
 
-	options := &Options{}
+	type kongArgs struct {
+		File       *os.File         `arg:"" optional:"" type:"file"`
+		Color      string           `help:"Turn color off and on with auto|never|always" enum:"auto,never,always" default:"auto"`
+		Theme      string           `help:"Select color theme auto|dark|light" enum:"auto,dark,light" default:"auto"`
+		RowNumbers bool             `short:"n" help:"Turn on row numbers" negatable:""`
+		Version    kong.VersionFlag `help:"Print the version number"`
+	}
+
+	kargs := &kongArgs{}
 	kong, err := kong.New(
-		options,
+		kargs,
 		kong.ConfigureHelp(kong.HelpOptions{Compact: true, Summary: false}),
 		kong.Description("CSV pretty printer."),
 		kong.Exit(ctx.Exit),
 		kong.Name("tennis"),
-		kong.Writers(ctx.Stdout, ctx.Stdout),
+		kong.Writers(ctx.Output, ctx.Output),
 		kong.Vars{
 			"version":       version,
 			"versionNumber": Version,
 		},
-		kong.WithAfterApply(func(kong *kong.Kong) error {
-			if options.Input == nil {
-				options.Input = stdinInput(ctx.Stdin)
-				if options.Input == nil && len(ctx.Args) > 0 {
-					return fmt.Errorf("no input provided")
-				}
-			}
-			return nil
-		}),
 	)
 	if err != nil {
 		panic(err)
@@ -81,35 +77,57 @@ func options(ctx *MainContext) *Options {
 	//
 
 	_, err = kong.Parse(ctx.Args)
+
+	//
+	// copy to Options
+	//
+
+	options := &Options{
+		Output:     ctx.Output,
+		Color:      tennis.StringToColor(kargs.Color),
+		Theme:      tennis.StringToTheme(kargs.Theme),
+		RowNumbers: kargs.RowNumbers,
+	}
+
+	//
+	// Input
+	//
+
+	switch {
+	case kargs.File != nil:
+		options.Input = kargs.File
+	case !isTty(ctx.Input):
+		options.Input = ctx.Input
+	case len(ctx.Args) > 0:
+		err = fmt.Errorf("no input provided")
+	}
+
 	if err != nil || options.Input == nil {
 		fmt.Println("tennis: try 'tennis --help' for more information")
+		kong.FatalIfErrorf(err)
 		if err == nil {
-			// running naked, this is fine
-			kong.Exit(0)
-		} else {
-			kong.FatalIfErrorf(err)
+			ctx.Exit(0)
 		}
 		return nil // only reached in test
 	}
 
-	//
 	// success!
-	//
-
 	return options
 }
 
-func isTTYForced() bool {
-	b, _ := strconv.ParseBool(os.Getenv("TTY_FORCE"))
-	return b
+//
+// tty helpers
+//
+
+func isTty(r io.Reader) bool {
+	if isTtyForced() {
+		return true
+	}
+	file, ok := r.(*os.File)
+	return ok && term.IsTerminal(file.Fd())
 }
 
-func stdinInput(stdin *os.File) *os.File {
-	// we don't have a file. can we use stdin?
-	isTty := isTTYForced() || term.IsTerminal(stdin.Fd())
-	if !isTty {
-		// seems to be a file, go for it
-		return stdin
-	}
-	return nil // fmt.Errorf("no file provided")
+func isTtyForced() bool {
+	b, _ := strconv.ParseBool(os.Getenv("TTY_FORCE"))
+	return b
 }
