@@ -55,13 +55,22 @@ linters:
       - comments
       - common-false-positives
       - std-error-handling
+    rules:
+      - path: '_test\.go'
+        linters:
+          - dupl
+          - errcheck
+          - gosec
+          - wrapcheck
   settings:
     exhaustive:
       default-signifies-exhaustive: true
+
 formatters:
   enable:
     - gofumpt
     - goimports
   exclusions:
     generated: lax
+
 version: "2"

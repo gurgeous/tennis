@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"runtime/debug"
+	"testing"
 
 	"github.com/alecthomas/kong"
 	"github.com/charmbracelet/x/term"
@@ -73,7 +74,7 @@ func options(exitFunc func(int)) *Options {
 	if err == nil {
 		if options.Input == nil {
 			options.Input = os.Stdin
-			if len(os.Getenv("TENNIS_TERM")) != 0 || term.IsTerminal(options.Input.Fd()) {
+			if fakeIsTerminal() || term.IsTerminal(options.Input.Fd()) {
 				err = fmt.Errorf("no file provided")
 			}
 		}
@@ -90,4 +91,8 @@ func options(exitFunc func(int)) *Options {
 	}
 
 	return options
+}
+
+func fakeIsTerminal() bool {
+	return testing.Testing() && len(os.Getenv("FAKE_IS_TERMINAL")) != 0
 }

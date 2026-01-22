@@ -20,9 +20,9 @@ func testOptions(t *testing.T, args []string, stdin string) (exitCode int, stdou
 	outRead, outWrite, _ := os.Pipe()
 	os.Stdin, os.Stdout = inRead, outWrite
 	if len(stdin) == 0 {
-		t.Setenv("TENNIS_TERM", "1")
+		t.Setenv("FAKE_IS_TERMINAL", "1")
 	}
-	inWrite.WriteString(stdin) //nolint
+	inWrite.WriteString(stdin)
 	// mock exit
 	exitCode = -1
 	exitFn := func(code int) { exitCode = code }
@@ -30,10 +30,10 @@ func testOptions(t *testing.T, args []string, stdin string) (exitCode int, stdou
 	// go
 	options(exitFn)
 
-	// get stdout
+	// collect stdout
 	obuf := bytes.NewBuffer(nil)
-	outWrite.Close()       //nolint
-	io.Copy(obuf, outRead) //nolint
+	outWrite.Close()
+	io.Copy(obuf, outRead)
 	stdout = obuf.String()
 
 	return
