@@ -10,13 +10,15 @@ import (
 )
 
 const (
-	fudge = 2
+	fudge         = 2
+	lowerMin      = 2
+	lowerMax      = 10
+	minFieldWidth = 2
 )
 
-func (t *Table) constructLayout() []int {
+func constructLayout(dataWidths []int, termwidth int) []int {
 	// How much space is available, and do we already fit?
-	dataWidths := t.measureDataWidths()
-	available := t.TermWidth - chromeWidth(dataWidths) - fudge
+	available := termwidth - chromeWidth(dataWidths) - fudge
 	if available >= tableWidth(dataWidths) {
 		return slices.Clone(dataWidths)
 	}
@@ -24,7 +26,7 @@ func (t *Table) constructLayout() []int {
 	// We don't fit, so we are going to shrink (truncate) some columns. Potentially all the way down
 	// to a lower bound. But what is the lower bound? It's nice to have a generous value so that
 	// narrow columns have a shot at avoiding truncation. That isn't always possible, though.
-	lowerBound := lo.Clamp(available/len(dataWidths), 2, 10)
+	lowerBound := lo.Clamp(available/len(dataWidths), lowerMin, lowerMax)
 
 	// Calculate a "min" and a "max" data width for each column, then allocate available space
 	// proportionally to each column. This is similar to the algorithm for HTML tables.

@@ -38,7 +38,6 @@ type context struct {
 
 const (
 	defaultTermWidth = 80
-	minFieldWidth    = 2
 )
 
 //
@@ -139,9 +138,15 @@ func (t *Table) WriteAll(records [][]string) {
 	t.ctx.styles = t.constructStyles()
 
 	//
+	// layout
+	//
+
+	dataWidths := t.measureDataWidths()
+	t.ctx.layout = constructLayout(dataWidths, t.TermWidth)
+
+	//
 	// render
 	//
 
-	t.ctx.layout = t.constructLayout()
 	t.render()
 }
