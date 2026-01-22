@@ -18,7 +18,6 @@ build *ARGS:
 build-release:
   @just build -ldflags=\"-s -w\"
 
-
 #
 # dev
 #
@@ -32,6 +31,11 @@ kong: build
   @just banner  "kong: stdin"    ; cat test.csv | ./tennis
   @just warning "kong: bad file" ; ./tennis bogus || true
   @just warning "kong: missing"  ; ./tennis -n || true
+  @just banner Done
+
+check:
+  @just banner lint ; just lint
+  @just banner test ; just test
   @just banner Done
 
 lint *ARGS:
