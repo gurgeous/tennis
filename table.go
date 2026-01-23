@@ -41,50 +41,6 @@ type context struct {
 }
 
 //
-// Color
-//
-
-type Color int
-
-//go:generate stringer -type=Color -trimprefix=Color
-const (
-	ColorAuto Color = iota
-	ColorAlways
-	ColorNever
-)
-
-func StringToColor(str string) Color {
-	for i := ColorAuto; i <= ColorNever; i++ {
-		if strings.EqualFold(str, i.String()) {
-			return i
-		}
-	}
-	return ColorAuto
-}
-
-//
-// Theme
-//
-
-type Theme int
-
-//go:generate stringer -type=Theme -trimprefix=Theme
-const (
-	ThemeAuto Theme = iota
-	ThemeDark
-	ThemeLight
-)
-
-func StringToTheme(str string) Theme {
-	for i := ThemeAuto; i <= ThemeLight; i++ {
-		if strings.EqualFold(str, i.String()) {
-			return i
-		}
-	}
-	return ThemeAuto
-}
-
-//
 // WriteXXX
 //
 
@@ -190,4 +146,48 @@ func (t *Table) setup() {
 func (t *Table) debugf(format string, args ...any) {
 	str := fmt.Sprintf(format, args...)
 	fmt.Fprintf(os.Stderr, "\033[1;37;42m[tennis]\033[0m %s\n", str)
+}
+
+//
+// Color
+//
+
+type Color int
+
+//go:generate stringer -type=Color -trimprefix=Color
+const (
+	ColorAuto Color = iota
+	ColorAlways
+	ColorNever
+)
+
+func StringToColor(str string) Color {
+	for i := ColorAuto; i <= ColorNever; i++ {
+		if strings.EqualFold(str, i.String()) {
+			return i
+		}
+	}
+	return ColorAuto
+}
+
+//
+// Theme
+//
+
+type Theme int
+
+//go:generate stringer -type=Theme -trimprefix=Theme
+const (
+	ThemeAuto Theme = iota
+	ThemeDark
+	ThemeLight
+)
+
+func StringToTheme(str string) Theme {
+	for i := ThemeAuto; i <= ThemeLight; i++ {
+		if strings.EqualFold(str, i.String()) {
+			return i
+		}
+	}
+	return ThemeAuto
 }

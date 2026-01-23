@@ -1,72 +1,33 @@
 package tennis
 
 import (
-	"bufio"
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/colorprofile"
-	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestTable(t *testing.T) {
-	const input = `
-a,b
-c,d
-`
+	const input = "a,b\nc,d"
 
-	const exp = `
-╭────┬────╮
-│ a  │ b  │
-├────┼────┤
-│ c  │ d  │
-╰────┴────╯
-`
+	exp := "" +
+		"CH╭────┬────╮RE\n" +
+		"CH│RE H1a RE CH│RE H2b RE CH│RE\n" +
+		"CH├────┼────┤RE\n" +
+		"CH│RE FIc RE CH│RE FId RE CH│RE\n" +
+		"CH╰────┴────╯RE\n"
+	exp = strings.ReplaceAll(exp, "CH", "\x1b[38;2;107;114;128m")   // chrome
+	exp = strings.ReplaceAll(exp, "RE", "\x1b[m")                   // reset
+	exp = strings.ReplaceAll(exp, "H1", "\x1b[1;38;2;255;97;136m")  // first header
+	exp = strings.ReplaceAll(exp, "H2", "\x1b[1;38;2;252;152;103m") // second header
+	exp = strings.ReplaceAll(exp, "FI", "\x1b[38;2;229;231;235m")   // field
 
 	output := &strings.Builder{}
-	table := &Table{Output: output}
-	table.Write(strings.NewReader(strings.TrimSpace(input)))
-	assert.Equal(t, strings.TrimSpace(exp), strings.TrimSpace(output.String()))
-}
-
-//
-// helpers
-//
-
-func fakeTable() *Table {
-	return &Table{
-		Color:      ColorAlways,
-		Theme:      ThemeDark,
-		TermWidth:  100,
-		RowNumbers: true,
-		Title:      "foo",
-		ctx: context{
-			w:       bufio.NewWriter(&strings.Builder{}),
-			headers: []string{"#", "h", "h2", "h3"},
-			records: [][]string{
-				{"h", "h2", "h3"},
-				{"abcdefg", "a", "ab"},
-				{"a", "abc", "z"},
-			},
-			layout:  []int{2, 7, 3, 2},
-			profile: colorprofile.TrueColor,
-			styles: &styles{
-				chrome: lipgloss.NewStyle().Foreground(lipgloss.Color("1")), // red
-				field:  lipgloss.NewStyle().Foreground(lipgloss.Color("2")), // green
-				title:  lipgloss.NewStyle().Foreground(lipgloss.Color("3")), // yellow
-				headers: []lipgloss.Style{
-					lipgloss.NewStyle().Foreground(lipgloss.Color("4")), // blue
-					lipgloss.NewStyle().Foreground(lipgloss.Color("5")), // magenta
-				},
-			},
-			pipe: "│",
-		},
+	table := &Table{
+		Color:  ColorAlways,
+		Theme:  ThemeDark,
+		Output: output,
 	}
-}
-
-func drain(t *Table) string {
-	buf := &t.ctx.buf
-	defer buf.Reset()
-	return strings.ReplaceAll(buf.String(), " ", "")
+	table.Write(strings.NewReader(input))
+	assert.Equal(t, exp, output.String())
 }

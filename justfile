@@ -26,10 +26,6 @@ check:
 lint *ARGS:
   golangci-lint run {{ARGS}}
 
-refresh:
-  go generate
-  go mod tidy
-
 run *ARGS:
   @go run ./... {{ARGS}}
 
@@ -59,7 +55,14 @@ test-snaps:
   @./snap.sh testdata/5.txt ./tennis
   @./snap.sh testdata/6.txt ./tennis test.csv bogus
 
-# regen snaps
+#
+# gen
+#
+
+gen:
+  go generate
+  go mod tidy
+
 gen-snaps:
   @clear
   @rm -rf testdata/ && mkdir -p testdata/
