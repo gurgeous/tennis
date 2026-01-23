@@ -1,4 +1,7 @@
 package tennis
 
-// func TestStyles(t *testing.T) {
-// }
+import "testing"
+
+func TestStyles(_ *testing.T) {
+	// REMIND
+}

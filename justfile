@@ -33,9 +33,18 @@ refresh:
 run *ARGS:
   @go run ./... {{ARGS}}
 
+# $ go help testflag
+# $ go tool cover -help
 # use -v to see stdout
 test *ARGS:
   @go test ./... {{ARGS}}
+
+test-cover:
+  @clear
+  @just banner "Running tests..."
+  @go test ./... -coverprofile /tmp/cover.out
+  @just banner "Coverage report..."
+  @go tool cover -func /tmp/cover.out
 
 test-watch *ARGS:
   @watchexec --watch . --clear=reset just test "{{ARGS}}"
