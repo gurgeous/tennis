@@ -2,20 +2,19 @@ package main
 
 //
 // TODO
-// - title
+// - features
+//   - write array of structs? (https://github.com/jszwec/csvutil)
 // - tests
-//   - graphemes
-// - goreleaser & sha/version
-// - see ~/sync/vectrogo/justfile for goreleaser
-// - README/LICENSE
-// - demo.gif
-// - run with array of structs?
-// future - zebra, benchmarks, layout false,true, color scales, coerce/format numberics
-// future - mark/search, save csv, header names, titleize, themes
-//
-// https://github.com/antonmedv/fx/blob/master/scripts/build.mjs
-// https://github.com/charmbracelet/meta
-// https://github.com/uber-go/fx/blob/master/Makefile
+//   - style/downsample
+//   - jagged
+// - releaser
+//   - goreleaser & sha/version
+//   - see ~/sync/vectrogo/justfile for goreleaser
+//   - README/LICENSE
+//   - demo.gif
+//   - https://github.com/antonmedv/fx/blob/master/scripts/build.mjs
+//   - https://github.com/charmbracelet/meta
+//   - https://github.com/uber-go/fx/blob/master/Makefile
 //
 
 import (
@@ -23,7 +22,7 @@ import (
 	"io"
 	"os"
 
-	_ "github.com/kr/pretty"
+	"github.com/k0kubun/pp/v3"
 )
 
 func main() {
@@ -33,6 +32,7 @@ func main() {
 		Output: os.Stdout,
 		Exit:   os.Exit,
 	}
+
 	_ = main0(ctx)
 	defer os.Stdin.Close()
 }
@@ -52,6 +52,7 @@ type MainContext struct {
 func main0(ctx *MainContext) bool {
 	// parse cli options
 	o := options(ctx)
+	pp.Print(o)
 
 	// write csv
 	if err := o.Table.Write(o.Input); err != nil {
