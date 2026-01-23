@@ -9,6 +9,7 @@ import (
 )
 
 const (
+	edges       = 4 // |•xxxxxx•|
 	placeholder = "—"
 	ellipsis    = "…"
 )
@@ -39,7 +40,13 @@ var (
 func (t *Table) render() {
 	t.ctx.pipe = t.ctx.styles.chrome.Render(string(pipe))
 
-	t.renderSep(nw, n, ne)
+	if len(t.Title) > 0 {
+		t.renderSep(nw, bar, ne)
+		t.renderTitle()
+		t.renderSep(w, n, e)
+	} else {
+		t.renderSep(nw, n, ne)
+	}
 	t.renderRow(0)
 	t.renderSep(w, c, e)
 	for ii := range t.ctx.records {
@@ -67,6 +74,20 @@ func (t *Table) renderSep(l, m, r rune) {
 	buf.WriteRune(r)
 	str := t.ctx.styles.chrome.Render(buf.String())
 	t.writeLine(str)
+}
+
+func (t *Table) renderTitle() {
+	data := t.Title
+	data = exactly(data, tableWidth(t.ctx.layout)-edges, center)
+	data = t.ctx.styles.title.Render(data)
+	buf := &t.ctx.buf
+	buf.Reset()
+	buf.WriteString(t.ctx.pipe)
+	buf.WriteRune(' ')
+	buf.WriteString(data)
+	buf.WriteRune(' ')
+	buf.WriteString(t.ctx.pipe)
+	t.writeLine(buf.String())
 }
 
 func (t *Table) renderRow(row int) {
@@ -116,7 +137,7 @@ func (t *Table) renderCell(data string, row int, col int) {
 	}
 
 	// render
-	data = exactly(data, t.ctx.layout[col])
+	data = exactly(data, t.ctx.layout[col], left)
 	data = style.Render(data)
 
 	// append
@@ -134,10 +155,23 @@ func (t *Table) writeLine(str string) {
 	t.ctx.w.WriteRune('\n')
 }
 
-func exactly(str string, width int) string {
-	n := displaywidth.String(str)
-	if n <= width {
-		return str + strings.Repeat(" ", width-n)
+type align int
+
+const (
+	left align = iota
+	center
+)
+
+func exactly(str string, width int, align align) string {
+	xtra := width - displaywidth.String(str)
+	if xtra > 0 {
+		switch align {
+		case left:
+			return str + strings.Repeat(" ", xtra)
+		case center:
+			half := xtra / 2
+			return strings.Repeat(" ", half) + str + strings.Repeat(" ", xtra-half)
+		}
 	}
 	return displaywidth.TruncateString(str, width, ellipsis)
 }

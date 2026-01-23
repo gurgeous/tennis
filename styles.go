@@ -9,6 +9,7 @@ import (
 type styles struct {
 	chrome  lipgloss.Style
 	field   lipgloss.Style
+	title   lipgloss.Style
 	headers []lipgloss.Style
 }
 
@@ -17,8 +18,6 @@ func constructStyles(profile colorprofile.Profile, theme Theme) *styles {
 	if profile <= colorprofile.Ascii {
 		nop := lipgloss.NewStyle()
 		return &styles{
-			chrome:  nop,
-			field:   nop,
 			headers: []lipgloss.Style{nop},
 		}
 	}
@@ -27,13 +26,13 @@ func constructStyles(profile colorprofile.Profile, theme Theme) *styles {
 	// dark/light colors
 	//
 
-	var chrome, field string
+	var chrome, field, title string
 	var headers []string
 	if theme == ThemeDark {
-		chrome, field = Tailwind.Gray.c500, Tailwind.Gray.c200
+		chrome, field, title = Tailwind.Gray.c500, Tailwind.Gray.c200, Tailwind.Blue.c400
 		headers = []string{"#ff6188", "#fc9867", "#ffd866", "#a9dc76", "#78dce8", "#ab9df2"}
 	} else {
-		chrome, field = Tailwind.Gray.c500, Tailwind.Gray.c800
+		chrome, field, title = Tailwind.Gray.c500, Tailwind.Gray.c800, Tailwind.Blue.c600
 		headers = []string{"#ee4066", "#da7645", "#ddb644", "#87ba54", "#56bac6", "#897bd0"}
 	}
 
@@ -50,6 +49,7 @@ func constructStyles(profile colorprofile.Profile, theme Theme) *styles {
 	return &styles{
 		chrome: downsample(chrome),
 		field:  downsample(field),
+		title:  downsample(title).Bold(true),
 		headers: lo.Map(headers, func(hex string, _ int) lipgloss.Style {
 			return downsample(hex).Bold(true)
 		}),
