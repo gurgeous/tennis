@@ -37,7 +37,10 @@ run *ARGS:
 test *ARGS:
   @go test ./... {{ARGS}}
 
-# really simple snapshot testing
+test-watch *ARGS:
+  @watchexec --watch . --clear=reset just test "{{ARGS}}"
+
+# simple snapshot testing
 test-snap:
   @./snap.sh snaps/0.txt ./tennis test.csv
   @./snap.sh snaps/1.txt ./tennis
@@ -46,10 +49,6 @@ test-snap:
   @./snap.sh snaps/4.txt ./tennis test.csv bogus
   @./snap.sh snaps/5.txt sh -c 'cat test.csv | ./tennis'
   @./snap.sh snaps/6.txt sh -c 'cat test.csv | ./tennis -'
-
-test-watch *ARGS:
-  @watchexec --watch . --clear=reset just test "{{ARGS}}"
-
 
 #
 # banner

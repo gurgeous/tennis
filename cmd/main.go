@@ -2,9 +2,9 @@ package main
 
 //
 // TODO
-// tests
-// - --output
-// - graphemes
+// - title
+// - tests
+//   - graphemes
 // - goreleaser & sha/version
 // - see ~/sync/vectrogo/justfile for goreleaser
 // - README/LICENSE
