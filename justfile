@@ -20,7 +20,7 @@ check:
   @just banner build ; just build
   @just banner lint ; just lint
   @just banner test ; just test
-  @just banner test-snap ; just test-snap
+  @just banner test-snaps ; just test-snaps
   @just banner done
 
 lint *ARGS:
@@ -42,6 +42,7 @@ test-watch *ARGS:
 
 # simple snapshot testing
 test-snaps:
+  @# clear ; UPDATE=1 just test-snaps && cat snaps/*
   @./snap.sh snaps/0.txt ./tennis --color=always test.csv -n
   @./snap.sh snaps/1.txt ./tennis test.csv
   @./snap.sh snaps/6.txt sh -c 'cat test.csv | ./tennis'

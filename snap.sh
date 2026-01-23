@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+#
+# Really simple cli snapshot test system. Run once to generate file, run a second time to verify.
+# See justfile for details.
+#
+
 if [ "$#" -lt 2 ]; then
   echo "Usage: snap.sh <out> <command> [args...]" >&2
   exit 1
@@ -13,27 +18,38 @@ fatal() {
   exit 1
 }
 
+#
 # run cmd
+#
+
 tmp=$(mktemp)
 trap 'rm -f "$tmp"' EXIT
 out="$1"
 shift
 
-echo '############################################################################' >> "$tmp"
-echo '# snap.sh' "$@" >> "$tmp"
-echo '############################################################################' >> "$tmp"
-echo >> "$tmp"
+cat >> "$tmp" << EOF
+############################################################################
+# snap.sh $@
+############################################################################
+
+EOF
 "$@" >> "$tmp" 2>&1
 echo >> "$tmp"
 
+#
 # update if necessary
+#
+
 if [ "$UPDATE" = "1" ] || [ ! -f "$out" ]; then
   mv "$tmp" "$out"
   banner "snap created: $out"
   exit 0
 fi
 
-# Compare with existing snapshot
+#
+# verify against existing snapshot
+#
+
 if ! diff -u "$out" "$tmp" > /dev/null; then
   fatal "snap differs: $out"
 fi

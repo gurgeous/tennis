@@ -49,6 +49,7 @@ func options(ctx *MainContext) *Options {
 		Color      string           `help:"Turn color off and on with auto|never|always" enum:"auto,never,always" default:"auto"`
 		Theme      string           `help:"Select color theme auto|dark|light" enum:"auto,dark,light" default:"auto"`
 		RowNumbers bool             `short:"n" help:"Turn on row numbers" negatable:""`
+		Title      string           `short:"t" help:"Add a pretty title at the top"`
 		Version    kong.VersionFlag `help:"Print the version number"`
 	}
 
@@ -84,6 +85,7 @@ func options(ctx *MainContext) *Options {
 			Color:      tennis.StringToColor(kargs.Color),
 			Output:     ctx.Output,
 			Theme:      tennis.StringToTheme(kargs.Theme),
+			Title:      kargs.Title,
 			RowNumbers: kargs.RowNumbers,
 		},
 	}

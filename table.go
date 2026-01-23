@@ -23,6 +23,7 @@ type Table struct {
 	Theme      Theme     // auto/dark/light
 	TermWidth  int       // terminal width or 0 to autodetect
 	RowNumbers bool      // true if row numbers on
+	Title      string    // pretty title at the top of the table
 	ctx        context   // internal state
 }
 
