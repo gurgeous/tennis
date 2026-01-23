@@ -1,16 +1,20 @@
 package tennis
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/colorprofile"
 	"github.com/charmbracelet/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/samber/lo"
 )
 
-// these are ansi codes or blank
+// these are ansi codes, if any. no trailing reset
 type styles struct {
 	chrome  string
 	field   string
 	title   string
+	reset   string
 	headers []string
 }
 
@@ -24,6 +28,7 @@ func constructStyles(profile colorprofile.Profile, theme Theme) *styles {
 	// dark/light colors (NOT ansi codes)
 	//
 
+	const reset = ansi.ResetStyle
 	var chrome, field, title string
 	var headers []string
 	if theme == ThemeDark {
@@ -38,18 +43,44 @@ func constructStyles(profile colorprofile.Profile, theme Theme) *styles {
 	// now styles
 	//
 
-	// create/downsample color to match profile
-	downsample := func(hex string, bold bool) string {
+	// hex string to ansi escape codes
+	codes := func(hex string, bold bool) string {
+		// hex => color (potentially downsampled based on profile)
 		fg := profile.Convert(lipgloss.Color(hex))
-		return lipgloss.NewStyle().Foreground(fg).Bold(bold).Render("")
+
+		// render an empty string and strip off the reset
+		codes := lipgloss.NewStyle().Foreground(fg).Bold(bold).Render("")
+		codes = strings.TrimSuffix(codes, reset)
+		return codes
 	}
 
 	return &styles{
-		chrome: downsample(chrome, false),
-		field:  downsample(field, false),
-		title:  downsample(title, true),
+		chrome: codes(chrome, false),
+		field:  codes(field, false),
+		title:  codes(title, true),
+		reset:  reset,
 		headers: lo.Map(headers, func(hex string, _ int) string {
-			return downsample(hex, true)
+			return codes(hex, true)
 		}),
 	}
+}
+
+const reset = ansi.ResetStyle
+
+func (s styles) render(codes string, str string) string {
+	if len(codes) == 0 {
+		return str
+	}
+	return codes + str + reset
+}
+
+func (s styles) append(buf *strings.Builder, codes string, str string) {
+	if len(codes) == 0 {
+		buf.WriteString(str)
+		return
+	}
+
+	buf.WriteString(codes)
+	buf.WriteString(str)
+	buf.WriteString(reset)
 }

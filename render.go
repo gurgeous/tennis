@@ -7,10 +7,6 @@ import (
 	"github.com/clipperhouse/displaywidth"
 )
 
-const (
-	Reset = "\x1b[m"
-)
-
 var (
 	// box and friends
 	box = [][]rune{
@@ -35,7 +31,7 @@ var (
 )
 
 func (t *Table) render() {
-	t.ctx.pipe = colorizeStr(t.ctx.styles.chrome, string(pipe))
+	t.ctx.pipe = t.ctx.styles.render(t.ctx.styles.chrome, string(pipe))
 
 	if len(t.Title) > 0 {
 		t.renderSep(nw, bar, ne)
@@ -69,7 +65,7 @@ func (t *Table) renderSep(l, m, r rune) {
 		}
 	}
 	buf.WriteRune(r)
-	t.writeLine(colorizeStr(t.ctx.styles.chrome, buf.String()))
+	t.writeLine(t.ctx.styles.render(t.ctx.styles.chrome, buf.String()))
 }
 
 func (t *Table) renderTitle() {
@@ -80,7 +76,7 @@ func (t *Table) renderTitle() {
 	buf.Reset()
 	buf.WriteString(t.ctx.pipe)
 	buf.WriteRune(' ')
-	colorizeBuf(buf, t.ctx.styles.title, str)
+	t.ctx.styles.append(buf, t.ctx.styles.title, str)
 	buf.WriteRune(' ')
 	buf.WriteString(t.ctx.pipe)
 	t.writeLine(buf.String())
@@ -136,7 +132,7 @@ func (t *Table) renderCell(str string, row int, col int) {
 
 	// append
 	buf.WriteRune(' ')
-	colorizeBuf(buf, style, str)
+	t.ctx.styles.append(buf, style, str)
 	buf.WriteRune(' ')
 	buf.WriteString(t.ctx.pipe)
 }
@@ -149,29 +145,16 @@ func (t *Table) writeLine(str string) {
 	t.ctx.w.WriteRune('\n')
 }
 
+//
+// exactly
+//
+
 type align int
 
 const (
 	left align = iota
 	center
 )
-
-func colorizeBuf(buf *strings.Builder, style string, str string) {
-	if len(style) > 0 {
-		buf.WriteString(style)
-		buf.WriteString(str)
-		buf.WriteString(Reset)
-	} else {
-		buf.WriteString(str)
-	}
-}
-
-func colorizeStr(style string, str string) string {
-	if len(style) > 0 {
-		return style + str + Reset
-	}
-	return str
-}
 
 func exactly(str string, width int, align align) string {
 	xtra := width - displaywidth.String(str)

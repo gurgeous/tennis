@@ -19,8 +19,8 @@ build-release:
 check:
   @just banner build ; just build
   @just banner lint ; just lint
-  @just banner test ; just test
   @just banner test-snaps ; just test-snaps
+  @just banner test ; just test
   @just banner done
 
 lint *ARGS:
@@ -46,7 +46,7 @@ test-watch *ARGS:
   @watchexec --watch . --clear=reset just test "{{ARGS}}"
 
 # simple snapshot testing
-test-snaps:
+test-snaps: build
   @./snap.sh testdata/0.txt ./tennis --color=always test.csv -n
   @./snap.sh testdata/1.txt ./tennis --color=always test.csv --title foo
   @./snap.sh testdata/2.txt ./tennis test.csv

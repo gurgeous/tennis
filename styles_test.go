@@ -21,6 +21,4 @@ func TestStyles(t *testing.T) {
 	assert.Equal(t, "\x1b[1;38;2;37;99;235m\x1b[m", light.title)
 }
 
-// REMIND: light
-// REMIND: dark
 // REMIND: downsample

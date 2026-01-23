@@ -9,15 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const (
-	R = "[31m" // red
-	G = "[32m" // green
-	Y = "[33m" // yellow
-	B = "[34m" // blue
-	M = "[35m" // magenta
-	X = "[m"   // reset
-)
-
 func TestRenderSep(t *testing.T) {
 	table := fakeTable()
 	table.renderSep('L', 'M', 'R')
@@ -27,21 +18,21 @@ func TestRenderSep(t *testing.T) {
 func TestRenderTitle(t *testing.T) {
 	table := fakeTable()
 	table.renderTitle()
-	assert.Equal(t, "│"+Y+"foo"+X+"│", drain(table))
+	assert.Equal(t, "│YfooX│", drain(table))
 }
 
 func TestRenderRow(t *testing.T) {
 	table := fakeTable()
 	table.renderRow(0)
-	assert.Equal(t, "│"+B+"#"+X+"│"+M+"h"+X+"│"+B+"h2"+X+"│"+M+"h3"+X+"│", drain(table))
+	assert.Equal(t, "│B#X│MhX│Bh2X│Mh3X│", drain(table))
 	table.renderRow(1)
-	assert.Equal(t, "│"+R+"1"+X+"│"+G+"abcdefg"+X+"│"+G+"a"+X+"│"+G+"ab"+X+"│", drain(table))
+	assert.Equal(t, "│R1X│GabcdefgX│GaX│GabX│", drain(table))
 }
 
 func TestRenderCell(t *testing.T) {
 	table := fakeTable()
 	table.renderCell("h", 0, 1)
-	assert.Equal(t, M+"h"+X+"│", drain(table))
+	assert.Equal(t, "MhX│", drain(table))
 }
 
 func TestExactly(t *testing.T) {
