@@ -1,6 +1,7 @@
 package tennis
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -63,8 +64,24 @@ func TestTableRagged(t *testing.T) {
 }
 
 func TestTableDebug(t *testing.T) {
+	mockStd(t)
+
 	const input = "a,b\nc,d"
 	t.Setenv("TENNIS_DEBUG", "1")
 	table := &Table{Output: &strings.Builder{}}
 	table.Write(strings.NewReader(input))
+}
+
+func mockStd(t *testing.T) (stdin *os.File, stdout *os.File, stderr *os.File) {
+	inRead, inWrite, _ := os.Pipe()
+	outRead, outWrite, _ := os.Pipe()
+	errRead, errWrite, _ := os.Pipe()
+
+	oldStdin, oldStdout, oldStderr := os.Stdin, os.Stdout, os.Stderr
+	os.Stdin, os.Stdout, os.Stderr = inRead, outWrite, errWrite
+	t.Cleanup(func() { os.Stdin, os.Stdout, os.Stderr = oldStdin, oldStdout, oldStderr })
+
+	// you can write to stdin (don't forget to close), or read from stdout/stderr
+	stdin, stdout, stderr = inWrite, outRead, errRead
+	return
 }

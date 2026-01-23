@@ -6,24 +6,22 @@ import (
 	"github.com/samber/lo"
 )
 
+// these are ansi codes or blank
 type styles struct {
-	chrome  lipgloss.Style
-	field   lipgloss.Style
-	title   lipgloss.Style
-	headers []lipgloss.Style
+	chrome  string
+	field   string
+	title   string
+	headers []string
 }
 
 func constructStyles(profile colorprofile.Profile, theme Theme) *styles {
 	// ascii? nop
 	if profile <= colorprofile.Ascii {
-		nop := lipgloss.NewStyle()
-		return &styles{
-			headers: []lipgloss.Style{nop},
-		}
+		return &styles{headers: []string{""}}
 	}
 
 	//
-	// dark/light colors
+	// dark/light colors (NOT ansi codes)
 	//
 
 	var chrome, field, title string
@@ -41,17 +39,17 @@ func constructStyles(profile colorprofile.Profile, theme Theme) *styles {
 	//
 
 	// create/downsample color to match profile
-	downsample := func(hex string) lipgloss.Style {
+	downsample := func(hex string, bold bool) string {
 		fg := profile.Convert(lipgloss.Color(hex))
-		return lipgloss.NewStyle().Foreground(fg)
+		return lipgloss.NewStyle().Foreground(fg).Bold(bold).Render("")
 	}
 
 	return &styles{
-		chrome: downsample(chrome),
-		field:  downsample(field),
-		title:  downsample(title).Bold(true),
-		headers: lo.Map(headers, func(hex string, _ int) lipgloss.Style {
-			return downsample(hex).Bold(true)
+		chrome: downsample(chrome, false),
+		field:  downsample(field, false),
+		title:  downsample(title, true),
+		headers: lo.Map(headers, func(hex string, _ int) string {
+			return downsample(hex, true)
 		}),
 	}
 }

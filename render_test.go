@@ -6,18 +6,16 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/colorprofile"
-	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/stretchr/testify/assert"
 )
 
 const (
-	ESC = "\x1b"       // escape
-	R   = ESC + "[31m" // red
-	G   = ESC + "[32m" // green
-	Y   = ESC + "[33m" // yellow
-	B   = ESC + "[34m" // blue
-	M   = ESC + "[35m" // magenta
-	X   = ESC + "[m"   // reset
+	R = "[31m" // red
+	G = "[32m" // green
+	Y = "[33m" // yellow
+	B = "[34m" // blue
+	M = "[35m" // magenta
+	X = "[m"   // reset
 )
 
 func TestRenderSep(t *testing.T) {
@@ -76,13 +74,10 @@ func fakeTable() *Table {
 			layout:  []int{2, 7, 3, 2},
 			profile: colorprofile.TrueColor,
 			styles: &styles{
-				chrome: lipgloss.NewStyle().Foreground(lipgloss.Color("1")), // red
-				field:  lipgloss.NewStyle().Foreground(lipgloss.Color("2")), // green
-				title:  lipgloss.NewStyle().Foreground(lipgloss.Color("3")), // yellow
-				headers: []lipgloss.Style{
-					lipgloss.NewStyle().Foreground(lipgloss.Color("4")), // blue
-					lipgloss.NewStyle().Foreground(lipgloss.Color("5")), // magenta
-				},
+				chrome:  "R",
+				field:   "G",
+				title:   "Y",
+				headers: []string{"B", "M"},
 			},
 			pipe: "│",
 		},

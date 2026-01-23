@@ -4,8 +4,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss/v2"
 	"github.com/clipperhouse/displaywidth"
+)
+
+const (
+	Reset = "\x1b[m"
 )
 
 var (
@@ -32,7 +35,7 @@ var (
 )
 
 func (t *Table) render() {
-	t.ctx.pipe = t.ctx.styles.chrome.Render(string(pipe))
+	t.ctx.pipe = colorizeStr(t.ctx.styles.chrome, string(pipe))
 
 	if len(t.Title) > 0 {
 		t.renderSep(nw, bar, ne)
@@ -66,22 +69,18 @@ func (t *Table) renderSep(l, m, r rune) {
 		}
 	}
 	buf.WriteRune(r)
-	str := t.ctx.styles.chrome.Render(buf.String())
-	t.writeLine(str)
+	t.writeLine(colorizeStr(t.ctx.styles.chrome, buf.String()))
 }
 
 func (t *Table) renderTitle() {
 	const edges = 4 // |•xxxxxx•|
-
-	str := t.Title
-	str = exactly(str, tableWidth(t.ctx.layout)-edges, center)
-	str = t.ctx.styles.title.Render(str)
+	str := exactly(t.Title, tableWidth(t.ctx.layout)-edges, center)
 
 	buf := &t.ctx.buf
 	buf.Reset()
 	buf.WriteString(t.ctx.pipe)
 	buf.WriteRune(' ')
-	buf.WriteString(str)
+	colorizeBuf(buf, t.ctx.styles.title, str)
 	buf.WriteRune(' ')
 	buf.WriteString(t.ctx.pipe)
 	t.writeLine(buf.String())
@@ -120,27 +119,24 @@ func (t *Table) renderCell(str string, row int, col int) {
 		const placeholder = "—"
 		str = placeholder
 	}
+	str = exactly(str, t.ctx.layout[col], left)
 
 	// choose style for this cell
-	var style *lipgloss.Style
+	var style string
 	switch {
 	case row == 0:
-		style = &t.ctx.styles.headers[col%len(t.ctx.styles.headers)]
+		style = t.ctx.styles.headers[col%len(t.ctx.styles.headers)]
 	case isPlaceholder:
-		style = &t.ctx.styles.chrome
+		style = t.ctx.styles.chrome
 	case col == 0 && t.RowNumbers:
-		style = &t.ctx.styles.chrome
+		style = t.ctx.styles.chrome
 	default:
-		style = &t.ctx.styles.field
+		style = t.ctx.styles.field
 	}
-
-	// render
-	str = exactly(str, t.ctx.layout[col], left)
-	str = style.Render(str)
 
 	// append
 	buf.WriteRune(' ')
-	buf.WriteString(str)
+	colorizeBuf(buf, style, str)
 	buf.WriteRune(' ')
 	buf.WriteString(t.ctx.pipe)
 }
@@ -159,6 +155,23 @@ const (
 	left align = iota
 	center
 )
+
+func colorizeBuf(buf *strings.Builder, style string, str string) {
+	if len(style) > 0 {
+		buf.WriteString(style)
+		buf.WriteString(str)
+		buf.WriteString(Reset)
+	} else {
+		buf.WriteString(str)
+	}
+}
+
+func colorizeStr(style string, str string) string {
+	if len(style) > 0 {
+		return style + str + Reset
+	}
+	return str
+}
 
 func exactly(str string, width int, align align) string {
 	xtra := width - displaywidth.String(str)
