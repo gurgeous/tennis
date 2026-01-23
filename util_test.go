@@ -45,5 +45,5 @@ func TestShift(t *testing.T) {
 func TestUnshift(t *testing.T) {
 	array := []int{456}
 	unshift(&array, 123)
-	assert.True(t, reflect.DeepEqual(array, []int{123, 456}))
+	assert.Equal(t, array, []int{123, 456})
 }
