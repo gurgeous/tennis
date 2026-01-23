@@ -3,11 +3,8 @@ default:
   @just --list
 
 init:
-  @# note: golangci-lint has a zed extension, but requires install
   brew install go golangci-lint
   go install golang.org/x/tools/cmd/stringer@latest
-  @# note: zed installs gopls
-  @# go install golang.org/x/tools/gopls@latest
 
 build *ARGS:
   @go build -o tennis {{ARGS}} ./cmd
@@ -38,8 +35,8 @@ run *ARGS:
 test *ARGS:
   @go test ./... {{ARGS}}
 
+# really simple snapshot testing
 test-kong: build
-  @clear
   @./snap.sh snaps/0.txt ./tennis test.csv
   @./snap.sh snaps/1.txt ./tennis
   @./snap.sh snaps/2.txt ./tennis --help
