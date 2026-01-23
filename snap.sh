@@ -13,18 +13,15 @@ fatal() {
   exit 1
 }
 
-# this whole thing is generic except for this line
-export CLICOLOR_FORCE=1
-
 # run cmd
 tmp=$(mktemp)
 trap 'rm -f "$tmp"' EXIT
 out="$1"
 shift
 
-echo '#' > "$tmp"
+echo '############################################################################' >> "$tmp"
 echo '# snap.sh' "$@" >> "$tmp"
-echo '#' >> "$tmp"
+echo '############################################################################' >> "$tmp"
 echo >> "$tmp"
 "$@" >> "$tmp" 2>&1
 echo >> "$tmp"

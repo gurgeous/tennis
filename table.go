@@ -125,6 +125,9 @@ func (t *Table) WriteRecords(records [][]string) {
 	// setup styles
 	//
 
+	if t.Output == nil {
+		t.Output = os.Stdout
+	}
 	switch t.Color {
 	case ColorAuto:
 		t.ctx.profile = colorprofile.Detect(t.Output, os.Environ())
@@ -132,9 +135,6 @@ func (t *Table) WriteRecords(records [][]string) {
 		t.ctx.profile = colorprofile.TrueColor
 	case ColorNever:
 		t.ctx.profile = colorprofile.Ascii
-	}
-	if t.Output == nil {
-		t.Output = os.Stdout
 	}
 	if t.Theme == ThemeAuto && t.Color != ColorNever {
 		if lipgloss.HasDarkBackground(os.Stdin, os.Stderr) {

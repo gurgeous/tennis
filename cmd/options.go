@@ -82,6 +82,7 @@ func options(ctx *MainContext) *Options {
 	options := &Options{
 		Table: tennis.Table{
 			Color:      tennis.StringToColor(kargs.Color),
+			Output:     ctx.Output,
 			Theme:      tennis.StringToTheme(kargs.Theme),
 			RowNumbers: kargs.RowNumbers,
 		},

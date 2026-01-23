@@ -28,9 +28,9 @@ func TestOptions(t *testing.T) {
 
 	fmt.Println(stdout)
 	assert.Equal(t, -1, exitCode)
-	assert.True(t, o.RowNumbers)
-	assert.Equal(t, o.Color, tennis.ColorNever)
-	assert.Equal(t, o.Theme, tennis.ThemeLight)
+	assert.True(t, o.Table.RowNumbers)
+	assert.Equal(t, o.Table.Color, tennis.ColorNever)
+	assert.Equal(t, o.Table.Theme, tennis.ThemeLight)
 }
 
 //
