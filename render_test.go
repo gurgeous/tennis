@@ -18,21 +18,21 @@ func TestRenderSep(t *testing.T) {
 func TestRenderTitle(t *testing.T) {
 	table := fakeTable()
 	table.renderTitle()
-	assert.Equal(t, "│YfooX│", drain(table))
+	assert.Equal(t, "│Tfoo~│", drain(table))
 }
 
 func TestRenderRow(t *testing.T) {
 	table := fakeTable()
 	table.renderRow(0)
-	assert.Equal(t, "│B#X│MhX│Bh2X│Mh3X│", drain(table))
+	assert.Equal(t, "│J#~│Kh~│Jh2~│Kh3~│", drain(table))
 	table.renderRow(1)
-	assert.Equal(t, "│R1X│GabcdefgX│GaX│GabX│", drain(table))
+	assert.Equal(t, "│C1~│Fabcdefg~│Fa~│Fab~│", drain(table))
 }
 
 func TestRenderCell(t *testing.T) {
 	table := fakeTable()
 	table.renderCell("h", 0, 1)
-	assert.Equal(t, "MhX│", drain(table))
+	assert.Equal(t, "Kh~│", drain(table))
 }
 
 func TestExactly(t *testing.T) {
@@ -65,10 +65,10 @@ func fakeTable() *Table {
 			layout:  []int{2, 7, 3, 2},
 			profile: colorprofile.TrueColor,
 			styles: &styles{
-				chrome:  "R",
-				field:   "G",
-				title:   "Y",
-				headers: []string{"B", "M"},
+				chrome:  "C",
+				field:   "F",
+				title:   "T",
+				headers: []string{"J", "K"},
 			},
 			pipe: "│",
 		},
@@ -78,5 +78,8 @@ func fakeTable() *Table {
 func drain(t *Table) string {
 	buf := &t.ctx.buf
 	defer buf.Reset()
-	return strings.ReplaceAll(buf.String(), " ", "")
+	str := buf.String()
+	str = strings.ReplaceAll(str, " ", "")
+	str = strings.ReplaceAll(str, "\x1b[m", "~")
+	return str
 }

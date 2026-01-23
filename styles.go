@@ -14,9 +14,10 @@ type styles struct {
 	chrome  string
 	field   string
 	title   string
-	reset   string
 	headers []string
 }
+
+const reset = ansi.ResetStyle
 
 func constructStyles(profile colorprofile.Profile, theme Theme) *styles {
 	// ascii? nop
@@ -28,7 +29,6 @@ func constructStyles(profile colorprofile.Profile, theme Theme) *styles {
 	// dark/light colors (NOT ansi codes)
 	//
 
-	const reset = ansi.ResetStyle
 	var chrome, field, title string
 	var headers []string
 	if theme == ThemeDark {
@@ -58,14 +58,11 @@ func constructStyles(profile colorprofile.Profile, theme Theme) *styles {
 		chrome: codes(chrome, false),
 		field:  codes(field, false),
 		title:  codes(title, true),
-		reset:  reset,
 		headers: lo.Map(headers, func(hex string, _ int) string {
 			return codes(hex, true)
 		}),
 	}
 }
-
-const reset = ansi.ResetStyle
 
 func (s styles) render(codes string, str string) string {
 	if len(codes) == 0 {

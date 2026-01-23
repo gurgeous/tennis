@@ -15,10 +15,10 @@ func TestStyles(t *testing.T) {
 	assert.Equal(t, "", ascii2.title)
 	// dark bold/blue-400
 	dark := constructStyles(colorprofile.TrueColor, ThemeDark)
-	assert.Equal(t, "\x1b[1;38;2;96;165;250m\x1b[m", dark.title)
+	assert.Equal(t, "\x1b[1;38;2;96;165;250m", dark.title)
 	// light bold/blue-600
 	light := constructStyles(colorprofile.TrueColor, ThemeLight)
-	assert.Equal(t, "\x1b[1;38;2;37;99;235m\x1b[m", light.title)
+	assert.Equal(t, "\x1b[1;38;2;37;99;235m", light.title)
 }
 
 // REMIND: downsample

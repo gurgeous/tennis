@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/clipperhouse/displaywidth"
+	"github.com/charmbracelet/x/ansi"
 )
 
 var (
@@ -156,8 +156,8 @@ const (
 	center
 )
 
-func exactly(str string, width int, align align) string {
-	xtra := width - displaywidth.String(str)
+func exactly(str string, length int, align align) string {
+	xtra := length - ansi.StringWidth(str)
 
 	if xtra > 0 {
 		switch align {
@@ -169,7 +169,7 @@ func exactly(str string, width int, align align) string {
 		}
 	} else if xtra < 0 {
 		const ellipsis = "…"
-		str = displaywidth.TruncateString(str, width, ellipsis)
+		str = ansi.Truncate(str, length, ellipsis)
 	}
 	return str
 }
