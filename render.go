@@ -31,7 +31,7 @@ var (
 )
 
 func (t *Table) render() {
-	t.ctx.pipe = t.ctx.styles.render(t.ctx.styles.chrome, string(pipe))
+	t.ctx.pipe = style(t.ctx.styles.chrome, string(pipe))
 
 	if len(t.Title) > 0 {
 		t.renderSep(nw, bar, ne)
@@ -65,7 +65,7 @@ func (t *Table) renderSep(l, m, r rune) {
 		}
 	}
 	buf.WriteRune(r)
-	t.writeLine(t.ctx.styles.render(t.ctx.styles.chrome, buf.String()))
+	t.appendln(style(t.ctx.styles.chrome, buf.String()))
 }
 
 func (t *Table) renderTitle() {
@@ -76,10 +76,10 @@ func (t *Table) renderTitle() {
 	buf.Reset()
 	buf.WriteString(t.ctx.pipe)
 	buf.WriteRune(' ')
-	t.ctx.styles.append(buf, t.ctx.styles.title, str)
+	styleInto(buf, t.ctx.styles.title, str)
 	buf.WriteRune(' ')
 	buf.WriteString(t.ctx.pipe)
-	t.writeLine(buf.String())
+	t.appendln(buf.String())
 }
 
 func (t *Table) renderRow(row int) {
@@ -103,7 +103,7 @@ func (t *Table) renderRow(row int) {
 		t.renderCell(str, row, col)
 		col++
 	}
-	t.writeLine(buf.String())
+	t.appendln(buf.String())
 }
 
 func (t *Table) renderCell(str string, row int, col int) {
@@ -132,7 +132,7 @@ func (t *Table) renderCell(str string, row int, col int) {
 
 	// append
 	buf.WriteRune(' ')
-	t.ctx.styles.append(buf, style, str)
+	styleInto(buf, style, str)
 	buf.WriteRune(' ')
 	buf.WriteString(t.ctx.pipe)
 }
@@ -140,7 +140,7 @@ func (t *Table) renderCell(str string, row int, col int) {
 // errors can be checked later on the writer
 //
 //nolint:errcheck,gosec
-func (t *Table) writeLine(str string) {
+func (t *Table) appendln(str string) {
 	t.ctx.w.WriteString(str)
 	t.ctx.w.WriteRune('\n')
 }

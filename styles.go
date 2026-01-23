@@ -5,7 +5,6 @@ import (
 
 	"github.com/charmbracelet/colorprofile"
 	"github.com/charmbracelet/lipgloss/v2"
-	"github.com/charmbracelet/x/ansi"
 	"github.com/samber/lo"
 )
 
@@ -16,8 +15,6 @@ type styles struct {
 	title   string
 	headers []string
 }
-
-const reset = ansi.ResetStyle
 
 func constructStyles(profile colorprofile.Profile, theme Theme) *styles {
 	// ascii? nop
@@ -50,7 +47,7 @@ func constructStyles(profile colorprofile.Profile, theme Theme) *styles {
 
 		// render an empty string and strip off the reset
 		codes := lipgloss.NewStyle().Foreground(fg).Bold(bold).Render("")
-		codes = strings.TrimSuffix(codes, reset)
+		codes = strings.TrimSuffix(codes, resetStyle)
 		return codes
 	}
 
@@ -62,22 +59,4 @@ func constructStyles(profile colorprofile.Profile, theme Theme) *styles {
 			return codes(hex, true)
 		}),
 	}
-}
-
-func (s styles) render(codes string, str string) string {
-	if len(codes) == 0 {
-		return str
-	}
-	return codes + str + reset
-}
-
-func (s styles) append(buf *strings.Builder, codes string, str string) {
-	if len(codes) == 0 {
-		buf.WriteString(str)
-		return
-	}
-
-	buf.WriteString(codes)
-	buf.WriteString(str)
-	buf.WriteString(reset)
 }
