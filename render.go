@@ -8,12 +8,6 @@ import (
 	"github.com/clipperhouse/displaywidth"
 )
 
-const (
-	edges       = 4 // |•xxxxxx•|
-	placeholder = "—"
-	ellipsis    = "…"
-)
-
 var (
 	// box and friends
 	box = [][]rune{
@@ -77,14 +71,17 @@ func (t *Table) renderSep(l, m, r rune) {
 }
 
 func (t *Table) renderTitle() {
-	data := t.Title
-	data = exactly(data, tableWidth(t.ctx.layout)-edges, center)
-	data = t.ctx.styles.title.Render(data)
+	const edges = 4 // |•xxxxxx•|
+
+	str := t.Title
+	str = exactly(str, tableWidth(t.ctx.layout)-edges, center)
+	str = t.ctx.styles.title.Render(str)
+
 	buf := &t.ctx.buf
 	buf.Reset()
 	buf.WriteString(t.ctx.pipe)
 	buf.WriteRune(' ')
-	buf.WriteString(data)
+	buf.WriteString(str)
 	buf.WriteRune(' ')
 	buf.WriteString(t.ctx.pipe)
 	t.writeLine(buf.String())
@@ -97,33 +94,34 @@ func (t *Table) renderRow(row int) {
 	buf.WriteString(t.ctx.pipe)
 
 	if t.RowNumbers {
-		var data string
+		var str string
 		if row == 0 {
-			data = "#"
+			str = "#"
 		} else {
-			data = strconv.Itoa(row)
+			str = strconv.Itoa(row)
 		}
-		t.renderCell(data, row, col)
+		t.renderCell(str, row, col)
 		col++
 	}
 
-	for _, data := range t.ctx.records[row] {
-		t.renderCell(data, row, col)
+	for _, str := range t.ctx.records[row] {
+		t.renderCell(str, row, col)
 		col++
 	}
 	t.writeLine(buf.String())
 }
 
-func (t *Table) renderCell(data string, row int, col int) {
+func (t *Table) renderCell(str string, row int, col int) {
 	buf := &t.ctx.buf
 
-	// is this cell empty?
-	isPlaceholder := len(data) == 0
+	// is this cell empty? put in a placeolder
+	isPlaceholder := len(str) == 0
 	if isPlaceholder {
-		data = placeholder
+		const placeholder = "—"
+		str = placeholder
 	}
 
-	// choose style
+	// choose style for this cell
 	var style *lipgloss.Style
 	switch {
 	case row == 0:
@@ -137,12 +135,12 @@ func (t *Table) renderCell(data string, row int, col int) {
 	}
 
 	// render
-	data = exactly(data, t.ctx.layout[col], left)
-	data = style.Render(data)
+	str = exactly(str, t.ctx.layout[col], left)
+	str = style.Render(str)
 
 	// append
 	buf.WriteRune(' ')
-	buf.WriteString(data)
+	buf.WriteString(str)
 	buf.WriteRune(' ')
 	buf.WriteString(t.ctx.pipe)
 }
@@ -164,14 +162,18 @@ const (
 
 func exactly(str string, width int, align align) string {
 	xtra := width - displaywidth.String(str)
+
 	if xtra > 0 {
 		switch align {
 		case left:
-			return str + strings.Repeat(" ", xtra)
+			str += strings.Repeat(" ", xtra)
 		case center:
 			half := xtra / 2
-			return strings.Repeat(" ", half) + str + strings.Repeat(" ", xtra-half)
+			str = strings.Repeat(" ", half) + str + strings.Repeat(" ", xtra-half)
 		}
+	} else if xtra < 0 {
+		const ellipsis = "…"
+		str = displaywidth.TruncateString(str, width, ellipsis)
 	}
-	return displaywidth.TruncateString(str, width, ellipsis)
+	return str
 }

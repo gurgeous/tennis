@@ -23,21 +23,12 @@ type Options struct {
 }
 
 func options(ctx *MainContext) *Options {
-	//
-	// sha/version
-	//
-
 	if Version == "" {
 		if info, ok := debug.ReadBuildInfo(); ok && info.Main.Sum != "" {
 			Version = info.Main.Version
 		} else {
 			Version = "unknown (built from source)"
 		}
-	}
-	const shaLen = 7
-	version := fmt.Sprintf("tennis version %s", Version)
-	if len(CommitSHA) >= shaLen {
-		version += " (" + CommitSHA[:shaLen] + ")"
 	}
 
 	//
@@ -62,7 +53,7 @@ func options(ctx *MainContext) *Options {
 		kong.Name("tennis"),
 		kong.Writers(ctx.Output, ctx.Output),
 		kong.Vars{
-			"version":       version,
+			"version":       version(),
 			"versionNumber": Version,
 		},
 	)
@@ -77,16 +68,16 @@ func options(ctx *MainContext) *Options {
 	_, err = kong.Parse(ctx.Args)
 
 	//
-	// copy to Options
+	// kargs => table
 	//
 
 	options := &Options{
 		Table: tennis.Table{
 			Color:      tennis.StringToColor(kargs.Color),
 			Output:     ctx.Output,
+			RowNumbers: kargs.RowNumbers,
 			Theme:      tennis.StringToTheme(kargs.Theme),
 			Title:      kargs.Title,
-			RowNumbers: kargs.RowNumbers,
 		},
 	}
 
@@ -97,10 +88,13 @@ func options(ctx *MainContext) *Options {
 	if err == nil {
 		switch {
 		case kargs.File != nil:
+			// tennis something.csv
 			options.Input = kargs.File
 		case !isTty(ctx.Input):
+			// cat something.csv | tennis
 			options.Input = ctx.Input
 		case len(ctx.Args) > 0:
+			// no input but we got some args, busted
 			err = fmt.Errorf("no input provided")
 		}
 	}
@@ -124,8 +118,17 @@ func options(ctx *MainContext) *Options {
 }
 
 //
-// tty helpers
+// helpers
 //
+
+func version() string {
+	const shaLen = 7
+	version := fmt.Sprintf("tennis version %s", Version)
+	if len(CommitSHA) >= shaLen {
+		version += " (" + CommitSHA[:shaLen] + ")"
+	}
+	return version
+}
 
 func isTty(r io.Reader) bool {
 	if isTtyForced() {

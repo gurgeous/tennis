@@ -42,14 +42,20 @@ test-watch *ARGS:
 
 # simple snapshot testing
 test-snaps:
-  @# clear ; UPDATE=1 just test-snaps && cat snaps/*
   @./snap.sh snaps/0.txt ./tennis --color=always test.csv -n
-  @./snap.sh snaps/1.txt ./tennis test.csv
-  @./snap.sh snaps/6.txt sh -c 'cat test.csv | ./tennis'
-  @./snap.sh snaps/7.txt sh -c 'cat test.csv | ./tennis -'
-  @./snap.sh snaps/3.txt ./tennis
-  @./snap.sh snaps/4.txt ./tennis --help
-  @./snap.sh snaps/5.txt ./tennis test.csv bogus
+  @./snap.sh snaps/1.txt ./tennis --color=always test.csv --title foo
+  @./snap.sh snaps/2.txt ./tennis test.csv
+  @./snap.sh snaps/3.txt sh -c 'cat test.csv | ./tennis'
+  @./snap.sh snaps/4.txt sh -c 'cat test.csv | ./tennis -'
+  @./snap.sh snaps/5.txt ./tennis
+  @./snap.sh snaps/6.txt ./tennis test.csv bogus
+
+# regen snaps
+gen-snaps:
+  @clear
+  @rm -rf snaps/ && mkdir -p snaps
+  @GEN=1 just test-snaps ; echo ; cat snaps/*
+  @just banner update-snaps done
 
 #
 # banner

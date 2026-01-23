@@ -1,7 +1,6 @@
 ############################################################################
-# snap.sh ./tennis test.csv bogus
+# snap.sh ./tennis
 ############################################################################
 
 tennis: try 'tennis --help' for more information
-tennis: error: unexpected argument bogus
 

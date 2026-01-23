@@ -37,10 +37,10 @@ EOF
 echo >> "$tmp"
 
 #
-# update if necessary
+# gen if necessary
 #
 
-if [ "$UPDATE" = "1" ] || [ ! -f "$out" ]; then
+if [ "$GEN" = "1" ] || [ ! -f "$out" ]; then
   mv "$tmp" "$out"
   banner "snap created: $out"
   exit 0
