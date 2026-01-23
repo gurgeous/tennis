@@ -1,0 +1,7 @@
+#
+# snap.sh ./tennis test.csv bogus
+#
+
+tennis: try 'tennis --help' for more information
+tennis: error: unexpected argument bogus
+

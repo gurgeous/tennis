@@ -40,14 +40,14 @@ test *ARGS:
 
 test-kong: build
   @clear
-  @just banner  "kong: no args"  ; ./tennis
-  @just banner  "kong: --help"   ; ./tennis --help
-  @just banner  "kong: w/file"   ; ./tennis test.csv
-  @just banner  "kong: stdin -"  ; cat test.csv | ./tennis -
-  @just banner  "kong: stdin"    ; cat test.csv | ./tennis
-  @just warning "kong: bad file" ; ./tennis bogus || true
-  @just warning "kong: missing"  ; ./tennis -n || true
-  @just banner Done
+  @./snap.sh snaps/0.txt ./tennis test.csv
+  @./snap.sh snaps/1.txt ./tennis
+  @./snap.sh snaps/2.txt ./tennis --help
+  @./snap.sh snaps/3.txt ./tennis test.csv -n
+  @./snap.sh snaps/4.txt ./tennis test.csv bogus
+  @./snap.sh snaps/5.txt sh -c 'cat test.csv | ./tennis'
+  @./snap.sh snaps/6.txt sh -c 'cat test.csv | ./tennis -'
+  @just banner done
 
 test-watch *ARGS:
   @watchexec --watch . --clear=reset just test "{{ARGS}}"
