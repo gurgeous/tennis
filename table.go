@@ -95,21 +95,8 @@ func (t *Table) WriteRecords(records [][]string) {
 
 	t.ctx.dataWidths = t.constructDataWidths()
 	t.ctx.layout = constructLayout(t.ctx.dataWidths, t.TermWidth)
-
-	//
-	// TENNIS_DEBUG
-	//
-
 	if len(os.Getenv("TENNIS_DEBUG")) != 0 {
-		t.debugf("shape [%dx%d]", len(records[0]), len(records))
-		t.debugf("termwidth = %d", t.TermWidth)
-		keys := []string{"NO_COLOR", "CLICOLOR_FORCE", "TTY_FORCE"}
-		for _, key := range keys {
-			t.debugf("$%-14s = '%s'", key, os.Getenv(key))
-		}
-		t.debugf("color=%v, theme=%v, profile=%v", t.Color, t.Theme, t.ctx.profile)
-		t.debugf("dataWidths = %v", t.ctx.dataWidths)
-		t.debugf("layout     = %v", t.ctx.layout)
+		t.debug()
 	}
 
 	//
@@ -160,9 +147,21 @@ func (t *Table) setup() {
 	t.ctx.styles = constructStyles(t.ctx.profile, t.Theme)
 }
 
-func (t *Table) debugf(format string, args ...any) {
-	str := fmt.Sprintf(format, args...)
-	fmt.Fprintf(os.Stderr, "\033[1;37;42m[tennis]\033[0m %s\n", str)
+func (t *Table) debug() {
+	debugf := func(format string, args ...any) {
+		str := fmt.Sprintf(format, args...)
+		fmt.Fprintf(os.Stderr, "\033[1;37;42m[tennis]\033[0m %s\n", str)
+	}
+
+	debugf("shape [%dx%d]", len(t.ctx.records[0]), len(t.ctx.records))
+	debugf("termwidth = %d", t.TermWidth)
+	keys := []string{"NO_COLOR", "CLICOLOR_FORCE", "TTY_FORCE"}
+	for _, key := range keys {
+		debugf("$%-14s = '%s'", key, os.Getenv(key))
+	}
+	debugf("color=%v, theme=%v, profile=%v", t.Color, t.Theme, t.ctx.profile)
+	debugf("dataWidths = %v", t.ctx.dataWidths)
+	debugf("layout     = %v", t.ctx.layout)
 }
 
 //

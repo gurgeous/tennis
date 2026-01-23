@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"os"
 	"testing"
@@ -24,9 +23,8 @@ func TestOptionsBogus(t *testing.T) {
 }
 
 func TestOptions(t *testing.T) {
-	o, stdout, exitCode := withContext(t, []string{"-n", "--color=never", "--theme=light"}, "foo", options)
+	o, _, exitCode := withContext(t, []string{"-n", "--color=never", "--theme=light"}, "foo", options)
 
-	fmt.Println(stdout)
 	assert.Equal(t, -1, exitCode)
 	assert.True(t, o.Table.RowNumbers)
 	assert.Equal(t, o.Table.Color, tennis.ColorNever)
