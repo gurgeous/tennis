@@ -4,8 +4,6 @@ package main
 // TODO
 // - features
 //   - write array of structs? (https://github.com/jszwec/csvutil)
-// - tests
-//   - style/downsample
 // - releaser
 //   - goreleaser & sha/version
 //   - see ~/sync/vectrogo/justfile for goreleaser

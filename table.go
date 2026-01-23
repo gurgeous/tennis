@@ -2,14 +2,17 @@ package tennis
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/csv"
 	"fmt"
 	"io"
 	"os"
+	"reflect"
 	"strings"
 
 	"github.com/charmbracelet/colorprofile"
 	"github.com/charmbracelet/lipgloss/v2"
+	"github.com/jszwec/csvutil"
 	"golang.org/x/term"
 )
 
@@ -60,6 +63,39 @@ func (t *Table) WriteCsv(r *csv.Reader) error {
 }
 
 // write all structs (must be the same type)
+func (t *Table) WriteStructs(records any) error {
+	// bit o' sanity checking
+	val := reflect.ValueOf(records)
+	// fmt.Printf("val=%v\n", val)
+	// fmt.Printf("kind=%v\n", val.Kind())
+	// fmt.Printf("type=%v\n", val.Type())
+	// fmt.Printf("elem=%v\n", val.Type().Elem())
+
+	if val.Kind() != reflect.Slice && val.Kind() != reflect.Array {
+		return fmt.Errorf("must be an array/slice of structs, not %v", val)
+	}
+
+	// more sanity
+	// if walkType(val.Type().Elem()).Kind() != reflect.Struct {
+
+	// struct must have at least one public member!
+	// all structs must be the same type
+	// for ii := range val.Len() {
+	// 	x := val.Index(ii)
+	// 	fmt.Printf("val[%d]=%v\n", ii, x)
+	// }
+	// 	if err := e.encodeStruct(walkValue(v.Index(i))); err != nil {
+	// 		return err
+	// 	}
+	// }
+
+	b, err := csvutil.Marshal(records)
+	// fmt.Printf("bytyes = '%v'\n", string(b))
+	if err != nil {
+		return fmt.Errorf("failed to marshal structs: %w", err)
+	}
+	return t.Write(bytes.NewReader(b))
+}
 
 // write all records
 func (t *Table) WriteRecords(records [][]string) {

@@ -8,6 +8,7 @@ require (
 	github.com/charmbracelet/lipgloss/v2 v2.0.0-beta1
 	github.com/charmbracelet/x/ansi v0.8.0
 	github.com/charmbracelet/x/term v0.2.1
+	github.com/jszwec/csvutil v1.10.0
 	github.com/k0kubun/pp/v3 v3.5.0
 	github.com/samber/lo v1.52.0
 	github.com/stretchr/testify v1.11.1

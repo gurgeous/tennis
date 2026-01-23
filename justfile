@@ -42,6 +42,7 @@ test-cover:
   @just banner "Coverage report..."
   @go tool cover -func /tmp/cover.out | rg -v "\w+_string.go"
 
+# $ just test-watch -run regex
 test-watch *ARGS:
   @watchexec --watch . --clear=reset just test "{{ARGS}}"
 

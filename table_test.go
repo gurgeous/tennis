@@ -72,6 +72,27 @@ func TestTableDebug(t *testing.T) {
 	table.Write(strings.NewReader(input))
 }
 
+func TestTableStructs(t *testing.T) {
+	type row struct {
+		A string
+		B int
+	}
+	input := []row{{"a", 1}, {"b", 2}}
+	output := &strings.Builder{}
+	table := &Table{Color: ColorNever, Output: output}
+	err := table.WriteStructs(input)
+	assert.NoError(t, err)
+	const exp = `
+╭────┬────╮
+│ A  │ B  │
+├────┼────┤
+│ a  │ 1  │
+│ b  │ 2  │
+╰────┴────╯
+`
+	AssertEqualTrim(t, exp, output.String())
+}
+
 func mockStd(t *testing.T) (stdin *os.File, stdout *os.File, stderr *os.File) {
 	inRead, inWrite, _ := os.Pipe()
 	outRead, outWrite, _ := os.Pipe()
