@@ -100,7 +100,7 @@ func (t *Table) Write(r io.Reader) error {
 func (t *Table) WriteCsv(r *csv.Reader) error {
 	records, err := r.ReadAll()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read csv: %w", err)
 	}
 	t.WriteRecords(records)
 	return nil

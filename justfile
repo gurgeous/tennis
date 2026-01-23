@@ -17,9 +17,11 @@ build-release:
 #
 
 check:
+  @just banner build ; just build
   @just banner lint ; just lint
   @just banner test ; just test
-  @just banner Done
+  @just banner test-snap ; just test-snap
+  @just banner done
 
 lint *ARGS:
   golangci-lint run {{ARGS}}
@@ -36,7 +38,7 @@ test *ARGS:
   @go test ./... {{ARGS}}
 
 # really simple snapshot testing
-test-kong: build
+test-snap:
   @./snap.sh snaps/0.txt ./tennis test.csv
   @./snap.sh snaps/1.txt ./tennis
   @./snap.sh snaps/2.txt ./tennis --help
@@ -44,7 +46,6 @@ test-kong: build
   @./snap.sh snaps/4.txt ./tennis test.csv bogus
   @./snap.sh snaps/5.txt sh -c 'cat test.csv | ./tennis'
   @./snap.sh snaps/6.txt sh -c 'cat test.csv | ./tennis -'
-  @just banner done
 
 test-watch *ARGS:
   @watchexec --watch . --clear=reset just test "{{ARGS}}"
@@ -58,6 +59,5 @@ banner +ARGS: (_banner BG_GREEN ARGS)
 warning +ARGS: (_banner BG_YELLOW ARGS)
 fatal +ARGS: (_banner BG_RED ARGS)
   @exit 1
-
 _banner BG +ARGS:
   @printf '{{BOLD+BG+WHITE}}[%s] %-72s {{NORMAL}}\n' "$(date +%H:%M:%S)" "{{ARGS}}"
