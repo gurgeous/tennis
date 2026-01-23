@@ -2,16 +2,14 @@ package main
 
 //
 // TODO
-// - features
-//   - write array of structs? (https://github.com/jszwec/csvutil)
 // - releaser
-//   - goreleaser & sha/version
-//   - see ~/sync/vectrogo/justfile for goreleaser
 //   - README/LICENSE
 //   - demo.gif
 //   - https://github.com/antonmedv/fx/blob/master/scripts/build.mjs
 //   - https://github.com/charmbracelet/meta
 //   - https://github.com/uber-go/fx/blob/master/Makefile
+//   - goreleaser & sha/version
+//   - see ~/sync/vectrogo/justfile for goreleaser
 //
 
 import (

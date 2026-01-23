@@ -2,7 +2,6 @@ package tennis
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -64,37 +63,37 @@ func (t *Table) WriteCsv(r *csv.Reader) error {
 
 // write all structs (must be the same type)
 func (t *Table) WriteStructs(records any) error {
-	// bit o' sanity checking
+	// sanity checks
 	val := reflect.ValueOf(records)
-	// fmt.Printf("val=%v\n", val)
-	// fmt.Printf("kind=%v\n", val.Kind())
-	// fmt.Printf("type=%v\n", val.Type())
-	// fmt.Printf("elem=%v\n", val.Type().Elem())
-
-	if val.Kind() != reflect.Slice && val.Kind() != reflect.Array {
-		return fmt.Errorf("must be an array/slice of structs, not %v", val)
+	switch val.Kind() {
+	case reflect.Slice, reflect.Array:
+	default:
+		return fmt.Errorf("must be an array of struct (got %v)", val)
+	}
+	if val.Len() == 0 {
+		return nil
+	}
+	for ii := range val.Len() {
+		vi := val.Index(ii)
+		if vi.Kind() != reflect.Struct {
+			return fmt.Errorf("elements must be structs (got %v)", vi.Kind())
+		}
 	}
 
-	// more sanity
-	// if walkType(val.Type().Elem()).Kind() != reflect.Struct {
-
-	// struct must have at least one public member!
-	// all structs must be the same type
-	// for ii := range val.Len() {
-	// 	x := val.Index(ii)
-	// 	fmt.Printf("val[%d]=%v\n", ii, x)
-	// }
-	// 	if err := e.encodeStruct(walkValue(v.Index(i))); err != nil {
-	// 		return err
-	// 	}
-	// }
-
-	b, err := csvutil.Marshal(records)
-	// fmt.Printf("bytyes = '%v'\n", string(b))
+	// marshal
+	bytes, err := csvutil.Marshal(records)
 	if err != nil {
 		return fmt.Errorf("failed to marshal structs: %w", err)
 	}
-	return t.Write(bytes.NewReader(b))
+
+	// let the user know if there are no public headers
+	str := string(bytes)
+	if len(strings.TrimSpace(str)) == 0 {
+		return fmt.Errorf("no exportable fields found in struct?")
+	}
+
+	// now write
+	return t.Write(strings.NewReader(str))
 }
 
 // write all records
