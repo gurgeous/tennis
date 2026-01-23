@@ -29,20 +29,16 @@ type Table struct {
 
 // internal context
 type context struct {
-	w       *bufio.Writer        // bufio wrapper around forward
-	headers []string             // first row of records
-	records [][]string           // all records (including headers)
-	layout  []int                // width of each column in terminal
-	profile colorprofile.Profile // ascii/ansi256/truecolor/etc
-	styles  *styles              // colors
-	buf     strings.Builder      // re-usable scratch buffer
-	pipe    string               // stylized pipe character
+	w          *bufio.Writer        // bufio wrapper around forward
+	headers    []string             // first row of records
+	records    [][]string           // all records (including headers)
+	dataWidths []int                // width of raw data
+	layout     []int                // width of each column in terminal
+	profile    colorprofile.Profile // ascii/ansi256/truecolor/etc
+	styles     *styles              // colors
+	buf        strings.Builder      // re-usable scratch buffer
+	pipe       string               // stylized pipe character
 }
-
-const (
-	// use this if TermWidth
-	defaultTermWidth = 80
-)
 
 //
 // Color
@@ -109,61 +105,26 @@ func (t *Table) WriteCsv(r *csv.Reader) error {
 
 // write all records
 func (t *Table) WriteRecords(records [][]string) {
-	//
 	// edge cases
-	//
-
-	t.ctx.records = records
-	if len(t.ctx.records) == 0 {
+	if len(records) == 0 || len(records[0]) == 0 {
 		return
 	}
+
+	// setup
 	t.ctx.headers = records[0]
-	if len(t.ctx.headers) == 0 {
-		return
-	}
-
-	//
-	// setup styles
-	//
-
-	if t.Output == nil {
-		t.Output = os.Stdout
-	}
-	switch t.Color {
-	case ColorAuto:
-		t.ctx.profile = colorprofile.Detect(t.Output, os.Environ())
-	case ColorAlways:
-		t.ctx.profile = colorprofile.TrueColor
-	case ColorNever:
-		t.ctx.profile = colorprofile.Ascii
-	}
-	if t.Theme == ThemeAuto && t.Color != ColorNever {
-		if lipgloss.HasDarkBackground(os.Stdin, os.Stderr) {
-			t.Theme = ThemeDark
-		} else {
-			t.Theme = ThemeLight
-		}
-	}
-	if t.TermWidth == 0 {
-		termwidth, _, err := term.GetSize(int(os.Stdout.Fd()))
-		if err != nil {
-			t.TermWidth = defaultTermWidth
-		} else {
-			t.TermWidth = termwidth
-		}
-	}
-	t.ctx.styles = constructStyles(t.ctx.profile, t.Theme)
-	t.ctx.w = bufio.NewWriter(t.Output)
+	t.ctx.records = records
+	t.setup()
+	defer func() { t.ctx = context{} }()
 
 	//
 	// layout
 	//
 
-	dataWidths := t.measureDataWidths()
-	t.ctx.layout = constructLayout(dataWidths, t.TermWidth)
+	t.ctx.dataWidths = t.constructDataWidths()
+	t.ctx.layout = constructLayout(t.ctx.dataWidths, t.TermWidth)
 
 	//
-	// debug if TENNIS_DEBUG
+	// TENNIS_DEBUG
 	//
 
 	if len(os.Getenv("TENNIS_DEBUG")) != 0 {
@@ -174,7 +135,7 @@ func (t *Table) WriteRecords(records [][]string) {
 			t.debugf("$%-14s = '%s'", key, os.Getenv(key))
 		}
 		t.debugf("color=%v, theme=%v, profile=%v", t.Color, t.Theme, t.ctx.profile)
-		t.debugf("dataWidths = %v", dataWidths)
+		t.debugf("dataWidths = %v", t.ctx.dataWidths)
 		t.debugf("layout     = %v", t.ctx.layout)
 	}
 
@@ -183,9 +144,47 @@ func (t *Table) WriteRecords(records [][]string) {
 	//
 
 	t.render()
+}
 
-	// free memory
-	t.ctx = context{}
+func (t *Table) setup() {
+	// output
+	if t.Output == nil {
+		t.Output = os.Stdout
+	}
+	t.ctx.w = bufio.NewWriter(t.Output)
+
+	// profile
+	switch t.Color {
+	case ColorAuto:
+		t.ctx.profile = colorprofile.Detect(t.Output, os.Environ())
+	case ColorAlways:
+		t.ctx.profile = colorprofile.TrueColor
+	case ColorNever:
+		t.ctx.profile = colorprofile.Ascii
+	}
+
+	// termwidth
+	if t.TermWidth == 0 {
+		const defaultTermWidth = 80
+		termwidth, _, err := term.GetSize(int(os.Stdout.Fd()))
+		if err != nil {
+			t.TermWidth = defaultTermWidth
+		} else {
+			t.TermWidth = termwidth
+		}
+	}
+
+	// theme
+	if t.Theme == ThemeAuto && t.Color != ColorNever {
+		if lipgloss.HasDarkBackground(os.Stdin, os.Stderr) {
+			t.Theme = ThemeDark
+		} else {
+			t.Theme = ThemeLight
+		}
+	}
+
+	// styles
+	t.ctx.styles = constructStyles(t.ctx.profile, t.Theme)
 }
 
 func (t *Table) debugf(format string, args ...any) {

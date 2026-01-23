@@ -44,26 +44,26 @@ test-cover:
   @just banner "Running tests..."
   @go test ./... -coverprofile /tmp/cover.out
   @just banner "Coverage report..."
-  @go tool cover -func /tmp/cover.out
+  @go tool cover -func /tmp/cover.out | rg -v "\w+_string.go"
 
 test-watch *ARGS:
   @watchexec --watch . --clear=reset just test "{{ARGS}}"
 
 # simple snapshot testing
 test-snaps:
-  @./snap.sh snaps/0.txt ./tennis --color=always test.csv -n
-  @./snap.sh snaps/1.txt ./tennis --color=always test.csv --title foo
-  @./snap.sh snaps/2.txt ./tennis test.csv
-  @./snap.sh snaps/3.txt sh -c 'cat test.csv | ./tennis'
-  @./snap.sh snaps/4.txt sh -c 'cat test.csv | ./tennis -'
-  @./snap.sh snaps/5.txt ./tennis
-  @./snap.sh snaps/6.txt ./tennis test.csv bogus
+  @./snap.sh testdata/0.txt ./tennis --color=always test.csv -n
+  @./snap.sh testdata/1.txt ./tennis --color=always test.csv --title foo
+  @./snap.sh testdata/2.txt ./tennis test.csv
+  @./snap.sh testdata/3.txt sh -c 'cat test.csv | ./tennis'
+  @./snap.sh testdata/4.txt sh -c 'cat test.csv | ./tennis -'
+  @./snap.sh testdata/5.txt ./tennis
+  @./snap.sh testdata/6.txt ./tennis test.csv bogus
 
 # regen snaps
 gen-snaps:
   @clear
-  @rm -rf snaps/ && mkdir -p snaps
-  @GEN=1 just test-snaps ; echo ; cat snaps/*
+  @rm -rf testdata/ && mkdir -p testdata/
+  @GEN=1 just test-snaps ; echo ; cat testdata/*
   @just banner update-snaps done
 
 #
