@@ -23,7 +23,6 @@ import (
 	"io"
 	"os"
 
-	"github.com/gurgeous/tennis"
 	_ "github.com/kr/pretty"
 )
 
@@ -54,16 +53,8 @@ func main0(ctx *MainContext) bool {
 	// parse cli options
 	o := options(ctx)
 
-	// table
-	table := &tennis.Table{
-		Color:      o.Color,
-		Output:     o.Output,
-		RowNumbers: o.RowNumbers,
-		Theme:      o.Theme,
-	}
-
 	// write csv
-	if err := table.Write(o.Input); err != nil {
+	if err := o.Table.Write(o.Input); err != nil {
 		fmt.Printf("tennis: could not read csv - %s", err.Error())
 		ctx.Exit(1)
 	}

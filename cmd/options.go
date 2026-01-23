@@ -18,11 +18,8 @@ var (
 )
 
 type Options struct {
-	Input      io.Reader    // where to read
-	Output     io.Writer    // where to write
-	Color      tennis.Color // auto/always/never
-	Theme      tennis.Theme // auto/dark/light
-	RowNumbers bool         // true if row numbers on
+	Table tennis.Table // a configured table
+	Input io.Reader    // where to read
 }
 
 func options(ctx *MainContext) *Options {
@@ -83,10 +80,11 @@ func options(ctx *MainContext) *Options {
 	//
 
 	options := &Options{
-		Output:     ctx.Output,
-		Color:      tennis.StringToColor(kargs.Color),
-		Theme:      tennis.StringToTheme(kargs.Theme),
-		RowNumbers: kargs.RowNumbers,
+		Table: tennis.Table{
+			Color:      tennis.StringToColor(kargs.Color),
+			Theme:      tennis.StringToTheme(kargs.Theme),
+			RowNumbers: kargs.RowNumbers,
+		},
 	}
 
 	//
