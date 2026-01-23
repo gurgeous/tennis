@@ -59,6 +59,8 @@ func (t *Table) WriteCsv(r *csv.Reader) error {
 	return nil
 }
 
+// write all structs (must be the same type)
+
 // write all records
 func (t *Table) WriteRecords(records [][]string) {
 	// edge cases
@@ -66,9 +68,24 @@ func (t *Table) WriteRecords(records [][]string) {
 		return
 	}
 
-	// setup
-	t.ctx.headers = records[0]
+	// fixup ragged
+	nFields := len(records[0])
+	for ii, record := range records {
+		if len(record) == nFields {
+			continue
+		}
+		if len(record) < nFields {
+			for j := len(record); j < nFields; j++ {
+				records[ii] = append(records[ii], "")
+			}
+		} else if len(record) > nFields {
+			records[ii] = records[ii][:nFields]
+		}
+	}
 	t.ctx.records = records
+	t.ctx.headers = records[0]
+
+	// setup
 	t.setup()
 	defer func() { t.ctx = context{} }()
 

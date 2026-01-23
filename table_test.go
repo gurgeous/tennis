@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestTable(t *testing.T) {
+func TestTableColor(t *testing.T) {
 	const input = "a,b\nc,d"
 
 	exp := "" +
@@ -23,11 +23,42 @@ func TestTable(t *testing.T) {
 	exp = strings.ReplaceAll(exp, "FI", "\x1b[38;2;229;231;235m")   // field
 
 	output := &strings.Builder{}
-	table := &Table{
-		Color:  ColorAlways,
-		Theme:  ThemeDark,
-		Output: output,
-	}
+	table := &Table{Color: ColorAlways, Theme: ThemeDark, Output: output}
 	table.Write(strings.NewReader(input))
 	assert.Equal(t, exp, output.String())
+}
+
+func TestTableAscii(t *testing.T) {
+	const input = "a,b\nc,d"
+	const exp = `
+╭────┬────╮
+│ a  │ b  │
+├────┼────┤
+│ c  │ d  │
+╰────┴────╯
+`
+	output := &strings.Builder{}
+	table := &Table{Color: ColorNever, Output: output}
+	table.Write(strings.NewReader(input))
+	AssertEqualTrim(t, exp, output.String())
+}
+
+func TestTableRagged(t *testing.T) {
+	input := [][]string{
+		{"a", "b"},
+		{"c"},
+		{"d", "e", "f"},
+	}
+	const exp = `
+╭────┬────╮
+│ a  │ b  │
+├────┼────┤
+│ c  │ —  │
+│ d  │ e  │
+╰────┴────╯
+`
+	output := &strings.Builder{}
+	table := &Table{Color: ColorNever, Output: output}
+	table.WriteRecords(input)
+	AssertEqualTrim(t, exp, output.String())
 }

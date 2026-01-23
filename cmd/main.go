@@ -22,7 +22,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/k0kubun/pp/v3"
+	_ "github.com/k0kubun/pp/v3"
 )
 
 func main() {
@@ -52,7 +52,6 @@ type MainContext struct {
 func main0(ctx *MainContext) bool {
 	// parse cli options
 	o := options(ctx)
-	pp.Print(o)
 
 	// write csv
 	if err := o.Table.Write(o.Input); err != nil {
