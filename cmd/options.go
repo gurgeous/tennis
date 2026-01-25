@@ -1,15 +1,16 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"runtime/debug"
 	"strconv"
 
-	"github.com/alecthomas/kong"
 	"github.com/charmbracelet/x/term"
 	"github.com/gurgeous/tennis"
+	"github.com/urfave/cli/v3"
 )
 
 // see .goreleaser.yaml
@@ -29,53 +30,88 @@ func options(ctx *MainContext) *Options {
 		}
 	}
 
-	//
-	// setup kong
-	//
-
-	type kongArgs struct {
-		File       *os.File         `arg:"" optional:"" type:"file"`
-		Color      string           `help:"Turn color off and on with auto|never|always" enum:"auto,never,always" default:"auto"`
-		Theme      string           `help:"Select color theme auto|dark|light" enum:"auto,dark,light" default:"auto"`
-		RowNumbers bool             `short:"n" help:"Turn on row numbers"`
-		Title      string           `short:"t" help:"Add a pretty title at the top"`
-		Version    kong.VersionFlag `help:"Print the version number"`
-	}
-
-	kargs := &kongArgs{}
-	k, err := kong.New(
-		kargs,
-		kong.ConfigureHelp(kong.HelpOptions{Compact: true, Summary: false}),
-		kong.Description("CSV pretty printer."),
-		kong.Exit(ctx.Exit),
-		kong.Name("tennis"),
-		kong.Writers(ctx.Output, ctx.Output),
-		kong.Vars{
-			"version":       fmt.Sprintf("tennis version %s", Version),
-			"versionNumber": Version,
-		},
+	var (
+		fileArg     string
+		colorValue  string
+		themeValue  string
+		rowNumbers  bool
+		title       string
+		showVersion bool
 	)
-	if err != nil {
-		panic(err)
+
+	cmd := &cli.Command{
+		Name:                  "tennis",
+		Usage:                 "CSV pretty printer.",
+		ArgsUsage:             "[file]",
+		Version:               fmt.Sprintf("tennis version %s", Version),
+		Reader:                ctx.Input,
+		Writer:                ctx.Output,
+		ErrWriter:             ctx.Output,
+		HideHelpCommand:       true,
+		HideVersion:           true,
+		EnableShellCompletion: false,
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:  "color",
+				Usage: "Turn color off and on with auto|never|always",
+				Value: "auto",
+			},
+			&cli.StringFlag{
+				Name:  "theme",
+				Usage: "Select color theme auto|dark|light",
+				Value: "auto",
+			},
+			&cli.BoolFlag{
+				Name:    "row-numbers",
+				Aliases: []string{"n"},
+				Usage:   "Turn on row numbers",
+			},
+			&cli.StringFlag{
+				Name:    "title",
+				Aliases: []string{"t"},
+				Usage:   "Add a pretty title at the top",
+			},
+			&cli.BoolFlag{
+				Name:  "version",
+				Usage: "Print the version number",
+			},
+		},
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			if cmd.Bool("version") {
+				showVersion = true
+				fmt.Fprintf(cmd.Writer, "tennis version %s\n", Version)
+				return nil
+			}
+			if cmd.Args().Len() > 1 {
+				return fmt.Errorf("unexpected argument %s", cmd.Args().Get(1))
+			}
+			fileArg = cmd.Args().First()
+			colorValue = cmd.String("color")
+			themeValue = cmd.String("theme")
+			rowNumbers = cmd.Bool("row-numbers")
+			title = cmd.String("title")
+			return nil
+		},
+		ExitErrHandler: func(context.Context, *cli.Command, error) {},
 	}
 
-	//
-	// run kong
-	//
-
-	_, err = k.Parse(ctx.Args)
-
-	//
-	// kargs => table
-	//
+	if err := cmd.Run(context.Background(), append([]string{"tennis"}, ctx.Args...)); err != nil {
+		fmt.Fprintln(ctx.Output, "tennis: try 'tennis --help' for more information")
+		ctx.Exit(1)
+		return nil
+	}
+	if showVersion {
+		ctx.Exit(0)
+		return nil
+	}
 
 	options := &Options{
 		Table: tennis.Table{
-			Color:      tennis.StringToColor(kargs.Color),
+			Color:      tennis.StringToColor(colorValue),
 			Output:     ctx.Output,
-			RowNumbers: kargs.RowNumbers,
-			Theme:      tennis.StringToTheme(kargs.Theme),
-			Title:      kargs.Title,
+			RowNumbers: rowNumbers,
+			Theme:      tennis.StringToTheme(themeValue),
+			Title:      title,
 		},
 	}
 
@@ -83,31 +119,29 @@ func options(ctx *MainContext) *Options {
 	// set Input, but only if we don't have a kargs error yet
 	//
 
-	if err == nil {
-		switch {
-		case kargs.File != nil:
-			// tennis something.csv
-			options.Input = kargs.File
-		case !isTty(ctx.Input):
-			// cat something.csv | tennis
-			options.Input = ctx.Input
-		case len(ctx.Args) > 0:
-			// no input but we got some args, busted
-			err = fmt.Errorf("no input provided")
+	switch {
+	case fileArg != "" && fileArg != "-":
+		// tennis something.csv
+		file, err := os.Open(fileArg)
+		if err != nil {
+			fmt.Fprintln(ctx.Output, "tennis: try 'tennis --help' for more information")
+			ctx.Exit(1)
+			return nil
 		}
+		options.Input = file
+	case fileArg == "-" || !isTty(ctx.Input):
+		// cat something.csv | tennis OR tennis -
+		options.Input = ctx.Input
+	case len(ctx.Args) > 0:
+		// no input but we got some args, busted
+		fmt.Fprintln(ctx.Output, "tennis: try 'tennis --help' for more information")
+		ctx.Exit(1)
+		return nil
 	}
 
-	//
-	// error handling
-	//
-
-	if err != nil || options.Input == nil {
+	if options.Input == nil {
 		fmt.Fprintln(ctx.Output, "tennis: try 'tennis --help' for more information")
-		k.FatalIfErrorf(err)
-		if err == nil {
-			// this is fine
-			ctx.Exit(0)
-		}
+		ctx.Exit(0)
 		return nil // only reached in test
 	}
 
