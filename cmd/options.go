@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime/debug"
 	"strconv"
+	"strings"
 
 	"github.com/charmbracelet/x/term"
 	"github.com/gurgeous/tennis"
@@ -30,19 +31,10 @@ func options(ctx *MainContext) *Options {
 		}
 	}
 
-	var (
-		fileArg     string
-		colorValue  string
-		themeValue  string
-		rowNumbers  bool
-		title       string
-		showVersion bool
-	)
-
 	cmd := &cli.Command{
 		Name:                  "tennis",
-		Usage:                 "CSV pretty printer.",
-		ArgsUsage:             "[file]",
+		Usage:                 "Stylish CSV tables in your terminal.",
+		ArgsUsage:             "[file.csv]",
 		Version:               fmt.Sprintf("tennis version %s", Version),
 		Reader:                ctx.Input,
 		Writer:                ctx.Output,
@@ -55,11 +47,17 @@ func options(ctx *MainContext) *Options {
 				Name:  "color",
 				Usage: "Turn color off and on with auto|never|always",
 				Value: "auto",
+				Validator: func(value string) error {
+					return isOneOfFold(value, "auto", "never", "always")
+				},
 			},
 			&cli.StringFlag{
 				Name:  "theme",
 				Usage: "Select color theme auto|dark|light",
 				Value: "auto",
+				Validator: func(value string) error {
+					return isOneOfFold(value, "auto", "dark", "light")
+				},
 			},
 			&cli.BoolFlag{
 				Name:    "row-numbers",
@@ -78,40 +76,40 @@ func options(ctx *MainContext) *Options {
 		},
 		Action: func(_ context.Context, cmd *cli.Command) error {
 			if cmd.Bool("version") {
-				showVersion = true
 				fmt.Fprintf(cmd.Writer, "tennis version %s\n", Version)
 				return nil
 			}
 			if cmd.Args().Len() > 1 {
 				return fmt.Errorf("unexpected argument %s", cmd.Args().Get(1))
 			}
-			fileArg = cmd.Args().First()
-			colorValue = cmd.String("color")
-			themeValue = cmd.String("theme")
-			rowNumbers = cmd.Bool("row-numbers")
-			title = cmd.String("title")
 			return nil
 		},
-		ExitErrHandler: func(context.Context, *cli.Command, error) {},
+		ExitErrHandler: func(_ context.Context, _ *cli.Command, err error) {
+			if err == nil {
+				return
+			}
+			fmt.Fprintln(ctx.Output, "tennis: try 'tennis --help' for more information")
+			ctx.Exit(1)
+		},
 	}
 
-	if err := cmd.Run(context.Background(), append([]string{"tennis"}, ctx.Args...)); err != nil {
-		fmt.Fprintln(ctx.Output, "tennis: try 'tennis --help' for more information")
-		ctx.Exit(1)
-		return nil
-	}
-	if showVersion {
+	_ = cmd.Run(context.Background(), append([]string{"tennis"}, ctx.Args...))
+	if cmd.Bool("version") {
 		ctx.Exit(0)
 		return nil
 	}
 
+	//
+	// populate options
+	//
+
 	options := &Options{
 		Table: tennis.Table{
-			Color:      tennis.StringToColor(colorValue),
+			Color:      tennis.StringToColor(cmd.String("color")),
 			Output:     ctx.Output,
-			RowNumbers: rowNumbers,
-			Theme:      tennis.StringToTheme(themeValue),
-			Title:      title,
+			RowNumbers: cmd.Bool("row-numbers"),
+			Theme:      tennis.StringToTheme(cmd.String("theme")),
+			Title:      cmd.String("title"),
 		},
 	}
 
@@ -119,6 +117,7 @@ func options(ctx *MainContext) *Options {
 	// set Input, but only if we don't have a kargs error yet
 	//
 
+	fileArg := cmd.Args().First()
 	switch {
 	case fileArg != "" && fileArg != "-":
 		// tennis something.csv
@@ -164,4 +163,13 @@ func isTty(r io.Reader) bool {
 func isTtyForced() bool {
 	b, _ := strconv.ParseBool(os.Getenv("TTY_FORCE"))
 	return b
+}
+
+func isOneOfFold(value string, allowed ...string) error {
+	for _, candidate := range allowed {
+		if strings.EqualFold(value, candidate) {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid value %q, must be one of %s", value, strings.Join(allowed, ", "))
 }
