@@ -1,0 +1,18 @@
+name,height,homeworld,species,films
+Luke Skywalker,172,Tatooine,Human,"A New Hope, The Empire Strikes Back, Return of the Jedi, Revenge of the Sith, The Force Awakens"
+C-3PO,167,Tatooine,Droid,"A New Hope, The Empire Strikes Back, Return of the Jedi, The Phantom Menace, Attack of the Clones, Revenge of the Sith"
+R2-D2,96,Naboo,Droid,"A New Hope, The Empire Strikes Back, Return of the Jedi, The Phantom Menace, Attack of the Clones, Revenge of the Sith, The Force Awakens"
+Darth Vader,202,Tatooine,Human,"A New Hope, The Empire Strikes Back, Return of the Jedi, Revenge of the Sith"
+Leia Organa,150,Alderaan,Human,"A New Hope, The Empire Strikes Back, Return of the Jedi, Revenge of the Sith, The Force Awakens"
+Owen Lars,178,Tatooine,Human,"A New Hope, Attack of the Clones, Revenge of the Sith"
+Beru Whitesun Lars,165,Tatooine,Human,"A New Hope, Attack of the Clones, Revenge of the Sith"
+R5-D4,97,Tatooine,Droid,A New Hope
+Biggs Darklighter,183,Tatooine,Human,A New Hope
+Obi-Wan Kenobi,182,Stewjon,Human,"A New Hope, The Empire Strikes Back, Return of the Jedi, The Phantom Menace, Attack of the Clones, Revenge of the Sith"
+Anakin Skywalker,188,Tatooine,Human,"The Phantom Menace, Attack of the Clones, Revenge of the Sith"
+Wilhuff Tarkin,180,Eriadu,Human,"A New Hope, Revenge of the Sith"
+Chewbacca,228,Kashyyyk,Wookiee,"A New Hope, The Empire Strikes Back, Return of the Jedi, Revenge of the Sith, The Force Awakens"
+Han Solo,180,Corellia,Human,"A New Hope, The Empire Strikes Back, Return of the Jedi, The Force Awakens"
+Greedo,173,Rodia,Rodian,A New Hope
+Jabba Desilijic Tiure,175,Nal Hutta,Hutt,"A New Hope, Return of the Jedi, The Phantom Menace"
+Wedge Antilles,170,Corellia,Human,"A New Hope, The Empire Strikes Back, Return of the Jedi"

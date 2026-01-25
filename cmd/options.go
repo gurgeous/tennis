@@ -1,0 +1,133 @@
+package main
+
+import (
+	"fmt"
+	"io"
+	"os"
+	"runtime/debug"
+	"strconv"
+
+	"github.com/alecthomas/kong"
+	"github.com/charmbracelet/x/term"
+	"github.com/gurgeous/tennis"
+)
+
+// see .goreleaser.yaml
+var Version = ""
+
+type Options struct {
+	Table tennis.Table // a configured table
+	Input io.Reader    // where to read
+}
+
+func options(ctx *MainContext) *Options {
+	if Version == "" {
+		if info, ok := debug.ReadBuildInfo(); ok && info.Main.Sum != "" {
+			Version = info.Main.Version
+		} else {
+			Version = "unknown (built from source)"
+		}
+	}
+
+	//
+	// setup kong
+	//
+
+	type kongArgs struct {
+		File       *os.File         `arg:"" optional:"" type:"file"`
+		Color      string           `help:"Turn color off and on with auto|never|always" enum:"auto,never,always" default:"auto"`
+		Theme      string           `help:"Select color theme auto|dark|light" enum:"auto,dark,light" default:"auto"`
+		RowNumbers bool             `short:"n" help:"Turn on row numbers"`
+		Title      string           `short:"t" help:"Add a pretty title at the top"`
+		Version    kong.VersionFlag `help:"Print the version number"`
+	}
+
+	kargs := &kongArgs{}
+	k, err := kong.New(
+		kargs,
+		kong.ConfigureHelp(kong.HelpOptions{Compact: true, Summary: false}),
+		kong.Description("CSV pretty printer."),
+		kong.Exit(ctx.Exit),
+		kong.Name("tennis"),
+		kong.Writers(ctx.Output, ctx.Output),
+		kong.Vars{
+			"version":       fmt.Sprintf("tennis version %s", Version),
+			"versionNumber": Version,
+		},
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	//
+	// run kong
+	//
+
+	_, err = k.Parse(ctx.Args)
+
+	//
+	// kargs => table
+	//
+
+	options := &Options{
+		Table: tennis.Table{
+			Color:      tennis.StringToColor(kargs.Color),
+			Output:     ctx.Output,
+			RowNumbers: kargs.RowNumbers,
+			Theme:      tennis.StringToTheme(kargs.Theme),
+			Title:      kargs.Title,
+		},
+	}
+
+	//
+	// set Input, but only if we don't have a kargs error yet
+	//
+
+	if err == nil {
+		switch {
+		case kargs.File != nil:
+			// tennis something.csv
+			options.Input = kargs.File
+		case !isTty(ctx.Input):
+			// cat something.csv | tennis
+			options.Input = ctx.Input
+		case len(ctx.Args) > 0:
+			// no input but we got some args, busted
+			err = fmt.Errorf("no input provided")
+		}
+	}
+
+	//
+	// error handling
+	//
+
+	if err != nil || options.Input == nil {
+		fmt.Fprintln(ctx.Output, "tennis: try 'tennis --help' for more information")
+		k.FatalIfErrorf(err)
+		if err == nil {
+			// this is fine
+			ctx.Exit(0)
+		}
+		return nil // only reached in test
+	}
+
+	// success!
+	return options
+}
+
+//
+// helpers
+//
+
+func isTty(r io.Reader) bool {
+	if isTtyForced() {
+		return true
+	}
+	file, ok := r.(*os.File)
+	return ok && term.IsTerminal(file.Fd())
+}
+
+func isTtyForced() bool {
+	b, _ := strconv.ParseBool(os.Getenv("TTY_FORCE"))
+	return b
+}
