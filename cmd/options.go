@@ -76,7 +76,7 @@ func options(ctx *MainContext) *Options {
 				Usage: "Print the version number",
 			},
 		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
+		Action: func(_ context.Context, cmd *cli.Command) error {
 			if cmd.Bool("version") {
 				showVersion = true
 				fmt.Fprintf(cmd.Writer, "tennis version %s\n", Version)
