@@ -58,16 +58,16 @@ func options0(ctx *MainContext) (*Options, error) {
 		}
 	}
 
+	action := false
 	cmd := &cli.Command{
-		Name:                  "tennis",
-		Usage:                 "Stylish CSV tables in your terminal.",
-		ArgsUsage:             "[file.csv]",
-		Version:               Version,
-		Reader:                ctx.Input,
-		Writer:                ctx.Output,
-		ErrWriter:             ctx.Output,
-		EnableShellCompletion: true,
-		HideHelpCommand:       true,
+		Name:            "tennis",
+		Usage:           "Stylish CSV tables in your terminal.",
+		ArgsUsage:       "[file.csv]",
+		Version:         Version,
+		Reader:          ctx.Input,
+		Writer:          ctx.Output,
+		ErrWriter:       ctx.Output,
+		HideHelpCommand: true,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:  "color",
@@ -98,7 +98,10 @@ func options0(ctx *MainContext) (*Options, error) {
 		},
 
 		// overridden (as nop) to avoid default behavior that we don't care for
-		Action:         func(_ context.Context, _ *cli.Command) error { return nil },
+		Action: func(_ context.Context, _ *cli.Command) error {
+			action = true
+			return nil
+		},
 		ExitErrHandler: func(_ context.Context, _ *cli.Command, _ error) {},
 		OnUsageError:   func(_ context.Context, _ *cli.Command, err error, _ bool) error { return err },
 	}
@@ -111,12 +114,12 @@ func options0(ctx *MainContext) (*Options, error) {
 	if err := cmd.Run(context.Background(), args); err != nil {
 		return nil, err //nolint:wrapcheck
 	}
-	// fmt.Printf("after run %v\n", err)
+	// fmt.Printf("after run %v\n")
 	// pp.Println(cmd)
 
-	// --help/--version
-	if cmd.Bool("version") || cmd.Bool("help") {
-		return nil, nil // only reached during tests
+	// --help/--version/etc
+	if !action {
+		return nil, nil
 	}
 
 	// open the file

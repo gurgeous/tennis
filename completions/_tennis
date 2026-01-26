@@ -1,0 +1,16 @@
+#compdef tennis
+compdef _tennis tennis
+
+_tennis() {
+  # -s "Enable option stacking for single-letter options"
+  _arguments -s \
+    '--color[Turn color off and on]:color:(auto never always)' \
+    '--theme[Select color theme]:theme:(auto dark light)' \
+    '(-n --row-numbers)'{-n,--row-numbers}'[Turn on row numbers]' \
+    '(-t --title)'{-t,--title}'[Add a pretty title at the top]:title:' \
+    '*:file:_files -g "*.csv(-.)" "*(-/)"'
+}
+
+if [ "$funcstack[1]" = "_tennis" ]; then
+	_tennis
+fi
