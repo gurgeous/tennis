@@ -26,17 +26,17 @@ type Options struct {
 
 const banner = "tennis: try 'tennis --help' for more information"
 
-// thin wrapper around options0
+// wrapper around options0, for handling errors and calling ctx.Exit
 func options(ctx *MainContext) *Options {
 	opts, err := options0(ctx)
-	if err != nil {
-		fmt.Fprintf(ctx.Output, "tennis: %s\n", err.Error())
-		fmt.Fprintln(ctx.Output, banner)
-		ctx.Exit(1)
-		return nil // only reached during tests
-	}
 	if opts == nil {
-		ctx.Exit(0)
+		if err != nil {
+			fmt.Fprintf(ctx.Output, "tennis: %s\n", err.Error())
+			fmt.Fprintln(ctx.Output, banner)
+			ctx.Exit(1)
+		} else {
+			ctx.Exit(0)
+		}
 		return nil // only reached during tests
 	}
 	return opts
@@ -114,27 +114,18 @@ func options0(ctx *MainContext) (*Options, error) {
 	// fmt.Printf("after run %v\n", err)
 	// pp.Println(cmd)
 
-	//
 	// --help/--version
-	//
-
 	if cmd.Bool("version") || cmd.Bool("help") {
 		return nil, nil // only reached during tests
 	}
 
-	//
-	// try to open the file
-	//
-
+	// open the file
 	input, err := getInput(ctx, cmd)
 	if err != nil {
 		return nil, err
 	}
 
-	//
 	// success!
-	//
-
 	options := &Options{
 		Input: input,
 		Table: tennis.Table{
