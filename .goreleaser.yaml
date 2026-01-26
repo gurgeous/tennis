@@ -39,3 +39,6 @@ homebrew_casks:
           if OS.mac?
             system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/tennis"]
           end
+    completions:
+      bash: completions/tennis.bash
+      zsh: completions/_tennis
