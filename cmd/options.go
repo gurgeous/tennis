@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -11,12 +12,21 @@ import (
 
 	"github.com/charmbracelet/x/term"
 	"github.com/gurgeous/tennis"
-	"github.com/k0kubun/pp/v3"
+	_ "github.com/k0kubun/pp/v3"
 	"github.com/urfave/cli/v3"
 )
 
 // see .goreleaser.yaml
 var Version = ""
+
+// HideHelp?
+// EnableShellCompletion
+// InvalidFlagAccessHandler
+// Hidden?
+// Reader/Writer/ErrWriter?
+// AllowExtFlags
+// Arguments
+// isInError
 
 type Options struct {
 	Table tennis.Table // a configured table
@@ -26,6 +36,17 @@ type Options struct {
 func options(ctx *MainContext) *Options {
 	const banner = "tennis: try 'tennis --help' for more information"
 
+	//
+	// handle the naked case early for simplicity
+	//
+
+	if len(ctx.Args) == 0 && isTty(ctx.Input) {
+		fmt.Fprintln(ctx.Output, banner)
+		ctx.Exit(0)
+		return nil // only reached during tests
+	}
+
+	// calculate version
 	if Version == "" {
 		if info, ok := debug.ReadBuildInfo(); ok && info.Main.Sum != "" {
 			Version = info.Main.Version
@@ -35,16 +56,14 @@ func options(ctx *MainContext) *Options {
 	}
 
 	cmd := &cli.Command{
-		Name:                  "tennis",
-		Usage:                 "Stylish CSV tables in your terminal.",
-		ArgsUsage:             "[file.csv]",
-		Version:               fmt.Sprintf("tennis version %s", Version),
-		Reader:                ctx.Input,
-		Writer:                ctx.Output,
-		ErrWriter:             ctx.Output,
-		HideHelpCommand:       true,
-		HideVersion:           true,
-		EnableShellCompletion: false,
+		Name:            "tennis",
+		Usage:           "Stylish CSV tables in your terminal.",
+		ArgsUsage:       "[file.csv]",
+		Version:         Version,
+		Reader:          ctx.Input,
+		Writer:          ctx.Output,
+		ErrWriter:       ctx.Output,
+		HideHelpCommand: true,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:  "color",
@@ -77,41 +96,49 @@ func options(ctx *MainContext) *Options {
 				Usage: "Print the version number",
 			},
 		},
-		OnUsageError: func(_ctx context.Context, cmd *cli.Command, err error, isSubcommand bool) error {
-			// override to avoid the (ugly) default error handling
-			fmt.Fprintf(ctx.Output, "tennis: %s\n", err.Error())
-			fmt.Fprintln(ctx.Output, banner)
-			return err
-		},
-		Action: func(_ context.Context, cmd *cli.Command) error {
-			// override to avoid showing help by default
-			return nil
-		},
-		ExitErrHandler: func(_ context.Context, _ *cli.Command, err error) {
-			// overridden to avoid call to os.Exit
-		},
+
+		// overridden (as nop) to avoid default behavior that we don't care for
+		Action:         func(_ context.Context, _ *cli.Command) error { return nil },
+		ExitErrHandler: func(_ context.Context, _ *cli.Command, _ error) {},
+		OnUsageError:   func(_ context.Context, _ *cli.Command, err error, _ bool) error { return err },
 	}
 
+	//
+	// parse
+	//
+
+	var input io.Reader
 	err := cmd.Run(context.Background(), append([]string{"tennis"}, ctx.Args...))
-	fmt.Printf("BELOW err=%v", err)
-	pp.Println(cmd)
+
+	//
+	// if err is nil, handle --version and/or try to open the file
+	//
+
+	if err == nil {
+		if cmd.Bool("version") {
+			ctx.Exit(0)
+			return nil // only reached during tests
+		}
+		input, err = getInput(ctx, cmd)
+	}
+
+	//
+	// error handling
+	//
+
 	if err != nil {
+		fmt.Fprintf(ctx.Output, "tennis: %s\n", err.Error())
+		fmt.Fprintln(ctx.Output, banner)
 		ctx.Exit(1)
-		return nil // only when running in test
-	}
-
-	// what happens here?
-
-	if cmd.Bool("version") {
-		ctx.Exit(0)
-		return nil
+		return nil // only reached during tests
 	}
 
 	//
-	// populate options
+	// success!
 	//
 
-	options := &Options{
+	return &Options{
+		Input: input,
 		Table: tennis.Table{
 			Color:      tennis.StringToColor(cmd.String("color")),
 			Output:     ctx.Output,
@@ -120,45 +147,33 @@ func options(ctx *MainContext) *Options {
 			Title:      cmd.String("title"),
 		},
 	}
-
-	//
-	// set Input, but only if we don't have a kargs error yet
-	//
-
-	fileArg := cmd.Args().First()
-	switch {
-	case fileArg != "" && fileArg != "-":
-		// tennis something.csv
-		file, err := os.Open(fileArg)
-		if err != nil {
-			fmt.Fprintln(ctx.Output, banner)
-			ctx.Exit(1)
-			return nil
-		}
-		options.Input = file
-	case fileArg == "-" || !isTty(ctx.Input):
-		// cat something.csv | tennis OR tennis -
-		options.Input = ctx.Input
-	case len(ctx.Args) > 0:
-		// no input but we got some args, busted
-		fmt.Fprintln(ctx.Output, banner)
-		ctx.Exit(1)
-		return nil
-	}
-
-	if options.Input == nil {
-		fmt.Fprintln(ctx.Output, banner)
-		ctx.Exit(0)
-		return nil // only reached in test
-	}
-
-	// success!
-	return options
 }
 
 //
 // helpers
 //
+
+func getInput(ctx *MainContext, cmd *cli.Command) (io.Reader, error) {
+	// first argument, if any
+	fileArg := cmd.Args().First()
+	switch {
+	// tennis a.csv b.csv
+	case cmd.Args().Len() > 1:
+		return nil, errors.New("too many arguments")
+
+	// cat something.csv | tennis     OR   tennis
+	// cat something.csv | tennis -   OR   tennis -
+	case fileArg == "" || fileArg == "-":
+		if isTty(ctx.Input) {
+			return nil, errors.New("could not read stdin")
+		}
+		// stdin is file/pipe
+		return ctx.Input, nil
+	}
+
+	// tennis something.csv
+	return os.Open(fileArg) //nolint:wrapcheck
+}
 
 func isTty(r io.Reader) bool {
 	if isTtyForced() {
@@ -179,7 +194,3 @@ func isOneOf(value string, allowed ...string) error {
 	}
 	return fmt.Errorf("must be one of %v", allowed)
 }
-
-// err = cmd.OnUsageError(ctx, cmd, err, cmd.parent != nil)
-// 			err = cmd.handleExitCoder(ctx, err)
-// 			return ctx, err
