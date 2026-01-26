@@ -16,34 +16,33 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-// see .goreleaser.yaml
+// set by goreleaser
 var Version = ""
-
-// HideHelp?
-// EnableShellCompletion
-// InvalidFlagAccessHandler
-// Hidden?
-// Reader/Writer/ErrWriter?
-// AllowExtFlags
-// Arguments
-// isInError
 
 type Options struct {
 	Table tennis.Table // a configured table
 	Input io.Reader    // where to read
 }
 
+const banner = "tennis: try 'tennis --help' for more information"
+
 func options(ctx *MainContext) *Options {
-	const banner = "tennis: try 'tennis --help' for more information"
+	o, err := options0(ctx)
+	if err != nil {
+		fmt.Fprintf(ctx.Output, "tennis: %s\n", err.Error())
+		fmt.Fprintln(ctx.Output, banner)
+		ctx.Exit(1)
+		return nil // only reached during tests
+	}
+	return o
+}
 
-	//
+func options0(ctx *MainContext) (*Options, error) {
 	// handle the naked case early for simplicity
-	//
-
 	if len(ctx.Args) == 0 && isTty(ctx.Input) {
 		fmt.Fprintln(ctx.Output, banner)
 		ctx.Exit(0)
-		return nil // only reached during tests
+		return nil, nil // only reached during tests
 	}
 
 	// calculate version
@@ -56,14 +55,15 @@ func options(ctx *MainContext) *Options {
 	}
 
 	cmd := &cli.Command{
-		Name:            "tennis",
-		Usage:           "Stylish CSV tables in your terminal.",
-		ArgsUsage:       "[file.csv]",
-		Version:         Version,
-		Reader:          ctx.Input,
-		Writer:          ctx.Output,
-		ErrWriter:       ctx.Output,
-		HideHelpCommand: true,
+		Name:                  "tennis",
+		Usage:                 "Stylish CSV tables in your terminal.",
+		ArgsUsage:             "[file.csv]",
+		Version:               Version,
+		Reader:                ctx.Input,
+		Writer:                ctx.Output,
+		ErrWriter:             ctx.Output,
+		EnableShellCompletion: true,
+		HideHelpCommand:       true,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:  "color",
@@ -91,10 +91,6 @@ func options(ctx *MainContext) *Options {
 				Aliases: []string{"t"},
 				Usage:   "Add a pretty title at the top",
 			},
-			&cli.BoolFlag{
-				Name:  "version",
-				Usage: "Print the version number",
-			},
 		},
 
 		// overridden (as nop) to avoid default behavior that we don't care for
@@ -107,37 +103,35 @@ func options(ctx *MainContext) *Options {
 	// parse
 	//
 
-	var input io.Reader
-	err := cmd.Run(context.Background(), append([]string{"tennis"}, ctx.Args...))
+	if err := cmd.Run(context.Background(), append([]string{"tennis"}, ctx.Args...)); err != nil {
+		return nil, err //nolint:wrapcheck
+	}
+	// fmt.Printf("after run %v\n", err)
+	// pp.Println(cmd)
 
 	//
-	// if err is nil, handle --version and/or try to open the file
+	// --help/--version
 	//
 
-	if err == nil {
-		if cmd.Bool("version") {
-			ctx.Exit(0)
-			return nil // only reached during tests
-		}
-		input, err = getInput(ctx, cmd)
+	if cmd.Bool("version") || cmd.Bool("help") {
+		ctx.Exit(0)
+		return nil, nil // only reached during tests
 	}
 
 	//
-	// error handling
+	// try to open the file
 	//
 
+	input, err := getInput(ctx, cmd)
 	if err != nil {
-		fmt.Fprintf(ctx.Output, "tennis: %s\n", err.Error())
-		fmt.Fprintln(ctx.Output, banner)
-		ctx.Exit(1)
-		return nil // only reached during tests
+		return nil, err
 	}
 
 	//
 	// success!
 	//
 
-	return &Options{
+	options := &Options{
 		Input: input,
 		Table: tennis.Table{
 			Color:      tennis.StringToColor(cmd.String("color")),
@@ -147,6 +141,7 @@ func options(ctx *MainContext) *Options {
 			Title:      cmd.String("title"),
 		},
 	}
+	return options, nil
 }
 
 //
