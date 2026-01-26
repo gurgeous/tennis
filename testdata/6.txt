@@ -3,5 +3,4 @@
 ############################################################################
 
 tennis: try 'tennis --help' for more information
-tennis: error: unexpected argument bogus
 

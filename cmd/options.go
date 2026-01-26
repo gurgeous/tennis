@@ -6,11 +6,12 @@ import (
 	"io"
 	"os"
 	"runtime/debug"
+	"slices"
 	"strconv"
-	"strings"
 
 	"github.com/charmbracelet/x/term"
 	"github.com/gurgeous/tennis"
+	"github.com/k0kubun/pp/v3"
 	"github.com/urfave/cli/v3"
 )
 
@@ -23,6 +24,8 @@ type Options struct {
 }
 
 func options(ctx *MainContext) *Options {
+	const banner = "tennis: try 'tennis --help' for more information"
+
 	if Version == "" {
 		if info, ok := debug.ReadBuildInfo(); ok && info.Main.Sum != "" {
 			Version = info.Main.Version
@@ -48,7 +51,7 @@ func options(ctx *MainContext) *Options {
 				Usage: "Turn color off and on with auto|never|always",
 				Value: "auto",
 				Validator: func(value string) error {
-					return isOneOfFold(value, "auto", "never", "always")
+					return isOneOf(value, "auto", "never", "always")
 				},
 			},
 			&cli.StringFlag{
@@ -56,7 +59,7 @@ func options(ctx *MainContext) *Options {
 				Usage: "Select color theme auto|dark|light",
 				Value: "auto",
 				Validator: func(value string) error {
-					return isOneOfFold(value, "auto", "dark", "light")
+					return isOneOf(value, "auto", "dark", "light")
 				},
 			},
 			&cli.BoolFlag{
@@ -74,26 +77,31 @@ func options(ctx *MainContext) *Options {
 				Usage: "Print the version number",
 			},
 		},
+		OnUsageError: func(_ctx context.Context, cmd *cli.Command, err error, isSubcommand bool) error {
+			// override to avoid the (ugly) default error handling
+			fmt.Fprintf(ctx.Output, "tennis: %s\n", err.Error())
+			fmt.Fprintln(ctx.Output, banner)
+			return err
+		},
 		Action: func(_ context.Context, cmd *cli.Command) error {
-			if cmd.Bool("version") {
-				fmt.Fprintf(cmd.Writer, "tennis version %s\n", Version)
-				return nil
-			}
-			if cmd.Args().Len() > 1 {
-				return fmt.Errorf("unexpected argument %s", cmd.Args().Get(1))
-			}
+			// override to avoid showing help by default
 			return nil
 		},
 		ExitErrHandler: func(_ context.Context, _ *cli.Command, err error) {
-			if err == nil {
-				return
-			}
-			fmt.Fprintln(ctx.Output, "tennis: try 'tennis --help' for more information")
-			ctx.Exit(1)
+			// overridden to avoid call to os.Exit
 		},
 	}
 
-	_ = cmd.Run(context.Background(), append([]string{"tennis"}, ctx.Args...))
+	err := cmd.Run(context.Background(), append([]string{"tennis"}, ctx.Args...))
+	fmt.Printf("BELOW err=%v", err)
+	pp.Println(cmd)
+	if err != nil {
+		ctx.Exit(1)
+		return nil // only when running in test
+	}
+
+	// what happens here?
+
 	if cmd.Bool("version") {
 		ctx.Exit(0)
 		return nil
@@ -123,7 +131,7 @@ func options(ctx *MainContext) *Options {
 		// tennis something.csv
 		file, err := os.Open(fileArg)
 		if err != nil {
-			fmt.Fprintln(ctx.Output, "tennis: try 'tennis --help' for more information")
+			fmt.Fprintln(ctx.Output, banner)
 			ctx.Exit(1)
 			return nil
 		}
@@ -133,13 +141,13 @@ func options(ctx *MainContext) *Options {
 		options.Input = ctx.Input
 	case len(ctx.Args) > 0:
 		// no input but we got some args, busted
-		fmt.Fprintln(ctx.Output, "tennis: try 'tennis --help' for more information")
+		fmt.Fprintln(ctx.Output, banner)
 		ctx.Exit(1)
 		return nil
 	}
 
 	if options.Input == nil {
-		fmt.Fprintln(ctx.Output, "tennis: try 'tennis --help' for more information")
+		fmt.Fprintln(ctx.Output, banner)
 		ctx.Exit(0)
 		return nil // only reached in test
 	}
@@ -165,11 +173,13 @@ func isTtyForced() bool {
 	return b
 }
 
-func isOneOfFold(value string, allowed ...string) error {
-	for _, candidate := range allowed {
-		if strings.EqualFold(value, candidate) {
-			return nil
-		}
+func isOneOf(value string, allowed ...string) error {
+	if slices.Contains(allowed, value) {
+		return nil
 	}
-	return fmt.Errorf("invalid value %q, must be one of %s", value, strings.Join(allowed, ", "))
+	return fmt.Errorf("must be one of %v", allowed)
 }
+
+// err = cmd.OnUsageError(ctx, cmd, err, cmd.parent != nil)
+// 			err = cmd.handleExitCoder(ctx, err)
+// 			return ctx, err
