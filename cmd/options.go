@@ -26,23 +26,27 @@ type Options struct {
 
 const banner = "tennis: try 'tennis --help' for more information"
 
+// thin wrapper around options0
 func options(ctx *MainContext) *Options {
-	o, err := options0(ctx)
+	opts, err := options0(ctx)
 	if err != nil {
 		fmt.Fprintf(ctx.Output, "tennis: %s\n", err.Error())
 		fmt.Fprintln(ctx.Output, banner)
 		ctx.Exit(1)
 		return nil // only reached during tests
 	}
-	return o
+	if opts == nil {
+		ctx.Exit(0)
+		return nil // only reached during tests
+	}
+	return opts
 }
 
 func options0(ctx *MainContext) (*Options, error) {
 	// handle the naked case early for simplicity
 	if len(ctx.Args) == 0 && isTty(ctx.Input) {
 		fmt.Fprintln(ctx.Output, banner)
-		ctx.Exit(0)
-		return nil, nil // only reached during tests
+		return nil, nil
 	}
 
 	// calculate version
@@ -100,10 +104,11 @@ func options0(ctx *MainContext) (*Options, error) {
 	}
 
 	//
-	// parse
+	// parse args
 	//
 
-	if err := cmd.Run(context.Background(), append([]string{"tennis"}, ctx.Args...)); err != nil {
+	args := append([]string{"tennis"}, ctx.Args...)
+	if err := cmd.Run(context.Background(), args); err != nil {
 		return nil, err //nolint:wrapcheck
 	}
 	// fmt.Printf("after run %v\n", err)
@@ -114,7 +119,6 @@ func options0(ctx *MainContext) (*Options, error) {
 	//
 
 	if cmd.Bool("version") || cmd.Bool("help") {
-		ctx.Exit(0)
 		return nil, nil // only reached during tests
 	}
 
