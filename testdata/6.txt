@@ -1,0 +1,7 @@
+############################################################################
+# snap.sh ./tennis testdata/test.csv bogus
+############################################################################
+
+tennis: too many arguments
+tennis: try 'tennis --help' for more information
+

@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema-pro.json
+
+# what to build
+version: 2
+
+before:
+  hooks: ["go mod tidy"]
+
+builds:
+  - env: ["CGO_ENABLED=0"]
+    flags: ["-trimpath"]
+    goos: ["darwin", "linux", "windows"]
+    goarch: ["amd64", "arm64"]
+    ignore: [{ goos: "windows", goarch: "arm64" }]
+    ldflags: -s -w -X "github.com/gurgeous/tennis.Version={{ .Tag }} {{ .ShortCommit }} {{ .Date }}"
+    main: ./cmd
+
+# what to put in the tgz files
+archives:
+  - files:
+      - LICENSE
+      - README.md
+      - completions/*
+    format_overrides: [{ goos: "windows", formats: ["zip"] }]
+    name_template: "{{.ProjectName}}-{{.Version}}-{{.Os}}-{{.Arch}}"
+    wrap_in_directory: true
+
+# turn stuff off
+announce: { skip: true }
+changelog: { disable: true }
+
+# brew tap
+brews:
+  - repository: { owner: "gurgeous", name: "homebrew-tap" }
+    description: Stylish CSV tables in your terminal.
+    homepage: https://github.com/gurgeous/tennis
+    test: system "#{bin}/tennis --version"
+    install: |
+      bin.install "tennis"
+      bash_completion.install "completions/tennis.bash" => "tennis"
+      zsh_completion.install "completions/_tennis" => "_tennis"

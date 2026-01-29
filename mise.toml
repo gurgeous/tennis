@@ -1,0 +1,3 @@
+# so demo.tap can run tennis directly
+[env]
+_.path = ['{{config_root}}']
