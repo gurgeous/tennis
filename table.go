@@ -151,12 +151,11 @@ func (t *Table) setup() {
 
 	// termwidth
 	if t.TermWidth == 0 {
-		const defaultTermWidth = 80
-		termwidth, _, err := term.GetSize(int(os.Stdout.Fd()))
-		if err != nil {
-			t.TermWidth = defaultTermWidth
+		if termWidth := getTermWidth(); termWidth > 0 {
+			t.TermWidth = termWidth
 		} else {
-			t.TermWidth = termwidth
+			const defaultTermWidth = 80
+			t.TermWidth = defaultTermWidth
 		}
 	}
 
@@ -204,6 +203,29 @@ func normalizeRecords(records [][]string) [][]string {
 		}
 		return row
 	})
+}
+
+//
+// term width
+//
+
+func getTermWidth() int {
+	// first try stdxxx. it's possible they are all redirected, though
+	stdxxx := []*os.File{os.Stdout, os.Stderr, os.Stdin}
+	for _, f := range stdxxx {
+		if w, _, _ := term.GetSize(int(f.Fd())); w > 0 {
+			return w
+		}
+	}
+
+	// fallback to /dev/tty
+	if f, _ := os.Open("/dev/tty"); f != nil {
+		defer f.Close()
+		if w, _, _ := term.GetSize(int(f.Fd())); w > 0 {
+			return w
+		}
+	}
+	return 0 // failure
 }
 
 //
