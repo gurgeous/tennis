@@ -35,6 +35,7 @@ pub const Render = struct {
     writer: *std.Io.Writer,
     records: [][][]const u8,
     layout: Layout,
+    buf: std.Io.Writer.Allocating,
 
     pub fn init(table: *Table, writer: *std.Io.Writer, layout: Layout, records: [][][]const u8) Render {
         return .{
@@ -42,7 +43,12 @@ pub const Render = struct {
             .writer = writer,
             .records = records,
             .layout = layout,
+            .buf = .init(table.alloc),
         };
+    }
+
+    pub fn deinit(self: *Render) void {
+        self.buf.deinit();
     }
 
     pub fn render(self: *Render) !void {
@@ -69,54 +75,59 @@ pub const Render = struct {
 
     // render a separator line with these border chars
     fn renderSep(self: *Render, left: []const u8, line: []const u8, right: []const u8, middle: []const u8) !void {
+        const out = &self.buf.writer;
         if (self.table.style.chrome.len > 0) {
-            try self.writer.writeAll(self.table.style.chrome);
+            try out.writeAll(self.table.style.chrome);
         }
         for (self.layout.widths, 0..) |width, ii| {
             if (ii == 0) {
-                try self.writer.writeAll(left);
+                try out.writeAll(left);
             } else {
-                try self.writer.writeAll(middle);
+                try out.writeAll(middle);
             }
-            for (0..width + 2) |_| try self.writer.writeAll(line);
+            for (0..width + 2) |_| try out.writeAll(line);
         }
-        try self.writer.writeAll(right);
+        try out.writeAll(right);
         if (self.table.style.chrome.len > 0) {
-            try self.writer.writeAll(ansi.reset);
+            try out.writeAll(ansi.reset);
         }
-        try self.writer.writeByte('\n');
+        try out.writeByte('\n');
+        try self.eol();
     }
 
     // render title line
     fn renderTitle(self: *Render) !void {
+        const out = &self.buf.writer;
         const width = self.layout.tableWidth() - 4;
 
-        try appendStyled(self.writer, self.table.style.chrome, pipe);
-        try self.writer.writeByte(' ');
-        try writeStyledExactly(self.writer, self.table.style.title, self.table.config.title, width, .center);
-        try self.writer.writeByte(' ');
-        try appendStyled(self.writer, self.table.style.chrome, pipe);
-        try self.writer.writeByte('\n');
+        try appendStyled(out, self.table.style.chrome, pipe);
+        try out.writeByte(' ');
+        try writeStyledExactly(out, self.table.style.title, self.table.config.title, width, .center);
+        try out.writeByte(' ');
+        try appendStyled(out, self.table.style.chrome, pipe);
+        try out.writeByte('\n');
+        try self.eol();
     }
 
     // render data row
     fn renderRow(self: *Render, ii: usize) !void {
+        const out = &self.buf.writer;
         const row = self.records[ii];
-        try appendStyled(self.writer, self.table.style.chrome, pipe);
+        try appendStyled(out, self.table.style.chrome, pipe);
 
         var col: usize = 0;
         if (self.table.config.row_numbers) {
             var num_buf: [32]u8 = undefined;
             const label = if (ii == 0) "#" else try std.fmt.bufPrint(&num_buf, "{d}", .{ii});
 
-            try self.writer.writeByte(' ');
+            try out.writeByte(' ');
             if (ii == 0) {
-                try writeStyledExactly(self.writer, self.table.style.headers[0], label, self.layout.widths[col], .left);
+                try writeStyledExactly(out, self.table.style.headers[0], label, self.layout.widths[col], .left);
             } else {
-                try writeStyledExactly(self.writer, self.table.style.chrome, label, self.layout.widths[col], .left);
+                try writeStyledExactly(out, self.table.style.chrome, label, self.layout.widths[col], .left);
             }
-            try self.writer.writeByte(' ');
-            try appendStyled(self.writer, self.table.style.chrome, pipe);
+            try out.writeByte(' ');
+            try appendStyled(out, self.table.style.chrome, pipe);
             col += 1;
         }
 
@@ -131,14 +142,15 @@ pub const Render = struct {
             else
                 self.table.style.field;
 
-            try self.writer.writeByte(' ');
-            try writeStyledExactly(self.writer, cell_style, val, self.layout.widths[col], .left);
-            try self.writer.writeByte(' ');
-            try appendStyled(self.writer, self.table.style.chrome, pipe);
+            try out.writeByte(' ');
+            try writeStyledExactly(out, cell_style, val, self.layout.widths[col], .left);
+            try out.writeByte(' ');
+            try appendStyled(out, self.table.style.chrome, pipe);
             col += 1;
         }
 
-        try self.writer.writeByte('\n');
+        try out.writeByte('\n');
+        try self.eol();
     }
 
     fn renderEmpty(self: *Render) !void {
@@ -154,19 +166,28 @@ pub const Render = struct {
     }
 
     fn renderEmptySep(self: *Render, left: []const u8, line: []const u8, right: []const u8, width: usize) !void {
-        try appendStyled(self.writer, self.table.style.chrome, left);
-        for (0..width + 2) |_| try appendStyled(self.writer, self.table.style.chrome, line);
-        try appendStyled(self.writer, self.table.style.chrome, right);
-        try self.writer.writeByte('\n');
+        const out = &self.buf.writer;
+        try appendStyled(out, self.table.style.chrome, left);
+        for (0..width + 2) |_| try appendStyled(out, self.table.style.chrome, line);
+        try appendStyled(out, self.table.style.chrome, right);
+        try out.writeByte('\n');
+        try self.eol();
     }
 
     fn renderEmptyRow(self: *Render, text_style: []const u8, text: []const u8, width: usize) !void {
-        try appendStyled(self.writer, self.table.style.chrome, pipe);
-        try self.writer.writeByte(' ');
-        try writeStyledExactly(self.writer, text_style, text, width, .center);
-        try self.writer.writeByte(' ');
-        try appendStyled(self.writer, self.table.style.chrome, pipe);
-        try self.writer.writeByte('\n');
+        const out = &self.buf.writer;
+        try appendStyled(out, self.table.style.chrome, pipe);
+        try out.writeByte(' ');
+        try writeStyledExactly(out, text_style, text, width, .center);
+        try out.writeByte(' ');
+        try appendStyled(out, self.table.style.chrome, pipe);
+        try out.writeByte('\n');
+        try self.eol();
+    }
+
+    fn eol(self: *Render) !void {
+        try self.writer.writeAll(self.buf.written());
+        self.buf.clearRetainingCapacity();
     }
 };
 

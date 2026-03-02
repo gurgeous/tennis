@@ -20,6 +20,7 @@ pub const Table = struct {
         defer layout.deinit(self.alloc);
 
         var renderer: Render = .init(self, writer, layout, records);
+        defer renderer.deinit();
         try renderer.render();
     }
 };
