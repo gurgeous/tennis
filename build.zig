@@ -45,6 +45,11 @@ pub fn build(b: *std.Build) void {
     const exe = b.addExecutable(.{ .name = "tennis", .root_module = mod });
     b.installArtifact(exe);
 
+    const bench_csv = generateBenchmarkCsv(b);
+    const install_bench_csv = b.addInstallFile(bench_csv, "benchmark.csv");
+    const bench_data_step = b.step("benchmark-data", "Generate benchmark CSV");
+    bench_data_step.dependOn(&install_bench_csv.step);
+
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
     if (b.args) |args| {
@@ -74,4 +79,17 @@ fn detectVersion(b: *std.Build) ?[]const u8 {
     if (trimmed.len == 0) return null;
 
     return b.allocator.dupe(u8, trimmed) catch null;
+}
+
+fn generateBenchmarkCsv(b: *std.Build) std.Build.LazyPath {
+    var out: std.Io.Writer.Allocating = .init(b.allocator);
+    defer out.deinit();
+
+    out.writer.writeAll("name,score\n") catch @panic("oom");
+    for (0..10000) |ii| {
+        out.writer.print("player-{d},{d}\n", .{ ii, ii % 100 }) catch @panic("oom");
+    }
+
+    const write = b.addWriteFiles();
+    return write.add("benchmark.csv", out.written());
 }
