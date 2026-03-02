@@ -146,7 +146,7 @@ pub const Render = struct {
 pub fn renderEmpty(table: *Table, writer: *std.Io.Writer) !void {
     const title = "empty table";
     const body = "no data";
-    const width = @max(Layout.displayWidth(title), Layout.displayWidth(body));
+    const width = @max(util.displayWidth(title), util.displayWidth(body));
 
     try renderEmptySep(writer, table.style.chrome, nw, bar, ne, width);
     try renderEmptyRow(writer, table.style.chrome, table.style.title, title, width);
@@ -196,7 +196,7 @@ fn renderEmptyRow(
 }
 
 fn writeExactly(writer: *std.Io.Writer, text: []const u8, width: usize, al: Align) !void {
-    const display_width = Layout.displayWidth(text);
+    const display_width = util.displayWidth(text);
     if (display_width == width) {
         try writer.writeAll(text);
         return;
@@ -293,9 +293,7 @@ test "ascii render simple" {
 
     var in = std.io.fixedBufferStream("a,b\nc,d\n");
     const records = try util.readCsv(alloc, in.reader());
-    const widths = try measure(alloc, records, false);
-    defer alloc.free(widths);
-    const l = try autolayout(alloc, widths, 80);
+    const l = try Layout.init(alloc, records, false, 80);
     defer l.deinit(alloc);
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
@@ -327,9 +325,7 @@ test "render with title and row numbers" {
 
     var in = std.io.fixedBufferStream("a,b\nc,d\n");
     const records = try util.readCsv(alloc, in.reader());
-    const widths = try measure(alloc, records, true);
-    defer alloc.free(widths);
-    const l = try autolayout(alloc, widths, 80);
+    const l = try Layout.init(alloc, records, true, 80);
     defer l.deinit(alloc);
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
@@ -376,9 +372,7 @@ test "render uses placeholder for empty cells" {
 
     var in = std.io.fixedBufferStream("a,b\n,\n");
     const records = try util.readCsv(alloc, in.reader());
-    const widths = try measure(alloc, records, false);
-    defer alloc.free(widths);
-    const l = try autolayout(alloc, widths, 80);
+    const l = try Layout.init(alloc, records, false, 80);
     defer l.deinit(alloc);
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
@@ -390,13 +384,10 @@ test "render uses placeholder for empty cells" {
 }
 
 const ansi = @import("ansi.zig");
-const layout_mod = @import("layout.zig");
 const mibu = @import("mibu");
 const std = @import("std");
 const style_mod = @import("style.zig");
 const Table = @import("table.zig").Table;
 const test_support = @import("test_support.zig");
 const util = @import("util.zig");
-const Layout = layout_mod.Layout;
-const autolayout = layout_mod.autolayout;
-const measure = layout_mod.measure;
+const Layout = @import("layout.zig").Layout;

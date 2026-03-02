@@ -13,7 +13,7 @@ pub const Color = struct {
 
     pub fn initHex(hex: []const u8) !Color {
         const rgb = if (hex.len > 0 and hex[0] == '#') hex[1..] else hex;
-        if (rgb.len != 3 and rgb.len != 6 and rgb.len != 9 and rgb.len != 12) return error.InvalidHex;
+        if (rgb.len % 3 != 0) return error.InvalidHex;
         const n = rgb.len / 3;
         return .{
             .r = try parseHex(rgb[0 * n .. 1 * n]),
@@ -26,6 +26,7 @@ pub const Color = struct {
         return std.fmt.allocPrint(alloc, "#{x:0>2}{x:0>2}{x:0>2}", .{ self.r, self.g, self.b });
     }
 
+    // sRGB to Y (relative luminance)
     pub fn luma(self: Color) f64 {
         const coeff = [3]f64{ 0.2126, 0.7152, 0.0722 };
         const rgb = [3]f64{

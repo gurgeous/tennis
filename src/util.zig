@@ -45,6 +45,11 @@ pub fn sum(comptime T: type, slice: []const T) T {
     return total;
 }
 
+// Return the terminal display width of a UTF-8 string.
+pub fn displayWidth(s: []const u8) usize {
+    return std.unicode.utf8CountCodepoints(s) catch s.len;
+}
+
 pub fn termwidth() usize {
     var tty = std.fs.openFileAbsolute("/dev/tty", .{}) catch return 80;
     defer tty.close();
@@ -145,6 +150,16 @@ test "strip trims ascii whitespace" {
 
 test "sum adds a slice" {
     try std.testing.expectEqual(@as(usize, 10), sum(usize, &.{ 1, 2, 3, 4 }));
+}
+
+test "displayWidth handles ascii and utf8" {
+    try std.testing.expectEqual(@as(usize, 3), displayWidth("abc"));
+    try std.testing.expectEqual(@as(usize, 2), displayWidth("éé"));
+    try std.testing.expectEqual(@as(usize, 1), displayWidth("—"));
+}
+
+test "displayWidth falls back on invalid utf8" {
+    try std.testing.expectEqual(@as(usize, 2), displayWidth(&[_]u8{ 0xff, 0x61 }));
 }
 
 test "termwidth returns a positive width" {

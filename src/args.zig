@@ -1,5 +1,5 @@
 //
-// parse cli args
+// parse cli args into an Args struct
 //
 
 pub const Args = struct {
