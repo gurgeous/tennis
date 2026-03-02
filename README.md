@@ -1,6 +1,5 @@
 #### TODO
 
-- code review
 - research how those other zig projects do version (git describe?)
 - goreleaser?
 - README/logo

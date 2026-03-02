@@ -50,11 +50,6 @@ test-snaps: build
 gen-snaps:
   GEN=1 just test-snaps
 
-benchmark: build-release
-  zig build benchmark-data -Doptimize=ReleaseSmall
-  /usr/bin/time -f 'rows=100000 elapsed=%E user=%U sys=%S maxrss=%MKB' \
-    ./zig-out/bin/tennis --color=on --width 20 ./zig-out/benchmark.csv > /tmp/bench.out
-
 valgrind: build
   valgrind --quiet --leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all --error-exitcode=1 \
     ./zig-out/bin/tennis  --color=on -n --title foo testdata/test.csv > /dev/null
