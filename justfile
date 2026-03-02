@@ -37,11 +37,11 @@ test:
   just banner "✓ test ✓"
 
 test-snaps: build
-  ./bin/snap.sh testdata/smoke-bad-arg.txt     ./zig-out/bin/tennis --bogus
-  ./bin/snap.sh testdata/smoke-error.txt       ./zig-out/bin/tennis testdata/test.csv bogus
+  ./bin/snap.sh --fail testdata/smoke-bad-arg.txt     ./zig-out/bin/tennis --bogus
+  ./bin/snap.sh --fail testdata/smoke-error.txt       ./zig-out/bin/tennis testdata/test.csv bogus
   ./bin/snap.sh testdata/smoke-help.txt        ./zig-out/bin/tennis --help
-  ./bin/snap.sh testdata/smoke-invalid-csv.txt  sh -c 'printf "a,b\n\"oops\n" | ./zig-out/bin/tennis --color=off'
-  ./bin/snap.sh testdata/smoke-jagged.txt       sh -c 'printf "a,b\nc\n" | ./zig-out/bin/tennis --color=off'
+  ./bin/snap.sh --fail testdata/smoke-invalid-csv.txt  sh -c 'printf "a,b\n\"oops\n" | ./zig-out/bin/tennis --color=off'
+  ./bin/snap.sh --fail testdata/smoke-jagged.txt       sh -c 'printf "a,b\nc\n" | ./zig-out/bin/tennis --color=off'
   ./bin/snap.sh testdata/smoke-pipe.txt         sh -c 'cat testdata/test.csv | ./zig-out/bin/tennis --color=off --width 80'
   ./bin/snap.sh testdata/smoke-rows.txt         ./zig-out/bin/tennis --color=off --width 80 -n testdata/test.csv
   ./bin/snap.sh testdata/smoke-title.txt        ./zig-out/bin/tennis --color=off --width 80 --title foo testdata/test.csv

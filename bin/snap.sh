@@ -8,6 +8,12 @@ if [ "$#" -lt 2 ]; then
   exit 1
 fi
 
+expect_fail=0
+if [ "$1" = "--fail" ]; then
+  expect_fail=1
+  shift
+fi
+
 tmp=$(mktemp)
 trap 'rm -f "$tmp"' EXIT
 
@@ -20,7 +26,22 @@ shift
   printf '############################################################################\n\n'
 } > "$tmp"
 
-"$@" >> "$tmp" 2>&1
+if "$@" >> "$tmp" 2>&1; then
+  status=0
+else
+  status=$?
+fi
+
+if [ "$expect_fail" -eq 1 ] && [ "$status" -eq 0 ]; then
+  echo "snap command unexpectedly succeeded: $*" >&2
+  exit 1
+fi
+
+if [ "$expect_fail" -eq 0 ] && [ "$status" -ne 0 ]; then
+  echo "snap command failed: $*" >&2
+  exit 1
+fi
+
 printf '\n' >> "$tmp"
 
 if [ "${GEN-}" = "1" ] || [ ! -f "$out" ]; then
