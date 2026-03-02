@@ -1,0 +1,7 @@
+############################################################################
+# snap.sh ./zig-out/bin/tennis --bogus
+############################################################################
+
+tennis: Invalid argument '--bogus'
+tennis: try 'tennis --help' for more information
+

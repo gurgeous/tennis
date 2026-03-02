@@ -1,0 +1,7 @@
+############################################################################
+# snap.sh ./zig-out/bin/tennis testdata/test.csv bogus
+############################################################################
+
+tennis: Too many file arguments
+tennis: try 'tennis --help' for more information
+
