@@ -15,16 +15,19 @@ pub const stderr = &stderr0.interface;
 // misc helpers
 //
 
+// does this env var exist?
 pub fn hasenv(name: []const u8) bool {
     return std.posix.getenv(name) != null;
 }
 
+// does this file exist?
 pub fn fileExists(path: []const u8) bool {
     const f = std.fs.cwd().openFile(path, .{}) catch return false;
     f.close();
     return true;
 }
 
+// how many digits in n?
 pub fn digits(comptime T: type, n: T) usize {
     if (@typeInfo(T) != .int) @compileError("digits expects an integer type");
     if (n == 0) return 1;
@@ -34,11 +37,13 @@ pub fn digits(comptime T: type, n: T) usize {
     return d;
 }
 
+// trim whitespace from slice
 pub fn strip(comptime T: type, slice: []const T) []const T {
     const whitespace = [_]T{ ' ', '\t', '\r', '\n' };
     return std.mem.trim(T, slice, &whitespace);
 }
 
+// sum values in slice
 pub fn sum(comptime T: type, slice: []const T) T {
     var total: T = 0;
     for (slice) |w| total += w;
@@ -50,7 +55,8 @@ pub fn displayWidth(s: []const u8) usize {
     return std.unicode.utf8CountCodepoints(s) catch s.len;
 }
 
-pub fn termwidth() usize {
+// how wide is ther terminal? thanks mubi
+pub fn termWidth() usize {
     var tty = std.fs.openFileAbsolute("/dev/tty", .{}) catch return 80;
     defer tty.close();
 
@@ -162,8 +168,8 @@ test "displayWidth falls back on invalid utf8" {
     try std.testing.expectEqual(@as(usize, 2), displayWidth(&[_]u8{ 0xff, 0x61 }));
 }
 
-test "termwidth returns a positive width" {
-    try std.testing.expect(termwidth() > 0);
+test "termWidth returns a positive width" {
+    try std.testing.expect(termWidth() > 0);
 }
 
 test "readCsv handles quoted comma and escaped quote" {

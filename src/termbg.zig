@@ -1,9 +1,9 @@
 // Query the terminal's default background color.
 //
-// This is best-effort. We ask xterm-compatible terminals for OSC 11
-// (background color), then immediately send CSI 6n as a fallback marker.
-// If the first response we read is cursor position instead of OSC, we assume
-// OSC 11 was ignored and return an error.
+// This is best-effort. We ask xterm-compatible terminals for OSC 11 (background
+// color), then immediately send CSI 6n as a fallback marker. If the first
+// response we read is cursor position instead of OSC, we assume OSC 11 was
+// ignored and return an error.
 
 pub fn isDark(alloc: std.mem.Allocator) !bool {
     // open dev/tty
@@ -23,29 +23,34 @@ pub fn isDark(alloc: std.mem.Allocator) !bool {
         return error.NotSupported;
     }
 
-    // put tty into raw mode
+    // put tty into raw mode, but restore afterward
     var tio = try std.posix.tcgetattr(tty);
     const saved = tio;
     tio.lflag.ECHO = false;
     tio.lflag.ICANON = false;
 
-    // Set VMIN/VTIME
-    const timeout_in_deciseconds: u8 = 1;
+    // set VMIN/VTIME
+    var vmin: u8 = 0;
+    var vtime: u8 = 0;
     if (builtin.os.tag == .linux) {
-        tio.cc[@intFromEnum(std.os.linux.V.MIN)] = 0;
-        tio.cc[@intFromEnum(std.os.linux.V.TIME)] = timeout_in_deciseconds;
+        vmin = @intFromEnum(std.os.linux.V.MIN);
+        vtime = @intFromEnum(std.os.linux.V.TIME);
     } else if (builtin.os.tag == .macos) {
-        const VMIN = 16;
-        const VTIME = 17;
-        tio.cc[VMIN] = 0;
-        tio.cc[VTIME] = timeout_in_deciseconds;
+        // i suck at zig
+        vmin = 16;
+        vtime = 17;
     } else {
         return error.NotSupported;
     }
 
+    // reads from dev/tty should have a 0.1s timeout
+    const timeout_in_deciseconds: u8 = 1;
+    tio.cc[vmin] = 0;
+    tio.cc[vtime] = timeout_in_deciseconds;
+
     try std.posix.tcsetattr(tty, .NOW, tio);
     defer std.posix.tcsetattr(tty, .NOW, saved) catch {};
-    util.tdebug("raw mode", .{});
+    util.tdebug("now in raw mode", .{});
 
     // OSC 11 asks for the background color. CSI 6n is a reliable fallback
     // response so we can detect terminals that ignore OSC 11.

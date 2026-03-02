@@ -15,7 +15,7 @@
   - fallback is `"unknown"`
 
 ## I/O Conventions
-- Use `/dev/tty` for terminal-only probing (`termwidth`, terminal background detection).
+- Use `/dev/tty` for terminal-only probing (`termWidth`, terminal background detection).
 - Do not mix terminal probing with stdin CSV input.
 - `util.stdout` and `util.stderr` are the shared buffered writers.
 

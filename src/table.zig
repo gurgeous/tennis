@@ -11,15 +11,11 @@ pub const Table = struct {
             .alloc = alloc,
             .config = config,
             .style = Style.init(alloc, config.color, config.theme),
-            .term_width = if (config.width > 0) config.width else util.termwidth(),
+            .term_width = if (config.width > 0) config.width else util.termWidth(),
         };
     }
 
-    pub fn render(
-        self: *Table,
-        records: [][][]const u8,
-        writer: *std.Io.Writer,
-    ) !void {
+    pub fn render(self: *Table, records: [][][]const u8, writer: *std.Io.Writer) !void {
         const layout = try Layout.init(self.alloc, records, self.config.row_numbers, self.term_width);
         defer layout.deinit(self.alloc);
 

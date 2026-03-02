@@ -49,7 +49,7 @@ pub const Render = struct {
         // A csv with zero data rows is intentionally rendered as an "empty
         // table", even if the parser produced a single header row.
         if (self.layout.widths.len == 0) {
-            return renderEmpty(self.table, self.writer);
+            return self.renderEmpty();
         }
 
         if (self.table.config.title.len > 0) {
@@ -141,19 +141,35 @@ pub const Render = struct {
 
         try self.writer.writeByte('\n');
     }
+
+    fn renderEmpty(self: *Render) !void {
+        const title = "empty table";
+        const body = "no data";
+        const width = @max(util.displayWidth(title), util.displayWidth(body));
+
+        try self.renderEmptySep(nw, bar, ne, width);
+        try self.renderEmptyRow(self.table.style.title, title, width);
+        try self.renderEmptySep(w, bar, e, width);
+        try self.renderEmptyRow(self.table.style.field, body, width);
+        try self.renderEmptySep(sw, bar, se, width);
+    }
+
+    fn renderEmptySep(self: *Render, left: []const u8, line: []const u8, right: []const u8, width: usize) !void {
+        try appendStyled(self.writer, self.table.style.chrome, left);
+        for (0..width + 2) |_| try appendStyled(self.writer, self.table.style.chrome, line);
+        try appendStyled(self.writer, self.table.style.chrome, right);
+        try self.writer.writeByte('\n');
+    }
+
+    fn renderEmptyRow(self: *Render, text_style: []const u8, text: []const u8, width: usize) !void {
+        try appendStyled(self.writer, self.table.style.chrome, pipe);
+        try self.writer.writeByte(' ');
+        try writeStyledExactly(self.writer, text_style, text, width, .center);
+        try self.writer.writeByte(' ');
+        try appendStyled(self.writer, self.table.style.chrome, pipe);
+        try self.writer.writeByte('\n');
+    }
 };
-
-pub fn renderEmpty(table: *Table, writer: *std.Io.Writer) !void {
-    const title = "empty table";
-    const body = "no data";
-    const width = @max(util.displayWidth(title), util.displayWidth(body));
-
-    try renderEmptySep(writer, table.style.chrome, nw, bar, ne, width);
-    try renderEmptyRow(writer, table.style.chrome, table.style.title, title, width);
-    try renderEmptySep(writer, table.style.chrome, w, bar, e, width);
-    try renderEmptyRow(writer, table.style.chrome, table.style.field, body, width);
-    try renderEmptySep(writer, table.style.chrome, sw, bar, se, width);
-}
 
 //
 // helpers
@@ -171,28 +187,6 @@ fn boxch(comptime row: usize, comptime col: usize) []const u8 {
         }
         @compileError("invalid BOX index");
     }
-}
-
-fn renderEmptySep(writer: *std.Io.Writer, chrome_style: []const u8, left: []const u8, line: []const u8, right: []const u8, width: usize) !void {
-    try appendStyled(writer, chrome_style, left);
-    for (0..width + 2) |_| try appendStyled(writer, chrome_style, line);
-    try appendStyled(writer, chrome_style, right);
-    try writer.writeByte('\n');
-}
-
-fn renderEmptyRow(
-    writer: *std.Io.Writer,
-    chrome_style: []const u8,
-    text_style: []const u8,
-    text: []const u8,
-    width: usize,
-) !void {
-    try appendStyled(writer, chrome_style, pipe);
-    try writer.writeByte(' ');
-    try writeStyledExactly(writer, text_style, text, width, .center);
-    try writer.writeByte(' ');
-    try appendStyled(writer, chrome_style, pipe);
-    try writer.writeByte('\n');
 }
 
 fn writeExactly(writer: *std.Io.Writer, text: []const u8, width: usize, al: Align) !void {
@@ -348,7 +342,8 @@ test "renderEmpty renders fallback table" {
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
     test_table.table.style = style_mod.Style.init(std.testing.allocator, .never, .dark);
-    try renderEmpty(&test_table.table, &writer);
+    var render: Render = .init(&test_table.table, &writer, .{ .widths = &.{} }, &.{});
+    try render.render();
 
     const exp =
         \\╭─────────────╮
