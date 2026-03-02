@@ -72,9 +72,8 @@ pub const Render = struct {
         if (self.table.style.chrome.len > 0) {
             try self.writer.writeAll(self.table.style.chrome);
         }
-
-        for (self.layout.widths, 0..) |width, i| {
-            if (i == 0) {
+        for (self.layout.widths, 0..) |width, ii| {
+            if (ii == 0) {
                 try self.writer.writeAll(left);
             } else {
                 try self.writer.writeAll(middle);
