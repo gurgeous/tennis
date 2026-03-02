@@ -285,15 +285,16 @@ test "ascii render simple" {
     const alloc = arena.allocator();
 
     var in = std.io.fixedBufferStream("a,b\nc,d\n");
-    const records = try util.readCsv(alloc, in.reader());
-    const l = try Layout.init(alloc, records, false, 80);
+    const csv = try csv_mod.Csv.init(alloc, in.reader());
+    defer csv.deinit(alloc);
+    const l = try Layout.init(alloc, csv.rows, false, 80);
     defer l.deinit(alloc);
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
     test_table.table.style = Style.init(std.testing.allocator, .off, .dark);
     test_table.table.config.row_numbers = false;
     test_table.table.config.title = "";
-    var render: Render = .init(&test_table.table, &writer, l, records);
+    var render: Render = .init(&test_table.table, &writer, l, csv.rows);
     try render.render();
 
     const exp =
@@ -317,15 +318,16 @@ test "render with title and row numbers" {
     const alloc = arena.allocator();
 
     var in = std.io.fixedBufferStream("a,b\nc,d\n");
-    const records = try util.readCsv(alloc, in.reader());
-    const l = try Layout.init(alloc, records, true, 80);
+    const csv = try csv_mod.Csv.init(alloc, in.reader());
+    defer csv.deinit(alloc);
+    const l = try Layout.init(alloc, csv.rows, true, 80);
     defer l.deinit(alloc);
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
     test_table.table.style = Style.init(std.testing.allocator, .off, .dark);
     test_table.table.config.row_numbers = true;
     test_table.table.config.title = "foo";
-    var render: Render = .init(&test_table.table, &writer, l, records);
+    var render: Render = .init(&test_table.table, &writer, l, csv.rows);
     try render.render();
 
     try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "foo"));
@@ -365,19 +367,21 @@ test "render uses placeholder for empty cells" {
     const alloc = arena.allocator();
 
     var in = std.io.fixedBufferStream("a,b\n,\n");
-    const records = try util.readCsv(alloc, in.reader());
-    const l = try Layout.init(alloc, records, false, 80);
+    const csv = try csv_mod.Csv.init(alloc, in.reader());
+    defer csv.deinit(alloc);
+    const l = try Layout.init(alloc, csv.rows, false, 80);
     defer l.deinit(alloc);
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
     test_table.table.style = Style.init(std.testing.allocator, .off, .dark);
-    var render: Render = .init(&test_table.table, &writer, l, records);
+    var render: Render = .init(&test_table.table, &writer, l, csv.rows);
     try render.render();
 
     try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 2, "—"));
 }
 
 const ansi = @import("ansi.zig");
+const csv_mod = @import("csv.zig");
 const Layout = @import("layout.zig").Layout;
 const std = @import("std");
 const Style = @import("style.zig").Style;

@@ -59,7 +59,7 @@ fn main0() !u8 {
     // read all records into memory
     //
 
-    const records = util.readCsv(alloc, input) catch |err| {
+    const csv = csv_mod.Csv.init(alloc, input) catch |err| {
         if (err == error.OutOfMemory) return err;
         const err_str = if (err == error.JaggedCsv)
             "All csv rows must have same number of columns"
@@ -68,14 +68,14 @@ fn main0() !u8 {
         try printBanner(err_str);
         return 1;
     };
-    defer util.freeCsv(alloc, records);
+    defer csv.deinit(alloc);
 
     //
     // table
     //
 
     var table: Table = .init(alloc, args.config);
-    try table.renderTable(records, util.stdout);
+    try table.renderTable(csv.rows, util.stdout);
     return 0;
 }
 
@@ -89,6 +89,7 @@ fn printBanner(err_str: ?[]const u8) !void {
 test {
     _ = @import("args.zig");
     _ = @import("color.zig");
+    _ = @import("csv.zig");
     _ = @import("layout.zig");
     _ = @import("render.zig");
     _ = @import("style.zig");
@@ -97,6 +98,7 @@ test {
 }
 
 const Args = @import("args.zig").Args;
+const csv_mod = @import("csv.zig");
 const std = @import("std");
 const Table = @import("table.zig").Table;
 const util = @import("util.zig");
