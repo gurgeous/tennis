@@ -172,6 +172,14 @@ test "parse rejects too many file arguments" {
     }, &diag));
 }
 
+test "parse rejects old color value never" {
+    var diag: clap.Diagnostic = .{};
+    try std.testing.expectError(error.NameNotPartOfEnum, Args.parse(std.testing.allocator, &.{
+        "--color",
+        "never",
+    }, &diag));
+}
+
 test "init sets fatal action for missing file" {
     const out = try Args.init(std.testing.allocator, &.{"definitely-not-a-real-file.csv"});
     defer if (out.err_str) |msg| std.testing.allocator.free(msg);

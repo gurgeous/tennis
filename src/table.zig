@@ -26,7 +26,7 @@ pub const Table = struct {
 
 const Layout = @import("layout.zig").Layout;
 const Render = @import("render.zig").Render;
-const Style = @import("style.zig").Style;
 const std = @import("std");
+const Style = @import("style.zig").Style;
 const types = @import("types.zig");
 const util = @import("util.zig");
