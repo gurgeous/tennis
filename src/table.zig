@@ -15,7 +15,7 @@ pub const Table = struct {
         };
     }
 
-    pub fn render(self: *Table, records: [][][]const u8, writer: *std.Io.Writer) !void {
+    pub fn renderTable(self: *Table, records: [][][]const u8, writer: *std.Io.Writer) !void {
         const layout = try Layout.init(self.alloc, records, self.config.row_numbers, self.term_width);
         defer layout.deinit(self.alloc);
 
@@ -24,10 +24,9 @@ pub const Table = struct {
     }
 };
 
-const render_mod = @import("render.zig");
-const std = @import("std");
 const Layout = @import("layout.zig").Layout;
+const Render = @import("render.zig").Render;
 const Style = @import("style.zig").Style;
-const Render = render_mod.Render;
+const std = @import("std");
 const types = @import("types.zig");
 const util = @import("util.zig");

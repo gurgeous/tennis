@@ -69,8 +69,8 @@ fn fg(comptime hex: []const u8, comptime is_bold: bool) []const u8 {
 
 fn colorEnabled(color: types.Color) bool {
     return switch (color) {
-        .always => true,
-        .never => false,
+        .on => true,
+        .off => false,
         .auto => blk: {
             if (util.hasenv("NO_COLOR")) break :blk false;
             if (util.hasenv("FORCE_COLOR")) break :blk true;
@@ -85,17 +85,17 @@ fn colorEnabled(color: types.Color) bool {
 //
 
 test "color title style" {
-    const s1 = Style.init(std.testing.allocator, .never, .dark);
+    const s1 = Style.init(std.testing.allocator, .off, .dark);
     try std.testing.expectEqualStrings("", s1.title);
-    const s2 = Style.init(std.testing.allocator, .always, .dark);
+    const s2 = Style.init(std.testing.allocator, .on, .dark);
     try std.testing.expectEqualStrings("\x1b[1;38;2;96;165;250m", s2.title);
-    const s3 = Style.init(std.testing.allocator, .always, .light);
+    const s3 = Style.init(std.testing.allocator, .on, .light);
     try std.testing.expectEqualStrings("\x1b[1;38;2;37;99;235m", s3.title);
 }
 
 test "colorEnabled handles explicit modes" {
-    try std.testing.expect(colorEnabled(.always));
-    try std.testing.expect(!colorEnabled(.never));
+    try std.testing.expect(colorEnabled(.on));
+    try std.testing.expect(!colorEnabled(.off));
 }
 
 test "colorEnabled auto returns a boolean" {

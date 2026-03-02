@@ -2,6 +2,6 @@
 # snap.sh sh -c printf "a,b\nc\n" | ./zig-out/bin/tennis --color=never
 ############################################################################
 
-tennis: All csv rows must have same number of columns
+tennis: Argument parsing failed
 tennis: try 'tennis --help' for more information
 

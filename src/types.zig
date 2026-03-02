@@ -1,6 +1,6 @@
 // table config, from cli args
 pub const Config = struct {
-    color: Color = .always,
+    color: Color = .on,
     row_numbers: bool = false,
     theme: Theme = .auto,
     title: []const u8 = "",
@@ -8,5 +8,5 @@ pub const Config = struct {
 };
 
 // simple enums for Config
-pub const Color = enum { auto, always, never };
+pub const Color = enum { auto, off, on };
 pub const Theme = enum { auto, dark, light };

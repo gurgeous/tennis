@@ -5,7 +5,7 @@
 Usage: tennis [options] <FILE>
 
 Options:
-        --color <COLOR>             Turn color off and on (auto|always|never)
+        --color <COLOR>             Turn color off and on (auto|off|on)
         --theme <THEME>             Select color theme (auto|dark|light)
     -n, --row-numbers               Turn on row numbers
     -t, --title <STRING>            Add a title

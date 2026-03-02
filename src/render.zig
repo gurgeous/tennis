@@ -291,7 +291,7 @@ test "ascii render simple" {
     defer l.deinit(alloc);
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
-    test_table.table.style = style_mod.Style.init(std.testing.allocator, .never, .dark);
+    test_table.table.style = Style.init(std.testing.allocator, .off, .dark);
     test_table.table.config.row_numbers = false;
     test_table.table.config.title = "";
     var render: Render = .init(&test_table.table, &writer, l, records);
@@ -323,7 +323,7 @@ test "render with title and row numbers" {
     defer l.deinit(alloc);
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
-    test_table.table.style = style_mod.Style.init(std.testing.allocator, .never, .dark);
+    test_table.table.style = Style.init(std.testing.allocator, .off, .dark);
     test_table.table.config.row_numbers = true;
     test_table.table.config.title = "foo";
     var render: Render = .init(&test_table.table, &writer, l, records);
@@ -341,7 +341,7 @@ test "renderEmpty renders fallback table" {
 
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
-    test_table.table.style = style_mod.Style.init(std.testing.allocator, .never, .dark);
+    test_table.table.style = Style.init(std.testing.allocator, .off, .dark);
     var render: Render = .init(&test_table.table, &writer, .{ .widths = &.{} }, &.{});
     try render.render();
 
@@ -371,7 +371,7 @@ test "render uses placeholder for empty cells" {
     defer l.deinit(alloc);
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
-    test_table.table.style = style_mod.Style.init(std.testing.allocator, .never, .dark);
+    test_table.table.style = Style.init(std.testing.allocator, .off, .dark);
     var render: Render = .init(&test_table.table, &writer, l, records);
     try render.render();
 
@@ -379,10 +379,9 @@ test "render uses placeholder for empty cells" {
 }
 
 const ansi = @import("ansi.zig");
-const mibu = @import("mibu");
+const Layout = @import("layout.zig").Layout;
 const std = @import("std");
-const style_mod = @import("style.zig");
+const Style = @import("style.zig").Style;
 const Table = @import("table.zig").Table;
 const test_support = @import("test_support.zig");
 const util = @import("util.zig");
-const Layout = @import("layout.zig").Layout;

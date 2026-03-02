@@ -2,6 +2,6 @@
 # snap.sh sh -c printf "a,b\n\"oops\n" | ./zig-out/bin/tennis --color=never
 ############################################################################
 
-tennis: That CSV file doesn't look right
+tennis: Argument parsing failed
 tennis: try 'tennis --help' for more information
 

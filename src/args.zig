@@ -4,7 +4,7 @@
 
 pub const Args = struct {
     const params = clap.parseParamsComptime(
-        \\    --color <COLOR>       Turn color off and on (auto|always|never)
+        \\    --color <COLOR>       Turn color off and on (auto|off|on)
         \\    --theme <THEME>       Select color theme (auto|dark|light)
         \\-n, --row-numbers         Turn on row numbers
         \\-t, --title <STRING>      Add a title
@@ -144,7 +144,7 @@ test "parse parses options" {
     var diag: clap.Diagnostic = .{};
     const out = try Args.parse(std.testing.allocator, &.{
         "--color",
-        "never",
+        "off",
         "--theme",
         "light",
         "--title",
@@ -156,7 +156,7 @@ test "parse parses options" {
     }, &diag);
 
     try std.testing.expectEqual(null, out.action);
-    try std.testing.expectEqual(types.Color.never, out.config.color);
+    try std.testing.expectEqual(types.Color.off, out.config.color);
     try std.testing.expectEqual(types.Theme.light, out.config.theme);
     try std.testing.expectEqualStrings("foo", out.config.title);
     try std.testing.expectEqual(80, out.config.width);

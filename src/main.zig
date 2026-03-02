@@ -75,7 +75,7 @@ fn main0() !u8 {
     //
 
     var table: Table = .init(alloc, args.config);
-    try table.render(records, util.stdout);
+    try table.renderTable(records, util.stdout);
     return 0;
 }
 

@@ -33,7 +33,7 @@ lint:
   just banner "✓ lint ✓"
 
 test:
-  zig build test
+  zig build test --summary all
   just banner "✓ test ✓"
 
 test-snaps: build
