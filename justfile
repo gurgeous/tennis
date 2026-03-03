@@ -17,6 +17,29 @@ run *ARGS:
   zig build run -- {{ARGS}}
 
 #
+# goreleaser
+#
+
+# release *ARGS:
+#   # git tag -a v0.1.0 -m "First release" && git push origin v0.1.0
+#   # git push --delete origin v0.1.0 && git tag -d v0.1.0
+#   clear ; just banner "just check..." ; just check
+#   just banner "goreleaser release..."
+#   goreleaser healthcheck
+#   if [ -z "${GITHUB_TOKEN:-}" ]; then just _fatal "GITHUB_TOKEN is required" ; fi
+#   goreleaser release --clean {{ARGS}}
+#   just banner "done"
+
+# release-preview *ARGS:
+#   goreleaser healthcheck
+#   goreleaser release --clean --skip=publish {{ARGS}}
+#   just banner "done"
+
+goreleaser-snapshot: check
+  goreleaser release --snapshot --clean
+  just banner "✓ goreleaser-snapshot ✓"
+
+#
 # hygiene
 #
 

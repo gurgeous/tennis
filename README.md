@@ -1,7 +1,6 @@
 #### TODO
 
-- investigate zcsv/zig_csv/build.zip
-- goreleaser?
+- goreleaser / brew
 - README/logo
   https://goreleaser.com/quick-start/
   https://github.com/zimeg/git-coverage
@@ -10,4 +9,3 @@
 ### Version Number
 
 - read from build.zig.zon
--

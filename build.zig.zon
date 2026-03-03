@@ -17,13 +17,5 @@
     },
     .fingerprint = 0x9420803bbcaa5265,
     .minimum_zig_version = "0.15.2",
-    .paths = .{
-        "build.zig",
-        "build.zig.zon",
-        "src",
-        "README.md",
-        "justfile",
-        "mise.toml",
-        "testdata",
-    },
+    .paths = .{""},
 }
