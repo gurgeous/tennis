@@ -17,7 +17,7 @@ pub const Csv = struct {
             bufs.deinit(alloc);
         }
 
-        var parser = zig_csv.allocs.column.init(alloc, reader, .{});
+        var parser = zcsv.allocs.column.init(alloc, reader, .{});
         var width: ?usize = null;
         while (parser.next()) |row_csv| {
             defer row_csv.deinit();
@@ -145,4 +145,4 @@ test "deinit releases owned rows" {
 
 const std = @import("std");
 const util = @import("util.zig");
-const zig_csv = @import("zig_csv");
+const zcsv = @import("zcsv");
