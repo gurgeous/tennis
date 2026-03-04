@@ -39,11 +39,15 @@ goreleaser-snapshot: check
   just banner "✓ goreleaser-snapshot ✓"
 
 #
-# hygiene
+# check and friends
 #
 
 check: lint build test bats
   just banner "✓ check ✓"
+
+bats: build
+  bats testdata/smoke.bats
+  just banner "✓ bats ✓"
 
 ci: check
   just banner "✓ ci ✓"
@@ -59,10 +63,6 @@ lint:
 test:
   zig build test --summary all
   just banner "✓ test ✓"
-
-bats: build
-  bats testdata/smoke.bats
-  just banner "✓ bats ✓"
 
 valgrind: build
   valgrind --quiet --leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all --error-exitcode=1 \
