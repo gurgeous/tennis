@@ -42,7 +42,7 @@ goreleaser-snapshot: check
 # hygiene
 #
 
-check: lint build test test-snaps
+check: lint build test bats
   just banner "✓ check ✓"
 
 ci: check
@@ -60,19 +60,9 @@ test:
   zig build test --summary all
   just banner "✓ test ✓"
 
-test-snaps: build
-  ./bin/snap.sh --fail testdata/smoke-bad-arg.txt     ./zig-out/bin/tennis --bogus
-  ./bin/snap.sh --fail testdata/smoke-error.txt       ./zig-out/bin/tennis testdata/test.csv bogus
-  ./bin/snap.sh testdata/smoke-help.txt               ./zig-out/bin/tennis --help
-  ./bin/snap.sh --fail testdata/smoke-invalid-csv.txt  sh -c 'printf "a,b\n\"oops\n" | ./zig-out/bin/tennis --color=off'
-  ./bin/snap.sh --fail testdata/smoke-jagged.txt       sh -c 'printf "a,b\nc\n" | ./zig-out/bin/tennis --color=off'
-  ./bin/snap.sh testdata/smoke-pipe.txt                sh -c 'cat testdata/test.csv | ./zig-out/bin/tennis --color=off --width 80'
-  ./bin/snap.sh testdata/smoke-rows.txt                ./zig-out/bin/tennis --color=off --width 80 -n testdata/test.csv
-  ./bin/snap.sh testdata/smoke-title.txt               ./zig-out/bin/tennis --color=off --width 80 --title foo testdata/test.csv
-  just banner "✓ test-snaps ✓"
-
-gen-snaps:
-  GEN=1 just test-snaps
+bats: build
+  bats testdata/smoke.bats
+  just banner "✓ bats ✓"
 
 valgrind: build
   valgrind --quiet --leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all --error-exitcode=1 \

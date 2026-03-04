@@ -2,10 +2,10 @@ name: ci
 
 on:
   pull_request:
-    paths-ignore: [justfile, README.md]
+    paths-ignore: [README.md, justfile]
   push:
     branches: [$default-branch]
-    paths-ignore: [justfile, README.md]
+    paths-ignore: [README.md, justfile]
   workflow_dispatch:
 
 concurrency:
@@ -21,4 +21,5 @@ jobs:
       - uses: actions/checkout@v5
       - uses: mlugg/setup-zig@v2
       - uses: taiki-e/install-action@just
+      - uses: bats-core/bats-action@4.0.0
       - run: just ci

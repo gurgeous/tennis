@@ -1,7 +1,0 @@
-############################################################################
-# snap.sh sh -c printf "a,b\n\"oops\n" | ./zig-out/bin/tennis --color=off
-############################################################################
-
-tennis: That CSV file doesn't look right
-tennis: try 'tennis --help' for more information
-
