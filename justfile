@@ -18,17 +18,16 @@ run *ARGS:
 
 #
 # goreleaser
+# git tag -a vXX.YY.ZZ -m "First release" && git push origin vXX.YY.ZZ
+# git push --delete origin vXX.YY.ZZ && git tag -d vXX.YY.ZZ
 #
 
-# release *ARGS:
-#   # git tag -a v0.1.0 -m "First release" && git push origin v0.1.0
-#   # git push --delete origin v0.1.0 && git tag -d v0.1.0
-#   clear ; just banner "just check..." ; just check
-#   just banner "goreleaser release..."
-#   goreleaser healthcheck
-#   if [ -z "${GITHUB_TOKEN:-}" ]; then just _fatal "GITHUB_TOKEN is required" ; fi
-#   goreleaser release --clean {{ARGS}}
-#   just banner "done"
+goreleaser *ARGS: check
+  just banner "goreleaser release..."
+  goreleaser healthcheck
+  if [ -z "${GITHUB_TOKEN:-}" ]; then just fatal "GITHUB_TOKEN is required" ; fi
+  goreleaser release --clean {{ARGS}}
+  just banner "✓ goreleaser ✓"
 
 goreleaser-preview *ARGS:
   goreleaser healthcheck
