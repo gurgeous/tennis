@@ -72,7 +72,7 @@ valgrind: build
 # banner
 #
 
-set quiet := true
+set quiet
 
 TRUWHITE := '\e[38;5;231m'
 GREEN    := '\e[48;2;064;160;043m'

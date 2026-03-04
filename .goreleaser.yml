@@ -4,3 +4,20 @@ builds:
   - builder: zig
     flags: ["-Doptimize=ReleaseSmall"]
     targets: ["aarch64-linux", "aarch64-macos", "x86_64-linux"]
+
+# what to put in the tgz files
+archives:
+  - wrap_in_directory: true
+
+# turn stuff off
+announce: { skip: true }
+changelog: { disable: true }
+
+# brew tap
+brews:
+  - repository: { owner: "gurgeous", name: "homebrew-tap" }
+    description: Stylish CSV tables in your terminal.
+    homepage: https://github.com/gurgeous/tennis
+    test: system "./tennis --version"
+    install: |
+      bin.install "tennis"
