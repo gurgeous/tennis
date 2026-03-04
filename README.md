@@ -1,5 +1,5 @@
 #### TODO
 
+- ci
 - README/logo
 - goreleaser / brew
-- better zig inspect (for strings)

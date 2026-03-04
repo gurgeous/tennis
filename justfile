@@ -46,10 +46,12 @@ goreleaser-snapshot: check
 check: lint build test test-snaps
   just banner "✓ check ✓"
 
+ci: check
+  just banner "✓ ci ✓"
+
 fmt:
   zig fmt .
   just banner "✓ fmt ✓"
-
 
 lint:
   zig fmt --check .
