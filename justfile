@@ -18,8 +18,8 @@ run *ARGS:
 
 #
 # goreleaser
-# git tag -a vXX.YY.ZZ -m "First release" && git push origin vXX.YY.ZZ
-# git push --delete origin vXX.YY.ZZ && git tag -d vXX.YY.ZZ
+# git tag -a v0.1.0 -m "First release" && git push origin v0.1.0
+# git push --delete origin v0.1.0 && git tag -d v0.1.0
 #
 
 goreleaser *ARGS: check
