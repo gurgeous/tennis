@@ -74,6 +74,26 @@ pub fn readByte(fd: std.posix.fd_t) !u8 {
     return buf[0];
 }
 
+// quote a string, keeping printable ascii readable and hex-escaping the rest
+pub fn inspect(alloc: std.mem.Allocator, s: []const u8) ![]u8 {
+    var out: std.ArrayList(u8) = .empty;
+    defer out.deinit(alloc);
+
+    try out.append(alloc, '"');
+    for (s) |c| {
+        if (c == '"' or c == '\\') {
+            try out.append(alloc, '\\');
+            try out.append(alloc, c);
+        } else if (c >= 0x20 and c <= 0x7e) {
+            try out.append(alloc, c);
+        } else {
+            try out.writer(alloc).print("\\x{x:0>2}", .{c});
+        }
+    }
+    try out.append(alloc, '"');
+    return out.toOwnedSlice(alloc);
+}
+
 // debug logging to stderr, enabled only with TENNIS_DEBUG=1 (or any value)
 pub fn tdebug(comptime fmt: []const u8, args: anytype) void {
     if (!hasenv("TENNIS_DEBUG")) return;
@@ -131,6 +151,18 @@ test "readByte reads a single byte" {
 
     _ = try std.posix.write(fds[1], "z");
     try std.testing.expectEqual(@as(u8, 'z'), try readByte(fds[0]));
+}
+
+test "inspect keeps printable ascii readable" {
+    const s = try inspect(std.testing.allocator, "abc 123");
+    defer std.testing.allocator.free(s);
+    try std.testing.expectEqualStrings("\"abc 123\"", s);
+}
+
+test "inspect escapes quotes slash and bytes" {
+    const s = try inspect(std.testing.allocator, &[_]u8{ '"', '\\', '\n', 0xff });
+    defer std.testing.allocator.free(s);
+    try std.testing.expectEqualStrings("\"\\\"\\\\\\x0a\\xff\"", s);
 }
 
 test "tdebug is callable" {

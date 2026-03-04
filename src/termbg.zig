@@ -30,8 +30,8 @@ pub fn isDark(alloc: std.mem.Allocator) !bool {
     tio.lflag.ICANON = false;
 
     // set VMIN/VTIME
-    var vmin: u8 = 0;
-    var vtime: u8 = 0;
+    var vmin: u8 = undefined;
+    var vtime: u8 = undefined;
     if (builtin.os.tag == .linux) {
         vmin = @intFromEnum(std.os.linux.V.MIN);
         vtime = @intFromEnum(std.os.linux.V.TIME);
@@ -58,9 +58,12 @@ pub fn isDark(alloc: std.mem.Allocator) !bool {
     try devtty.writeAll(ansi.esc ++ "]11;?\x07" ++ ansi.esc ++ "[6n");
 
     // first response, which is hopefully the OSC11 response
-    const response = try readResponse(alloc, tty);
-    defer alloc.free(response);
-    if (response.len < 2 or response[1] != ']') {
+    const response1 = try readResponse(alloc, tty);
+    defer alloc.free(response1);
+    const inspect1 = try util.inspect(alloc, response1);
+    defer alloc.free(inspect1);
+    util.tdebug("response1={s}", .{inspect1});
+    if (response1.len < 2 or response1[1] != ']') {
         util.tdebug("terminal ignored osc11", .{});
         return error.NotSupported;
     }
@@ -68,8 +71,13 @@ pub fn isDark(alloc: std.mem.Allocator) !bool {
     // second response (we ignore this)
     const response2 = readResponse(alloc, tty) catch null;
     defer if (response2) |buf| alloc.free(buf);
+    if (response2) |buf| {
+        const inspect2 = try util.inspect(alloc, buf);
+        defer alloc.free(inspect2);
+        util.tdebug("response2={s}", .{inspect2});
+    }
 
-    const color = try parseResponse(response);
+    const color = try parseResponse(response1);
     const hex = try color.toHex(alloc);
     defer alloc.free(hex);
     util.tdebug("detected {s} => {s}", .{ hex, if (color.isDark()) "dark" else "light" });
