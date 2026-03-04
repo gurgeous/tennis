@@ -2,10 +2,10 @@ name: ci
 
 on:
   pull_request:
-    paths-ignore: [README.md]
+    paths-ignore: [justfile, README.md]
   push:
     branches: [$default-branch]
-    paths-ignore: [README.md]
+    paths-ignore: [justfile, README.md]
   workflow_dispatch:
 
 concurrency:

@@ -30,10 +30,9 @@ run *ARGS:
 #   goreleaser release --clean {{ARGS}}
 #   just banner "done"
 
-# release-preview *ARGS:
-#   goreleaser healthcheck
-#   goreleaser release --clean --skip=publish {{ARGS}}
-#   just banner "done"
+goreleaser-preview *ARGS:
+  goreleaser healthcheck
+  goreleaser release --clean --skip=publish {{ARGS}}
 
 goreleaser-snapshot: check
   goreleaser release --snapshot --clean

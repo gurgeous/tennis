@@ -1,5 +1,4 @@
 #### TODO
 
-- ci
-- README/logo
 - goreleaser / brew
+- README/logo
