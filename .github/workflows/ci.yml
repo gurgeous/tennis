@@ -1,0 +1,26 @@
+name: ci
+
+on:
+  pull_request:
+    paths-ignore: [README.md, justfile]
+  push:
+    branches: [main]
+    paths-ignore: [README.md, justfile]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{github.workflow}}-${{github.ref_name}}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    strategy:
+      matrix: { platform: [ubuntu-latest, macos-latest] }
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: mlugg/setup-zig@v2
+      - uses: taiki-e/install-action@just
+      - uses: bats-core/bats-action@4.0.0
+        with: { bats-version: "v1.13.0" } # seems to be required
+      - run: just ci
