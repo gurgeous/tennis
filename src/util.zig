@@ -55,7 +55,7 @@ pub fn displayWidth(s: []const u8) usize {
     return std.unicode.utf8CountCodepoints(s) catch s.len;
 }
 
-// how wide is ther terminal? thanks mubi
+// how wide is the terminal? thanks mubi
 pub fn termWidth() usize {
     var tty = std.fs.openFileAbsolute("/dev/tty", .{}) catch return 80;
     defer tty.close();

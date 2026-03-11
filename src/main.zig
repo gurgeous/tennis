@@ -11,7 +11,10 @@ fn main0() !u8 {
 
     // allocators
     var gpa: std.heap.DebugAllocator(.{}) = .init;
-    defer _ = gpa.deinit();
+    defer {
+        const check = gpa.deinit();
+        if (builtin.mode == .Debug) std.debug.assert(check == .ok);
+    }
     const alloc = gpa.allocator();
 
     //
@@ -99,6 +102,7 @@ test {
 }
 
 const Args = @import("args.zig").Args;
+const builtin = @import("builtin");
 const csv_mod = @import("csv.zig");
 const std = @import("std");
 const Table = @import("table.zig").Table;

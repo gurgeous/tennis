@@ -46,6 +46,8 @@ Options:
     -w, --width <INT>               Set max table width in columns
 ```
 
+Note that color defaults to `on`. Tennis likes to be colorful.
+
 ### An Aside: Term Background
 
 `tennis` uses a `termbg.zig` module to detect the terminal background color so it can choose the correct theme (dark or light). Detection is complicated, and I'm calling it out here because I don't think anyone has implemented this in Zig yet.

@@ -98,7 +98,9 @@ pub const Render = struct {
     // render title line
     fn renderTitle(self: *Render) !void {
         const out = &self.buf.writer;
-        const width = self.layout.tableWidth() - 4;
+
+        const chrome: usize = 4; // <pipe><space>[...title...]<space><pipe>
+        const width = self.layout.tableWidth() - chrome;
 
         try appendStyled(out, self.table.style.chrome, pipe);
         try out.writeByte(' ');
@@ -233,6 +235,7 @@ fn writeExactly(writer: *std.Io.Writer, text: []const u8, width: usize, al: Alig
 
     if (width == 0) return;
 
+    // gotta truncate. note we stop at "used + 1" to leave room for the ellipsis
     var it = std.unicode.Utf8View.init(text) catch {
         try writer.writeAll(text[0..@min(text.len, width)]);
         return;

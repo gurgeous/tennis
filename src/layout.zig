@@ -55,17 +55,26 @@ fn autolayout(alloc: std.mem.Allocator, widths: []const usize, term_width: usize
         return try alloc.alloc(usize, 0);
     }
 
+    // a little breathing room on the right side, which is nice visually and
+    // helps with minor terminal layout snafus
     const fudge: usize = 2;
-    const lower_min: usize = 2;
-    const lower_max: usize = 10;
-    const input: Layout = .{ .widths = widths };
 
+    // is the terminal big enough to contain the table without truncation?
+    const input: Layout = .{ .widths = widths };
     const available = term_width -| (input.chromeWidth() + fudge);
-    if (available == 0 or available >= input.tableWidth()) {
+    if (available >= input.tableWidth()) {
         return try alloc.dupe(usize, widths);
     }
 
+    // what is the lower bound for a column width? 2 is pretty severe, let it
+    // grow up to 10 if we don't have a lot of columns.
+    const lower_min: usize = 2;
+    const lower_max: usize = 10;
     const lower_bound = std.math.clamp(available / widths.len, lower_min, lower_max);
+
+    // calculate min & max for each column. min is the width of the widest cell
+    // or lower_bound, whichever is smaller. max is the width of the widest
+    // cell.
     var min = try alloc.alloc(usize, widths.len);
     defer alloc.free(min);
     var max = try alloc.alloc(usize, widths.len);
@@ -75,6 +84,7 @@ fn autolayout(alloc: std.mem.Allocator, widths: []const usize, term_width: usize
         max[i] = w;
     }
 
+    // calculate the ratio betweein min/max
     const min_sum = util.sum(usize, min);
     const max_sum = util.sum(usize, max);
     if (available <= min_sum or max_sum == min_sum) {
@@ -83,6 +93,7 @@ fn autolayout(alloc: std.mem.Allocator, widths: []const usize, term_width: usize
     const ratio = @as(f64, @floatFromInt(available - min_sum)) /
         @as(f64, @floatFromInt(max_sum - min_sum));
 
+    // shrink each column by ratio
     var diffs = try alloc.alloc(usize, widths.len);
     defer alloc.free(diffs);
     var layout = try alloc.alloc(usize, widths.len);
@@ -92,6 +103,7 @@ fn autolayout(alloc: std.mem.Allocator, widths: []const usize, term_width: usize
         layout[i] = min[i] + @as(usize, @intFromFloat(@as(f64, @floatFromInt(diffs[i])) * ratio));
     }
 
+    // due to rounding, there might be a few extra chars. hand those out too
     const extra = available -| util.sum(usize, layout);
     if (extra > 0) {
         const indexes = try alloc.alloc(usize, widths.len);
