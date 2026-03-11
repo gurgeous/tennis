@@ -80,10 +80,11 @@ fn main0() !u8 {
 }
 
 fn printBanner(err_str: ?[]const u8) !void {
+    const writer = if (err_str != null) util.stderr else util.stdout;
     if (err_str) |s| {
-        try util.stdout.print("tennis: {s}\n", .{s});
+        try writer.print("tennis: {s}\n", .{s});
     }
-    try util.stdout.writeAll("tennis: try 'tennis --help' for more information\n");
+    try writer.writeAll("tennis: try 'tennis --help' for more information\n");
 }
 
 test {

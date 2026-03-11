@@ -36,7 +36,7 @@ pub fn isDark(alloc: std.mem.Allocator) !bool {
         vmin = @intFromEnum(std.os.linux.V.MIN);
         vtime = @intFromEnum(std.os.linux.V.TIME);
     } else if (builtin.os.tag == .macos) {
-        // i suck at zig
+        // not sure if there is a way to look these up in zig+macos
         vmin = 16;
         vtime = 17;
     } else {
