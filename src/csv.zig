@@ -28,15 +28,27 @@ pub const Csv = struct {
                 width = row_csv.len();
             }
 
-            // make a copy of raw row bytes
-            const bytes = try alloc.dupe(u8, row_csv._bytes.items);
+            var total_len: usize = 0;
+            for (0..row_csv.len()) |ii| {
+                const field = try row_csv.field(ii);
+                total_len += util.strip(u8, field.data()).len;
+            }
+
+            // make a compact owned copy of the row bytes
+            const bytes = try alloc.alloc(u8, total_len);
             errdefer alloc.free(bytes);
 
             // our new row, with a slice for each field
             const row = try alloc.alloc([]const u8, row_csv.len());
             errdefer alloc.free(row);
-            for (row_csv._fields.items, 0..) |field, ii| {
-                row[ii] = util.strip(u8, bytes[field._pos..][0..field._len]);
+
+            var cursor: usize = 0;
+            for (0..row_csv.len()) |ii| {
+                const field = try row_csv.field(ii);
+                const trimmed = util.strip(u8, field.data());
+                @memcpy(bytes[cursor..][0..trimmed.len], trimmed);
+                row[ii] = bytes[cursor..][0..trimmed.len];
+                cursor += trimmed.len;
             }
 
             // keep track of our memory

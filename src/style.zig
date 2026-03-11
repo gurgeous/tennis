@@ -49,6 +49,8 @@ pub const Style = struct {
         },
     };
 
+    // a little subtle - headers needs at least one value because we use (idx %
+    // len) to determine header colors
     const none: Style = .{ .headers = &.{""} };
 };
 
