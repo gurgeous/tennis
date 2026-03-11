@@ -8,6 +8,7 @@ pub fn main() !void {
 fn main0() !u8 {
     // always flush
     defer util.stdout.flush() catch {};
+    defer util.stderr.flush() catch {};
 
     // allocators
     var gpa: std.heap.DebugAllocator(.{}) = .init;
@@ -83,7 +84,11 @@ fn main0() !u8 {
 }
 
 fn printBanner(err_str: ?[]const u8) !void {
-    const writer = if (err_str != null) util.stderr else util.stdout;
+    try printBannerTo(util.stdout, util.stderr, err_str);
+}
+
+fn printBannerTo(stdout_writer: *std.Io.Writer, stderr_writer: *std.Io.Writer, err_str: ?[]const u8) !void {
+    const writer = if (err_str != null) stderr_writer else stdout_writer;
     if (err_str) |s| {
         try writer.print("tennis: {s}\n", .{s});
     }
@@ -99,6 +104,36 @@ test {
     _ = @import("style.zig");
     _ = @import("termbg.zig");
     _ = @import("util.zig");
+}
+
+test "printBanner writes normal banner to stdout" {
+    var stdout_buf: [256]u8 = undefined;
+    var stderr_buf: [256]u8 = undefined;
+    var stdout_writer = std.Io.Writer.fixed(&stdout_buf);
+    var stderr_writer = std.Io.Writer.fixed(&stderr_buf);
+
+    try printBannerTo(&stdout_writer, &stderr_writer, null);
+
+    try std.testing.expectEqualStrings(
+        "tennis: try 'tennis --help' for more information\n",
+        stdout_writer.buffered(),
+    );
+    try std.testing.expectEqualStrings("", stderr_writer.buffered());
+}
+
+test "printBanner writes errors to stderr" {
+    var stdout_buf: [256]u8 = undefined;
+    var stderr_buf: [256]u8 = undefined;
+    var stdout_writer = std.Io.Writer.fixed(&stdout_buf);
+    var stderr_writer = std.Io.Writer.fixed(&stderr_buf);
+
+    try printBannerTo(&stdout_writer, &stderr_writer, "bad csv");
+
+    try std.testing.expectEqualStrings("", stdout_writer.buffered());
+    try std.testing.expectEqualStrings(
+        "tennis: bad csv\ntennis: try 'tennis --help' for more information\n",
+        stderr_writer.buffered(),
+    );
 }
 
 const Args = @import("args.zig").Args;

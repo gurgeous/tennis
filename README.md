@@ -54,9 +54,10 @@ Note that color defaults to `on`. Tennis likes to be colorful.
 
 ### Future Work
 
-There are many features I can add if there is demand, including zebra striping, numeric formatting, color scales, more control over column layout, etc.
+There are many features I can add if there is demand, including zebra striping, numeric formatting, color scales, more control over column layout, etc. Other areas to explore:
 
-Windows is not yet supported since terminal control is very different in that environment. Another thing I can look into if there is enough demand.
+- windows support
+- use `zg` for string measuring and truncation of graphemes (vs codepoints)
 
 ### Similar Tools
 
