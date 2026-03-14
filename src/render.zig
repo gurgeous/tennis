@@ -120,7 +120,7 @@ pub const Render = struct {
         var col: usize = 0;
         if (self.table.config.row_numbers) {
             try out.writeByte(' ');
-            try writeStyledExactly(out, style.headers[0], "#", self.layout.widths[col], .left);
+            try writeStyledExactly(out, style.headers[col % style.headers.len], "#", self.layout.widths[col], .left);
             try out.writeByte(' ');
             try appendStyled(out, style.chrome, pipe);
             col += 1;

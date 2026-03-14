@@ -20,15 +20,14 @@ pub const Table = struct {
         const csv = try Csv.init(alloc, reader);
         errdefer csv.deinit(alloc);
 
-        // A csv with zero data rows is intentionally rendered as an "empty
-        // table", even if the parser produced a single header row.
-        const empty = csv.rows.len < 2 or csv.rows[0].len == 0;
+        // A csv with zero data rows is intentionally rendered as "empty"
+        const empty = csv.rows.len < 2;
 
         table.* = .{
             .alloc = alloc,
+            .columns = &.{},
             .config = config,
             .csv = csv,
-            .columns = &.{},
             .empty = empty,
         };
         table.columns = try table.buildColumns();
@@ -104,9 +103,7 @@ pub const Table = struct {
     }
 
     fn buildColumns(self: *const Table) ![]Column {
-        if (self.empty) return self.alloc.alloc(Column, 0);
-
-        const columns = try self.alloc.alloc(Column, self.headers().len);
+        const columns = try self.alloc.alloc(Column, self.ncols());
         errdefer self.alloc.free(columns);
         for (columns, 0..) |*col, ii| {
             col.* = Column.init(self, ii);
