@@ -1,5 +1,7 @@
 pub const ColumnType = enum { int, float, string };
 
+const sample_rows = 100;
+
 pub const Column = struct {
     table: *const Table,
     name: []const u8,
@@ -32,12 +34,15 @@ pub const Column = struct {
     }
 
     fn inferColumnType(self: Column) ColumnType {
+        const mode = std.posix.getenv("INFER_COLUMN_TYPE") orelse "A";
+        if (std.mem.eql(u8, mode, "B")) return self.inferColumnTypeB();
+        return self.inferColumnTypeA();
+    }
+
+    fn inferColumnTypeA(self: Column) ColumnType {
         var floats: usize = 0;
         var ints: usize = 0;
         var strings: usize = 0;
-
-        // we only look at the first 100 rows to infer column type
-        const sample_rows = 100;
 
         var it = self.iterator();
         var n: usize = 0;
@@ -45,6 +50,31 @@ pub const Column = struct {
             if (n >= sample_rows) break;
             n += 1;
 
+            if (field.len == 0) continue;
+            if (util.isInt(field)) {
+                ints += 1;
+                continue;
+            }
+            if (util.isFloat(field)) {
+                floats += 1;
+                continue;
+            }
+            strings += 1;
+        }
+
+        if (strings != 0) return .string;
+        if (floats != 0) return .float;
+        if (ints != 0) return .int;
+        return .string;
+    }
+
+    fn inferColumnTypeB(self: Column) ColumnType {
+        var floats: usize = 0;
+        var ints: usize = 0;
+        var strings: usize = 0;
+
+        var it = self.iterator();
+        while (it.next()) |field| {
             if (field.len == 0) continue;
             if (util.isInt(field)) {
                 ints += 1;

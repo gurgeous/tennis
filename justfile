@@ -17,6 +17,19 @@ clean:
 run *ARGS:
   zig build run -- {{ARGS}}
 
+benchmark-data:
+  just banner "✓ benchmark-data ✓"
+
+benchmark:
+  awk 'BEGIN { \
+  for (c = 1; c <= 20; c++) printf "c%d%s", c, (c < 20 ? "," : "\n"); \
+    for (r = 1; r <= 100000; r++) { \
+      for (c = 1; c <= 20; c++) printf "%d%s", r * c, (c < 20 ? "," : "\n") \
+    } \
+  }' > /tmp/tennis-100k.csv
+  BENCHMARK=1 ./zig-out/bin/tennis --color=off --width 80 /tmp/tennis-100k.csv > /dev/null
+  just banner "✓ benchmark ✓"
+
 #
 # goreleaser
 # git tag -a v0.1.0 -m "First release" && git push origin v0.1.0

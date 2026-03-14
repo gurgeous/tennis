@@ -17,8 +17,10 @@ pub const Table = struct {
         const table = try alloc.create(Table);
         errdefer alloc.destroy(table);
 
+        var timer = try std.time.Timer.start();
         const csv = try Csv.init(alloc, reader);
         errdefer csv.deinit(alloc);
+        util.benchmark("table.csv", timer.read());
 
         // A csv with zero data rows is intentionally rendered as "empty"
         const empty = csv.rows.len < 2;
@@ -30,7 +32,9 @@ pub const Table = struct {
             .csv = csv,
             .empty = empty,
         };
+        timer = try std.time.Timer.start();
         table.columns = try table.buildColumns();
+        util.benchmark("table.columns", timer.read());
         return table;
     }
 
@@ -45,12 +49,16 @@ pub const Table = struct {
     //
 
     pub fn renderTable(self: *Table, writer: *std.Io.Writer) !void {
+        var timer = try std.time.Timer.start();
         const layout = try Layout.init(self);
         defer layout.deinit(self.alloc);
+        util.benchmark("render.layout", timer.read());
 
         var renderer: Render = .init(self, writer, layout);
         defer renderer.deinit();
+        timer = try std.time.Timer.start();
         try renderer.render();
+        util.benchmark("render.output", timer.read());
     }
 
     //

@@ -8,6 +8,9 @@ fn main0() !u8 {
     defer util.stdout.flush() catch {};
     defer util.stderr.flush() catch {};
 
+    var total = try std.time.Timer.start();
+    defer util.benchmark("total", total.read());
+
     // allocators
     var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer {
@@ -20,10 +23,12 @@ fn main0() !u8 {
     // arg processing
     //
 
+    var timer = try std.time.Timer.start();
     const argv = try std.process.argsAlloc(alloc);
     defer std.process.argsFree(alloc, argv);
     const args = try Args.init(alloc, argv[1..]);
     defer args.deinit(alloc);
+    util.benchmark("args", timer.read());
 
     //
     // handle early exits ("actions")
@@ -46,6 +51,7 @@ fn main0() !u8 {
     // where are we reading from?
     //
 
+    timer = try std.time.Timer.start();
     var needs_close = false;
     var input = std.fs.File.stdin();
     const filename = args.filename;
@@ -56,11 +62,13 @@ fn main0() !u8 {
         }
     }
     defer if (needs_close) input.close();
+    util.benchmark("input", timer.read());
 
     //
     // table
     //
 
+    timer = try std.time.Timer.start();
     const table = Table.init(alloc, args.config, input) catch |err| {
         if (err == error.OutOfMemory) return err;
         const err_str = if (err == error.JaggedCsv)
@@ -71,7 +79,11 @@ fn main0() !u8 {
         return 1;
     };
     defer table.deinit();
+    util.benchmark("table.init", timer.read());
+
+    timer = try std.time.Timer.start();
     try table.renderTable(util.stdout);
+    util.benchmark("table.render", timer.read());
     return 0;
 }
 
