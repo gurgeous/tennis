@@ -103,8 +103,7 @@ pub const Table = struct {
     }
 
     fn buildColumns(self: *const Table) ![]Column {
-        const columns = try self.alloc.alloc(Column, self.ncols());
-        errdefer self.alloc.free(columns);
+        const columns = try self.alloc.alloc(Column, self.headers().len);
         for (columns, 0..) |*col, ii| {
             col.* = Column.init(self, ii);
         }

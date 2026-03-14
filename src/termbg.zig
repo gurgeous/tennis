@@ -18,13 +18,13 @@ pub fn isDark(alloc: std.mem.Allocator) !bool {
 fn isDarkWith(alloc: std.mem.Allocator, term_opt: ?[]const u8, os_tag: std.Target.Os.Tag, tty: anytype) !bool {
     util.tdebug("TERM={s}", .{term_opt orelse "<unset>"});
     _ = try supportedTerm(term_opt);
+    const cc = try timeoutIndexes(os_tag);
 
     var tio = try tty.tcgetattr();
     const saved = tio;
     tio.lflag.ECHO = false;
     tio.lflag.ICANON = false;
 
-    const cc = try timeoutIndexes(os_tag);
     const timeout_in_deciseconds: u8 = 1;
     tio.cc[cc.vmin] = 0;
     tio.cc[cc.vtime] = timeout_in_deciseconds;

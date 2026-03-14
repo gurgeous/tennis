@@ -25,7 +25,7 @@ fn main0() !u8 {
     const argv = try std.process.argsAlloc(alloc);
     defer std.process.argsFree(alloc, argv);
     const args = try Args.init(alloc, argv[1..]);
-    defer if (args.err_str) |msg| alloc.free(msg);
+    defer args.deinit(alloc);
 
     //
     // handle early exits ("actions")

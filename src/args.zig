@@ -52,6 +52,10 @@ pub const Args = struct {
         return args;
     }
 
+    pub fn deinit(self: Args, alloc: std.mem.Allocator) void {
+        if (self.err_str) |msg| alloc.free(msg);
+    }
+
     fn parse(
         alloc: std.mem.Allocator,
         argv: []const []const u8,
@@ -237,7 +241,7 @@ test "resolveInput handles stdin cases" {
 
 test "init sets fatal action for parse failures" {
     const out = try Args.init(std.testing.allocator, &.{"--bogus"});
-    defer if (out.err_str) |msg| std.testing.allocator.free(msg);
+    defer out.deinit(std.testing.allocator);
     try std.testing.expectEqual(Action.fatal, out.action.?);
     try std.testing.expect(out.err_str != null);
     try std.testing.expect(std.mem.indexOf(u8, out.err_str.?, "--bogus") != null);
@@ -245,7 +249,7 @@ test "init sets fatal action for parse failures" {
 
 test "init sets fatal action for missing file" {
     const out = try Args.init(std.testing.allocator, &.{"definitely-not-a-real-file.csv"});
-    defer if (out.err_str) |msg| std.testing.allocator.free(msg);
+    defer out.deinit(std.testing.allocator);
     try std.testing.expectEqual(Action.fatal, out.action.?);
     try std.testing.expect(out.err_str != null);
     try std.testing.expect(std.mem.indexOf(u8, out.err_str.?, "definitely-not-a-real-file.csv") != null);
