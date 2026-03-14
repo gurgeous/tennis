@@ -323,7 +323,7 @@ test "ascii render simple" {
     var test_table: test_support.TestTable = undefined;
     try test_table.init(std.testing.allocator, "a,b\nc,d\n");
     defer test_table.deinit();
-    const l = try Layout.init(&test_table.table);
+    const l = try Layout.init(test_table.table);
     defer l.deinit(test_table.table.alloc);
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
@@ -331,7 +331,7 @@ test "ascii render simple" {
     test_table.table.config.theme = .dark;
     test_table.table.config.row_numbers = false;
     test_table.table.config.title = "";
-    var render: Render = .init(&test_table.table, &writer, l);
+    var render: Render = .init(test_table.table, &writer, l);
     try render.render();
 
     const exp =
@@ -355,9 +355,9 @@ test "render with title and row numbers" {
     test_table.table.config.theme = .dark;
     test_table.table.config.row_numbers = true;
     test_table.table.config.title = "foo";
-    const l = try Layout.init(&test_table.table);
+    const l = try Layout.init(test_table.table);
     defer l.deinit(test_table.table.alloc);
-    var render: Render = .init(&test_table.table, &writer, l);
+    var render: Render = .init(test_table.table, &writer, l);
     try render.render();
 
     try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "foo"));
@@ -374,9 +374,9 @@ test "renderEmpty renders fallback table" {
     var writer = std.Io.Writer.fixed(&buf);
     test_table.table.config.color = .off;
     test_table.table.config.theme = .dark;
-    const l = try Layout.init(&test_table.table);
+    const l = try Layout.init(test_table.table);
     defer l.deinit(test_table.table.alloc);
-    var render: Render = .init(&test_table.table, &writer, l);
+    var render: Render = .init(test_table.table, &writer, l);
     try render.render();
 
     const exp =
@@ -397,9 +397,9 @@ test "render header only table falls back to empty" {
 
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
-    const l = try Layout.init(&test_table.table);
+    const l = try Layout.init(test_table.table);
     defer l.deinit(test_table.table.alloc);
-    var render: Render = .init(&test_table.table, &writer, l);
+    var render: Render = .init(test_table.table, &writer, l);
     try render.render();
 
     try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "empty table"));
@@ -413,9 +413,9 @@ test "render uses placeholder for empty cells" {
     var writer = std.Io.Writer.fixed(&buf);
     test_table.table.config.color = .off;
     test_table.table.config.theme = .dark;
-    const l = try Layout.init(&test_table.table);
+    const l = try Layout.init(test_table.table);
     defer l.deinit(test_table.table.alloc);
-    var render: Render = .init(&test_table.table, &writer, l);
+    var render: Render = .init(test_table.table, &writer, l);
     try render.render();
 
     try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 2, "—"));
@@ -428,9 +428,9 @@ test "render headers does not use placeholder for empty header cell" {
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
     test_table.table.config.color = .off;
-    const l = try Layout.init(&test_table.table);
+    const l = try Layout.init(test_table.table);
     defer l.deinit(test_table.table.alloc);
-    var render: Render = .init(&test_table.table, &writer, l);
+    var render: Render = .init(test_table.table, &writer, l);
     try render.render();
 
     try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "│ a  │    │"));

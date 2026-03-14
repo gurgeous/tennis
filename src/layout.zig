@@ -137,34 +137,34 @@ fn autolayout(table: *Table) ![]usize {
 
 test "layout" {
     var in1 = std.io.fixedBufferStream("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,bbbbbbbbbbbbbbbbbbbb,cccccccccc\nx,y,z\n");
-    var table1 = try Table.init(std.testing.allocator, .{ .width = 100 }, in1.reader());
+    const table1 = try Table.init(std.testing.allocator, .{ .width = 100 }, in1.reader());
     defer table1.deinit();
-    const l1 = try autolayout(&table1);
+    const l1 = try autolayout(table1);
     defer std.testing.allocator.free(l1);
     try std.testing.expectEqualSlices(usize, &[_]usize{ 32, 20, 10 }, l1);
 
     var in2 = std.io.fixedBufferStream("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,bbbbbbbbbbbbbbbbbbbb,cccccccccc\nx,y,z\n");
-    var table2 = try Table.init(std.testing.allocator, .{ .width = 50 }, in2.reader());
+    const table2 = try Table.init(std.testing.allocator, .{ .width = 50 }, in2.reader());
     defer table2.deinit();
-    const l2 = try autolayout(&table2);
+    const l2 = try autolayout(table2);
     defer std.testing.allocator.free(l2);
     try std.testing.expectEqualSlices(usize, &[_]usize{ 16, 12, 10 }, l2);
 }
 
 test "layout handles tiny terminals without underflow" {
     var in = std.io.fixedBufferStream("12345678,12345678,12345678,12345678,12345678,12345678,12345678,12345678\nx,x,x,x,x,x,x,x\n");
-    var table = try Table.init(std.testing.allocator, .{ .width = 40 }, in.reader());
+    const table = try Table.init(std.testing.allocator, .{ .width = 40 }, in.reader());
     defer table.deinit();
-    const l = try autolayout(&table);
+    const l = try autolayout(table);
     defer std.testing.allocator.free(l);
     try std.testing.expectEqual(@as(usize, 8), l.len);
 }
 
 test "measure includes row numbers and unicode width" {
     var in = std.io.fixedBufferStream("a,\xc3\xa9\xc3\xa9\n10,x\n");
-    var table = try Table.init(std.testing.allocator, .{ .row_numbers = true }, in.reader());
+    const table = try Table.init(std.testing.allocator, .{ .row_numbers = true }, in.reader());
     defer table.deinit();
-    const widths = try measure(&table);
+    const widths = try measure(table);
     defer std.testing.allocator.free(widths);
 
     try std.testing.expectEqualSlices(usize, &[_]usize{ 2, 2, 2 }, widths);
@@ -172,9 +172,9 @@ test "measure includes row numbers and unicode width" {
 
 test "measure returns empty layout for empty table" {
     var in = std.io.fixedBufferStream("");
-    var table = try Table.init(std.testing.allocator, .{}, in.reader());
+    const table = try Table.init(std.testing.allocator, .{}, in.reader());
     defer table.deinit();
-    const widths = try measure(&table);
+    const widths = try measure(table);
     defer std.testing.allocator.free(widths);
 
     try std.testing.expectEqual(0, widths.len);
@@ -182,9 +182,9 @@ test "measure returns empty layout for empty table" {
 
 test "measure returns empty layout for header only table" {
     var in = std.io.fixedBufferStream("a,b\n");
-    var table = try Table.init(std.testing.allocator, .{}, in.reader());
+    const table = try Table.init(std.testing.allocator, .{}, in.reader());
     defer table.deinit();
-    const widths = try measure(&table);
+    const widths = try measure(table);
     defer std.testing.allocator.free(widths);
 
     try std.testing.expectEqual(0, widths.len);
@@ -192,9 +192,9 @@ test "measure returns empty layout for header only table" {
 
 test "measure ignores empty data cell width" {
     var in = std.io.fixedBufferStream("alpha,beta\n,xyz\n");
-    var table = try Table.init(std.testing.allocator, .{}, in.reader());
+    const table = try Table.init(std.testing.allocator, .{}, in.reader());
     defer table.deinit();
-    const widths = try measure(&table);
+    const widths = try measure(table);
     defer std.testing.allocator.free(widths);
 
     try std.testing.expectEqualSlices(usize, &[_]usize{ 5, 4 }, widths);
@@ -202,9 +202,9 @@ test "measure ignores empty data cell width" {
 
 test "autolayout keeps widths when term width exactly fits" {
     var in = std.io.fixedBufferStream("1234567,123456789,12345678901\nx,y,z\n");
-    var table = try Table.init(std.testing.allocator, .{ .width = 39 }, in.reader());
+    const table = try Table.init(std.testing.allocator, .{ .width = 39 }, in.reader());
     defer table.deinit();
-    const out = try autolayout(&table);
+    const out = try autolayout(table);
     defer std.testing.allocator.free(out);
 
     try std.testing.expectEqualSlices(usize, &[_]usize{ 7, 9, 11 }, out);
@@ -212,9 +212,9 @@ test "autolayout keeps widths when term width exactly fits" {
 
 test "autolayout handles empty widths" {
     var in = std.io.fixedBufferStream("");
-    var table = try Table.init(std.testing.allocator, .{ .width = 80 }, in.reader());
+    const table = try Table.init(std.testing.allocator, .{ .width = 80 }, in.reader());
     defer table.deinit();
-    const out = try autolayout(&table);
+    const out = try autolayout(table);
     defer std.testing.allocator.free(out);
 
     try std.testing.expectEqual(0, out.len);

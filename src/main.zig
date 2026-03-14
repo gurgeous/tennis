@@ -63,7 +63,7 @@ fn main0() !u8 {
     // table
     //
 
-    var table = Table.init(alloc, args.config, input) catch |err| {
+    const table = Table.init(alloc, args.config, input) catch |err| {
         if (err == error.OutOfMemory) return err;
         const err_str = if (err == error.JaggedCsv)
             "All csv rows must have same number of columns"
@@ -91,6 +91,7 @@ fn printBannerTo(stdout_writer: *std.Io.Writer, stderr_writer: *std.Io.Writer, e
 
 test {
     _ = @import("args.zig");
+    _ = @import("column.zig");
     _ = @import("color.zig");
     _ = @import("csv.zig");
     _ = @import("layout.zig");
