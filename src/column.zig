@@ -1,17 +1,30 @@
 pub const Column = struct {
     table: *const Table,
+    name: []const u8,
     index: usize,
+    width: usize = 0,
 
     pub fn init(table: *const Table, index: usize) Column {
-        return .{ .table = table, .index = index };
-    }
-
-    pub fn name(self: Column) []const u8 {
-        return self.table.headers()[self.index];
+        var column: Column = .{
+            .table = table,
+            .name = table.headers()[index],
+            .index = index,
+        };
+        column.width = column.measure();
+        return column;
     }
 
     pub fn iterator(self: Column) ColumnIterator {
-        return .{ .rows = self.table.rows(), .col = self.index };
+        return .init(self.table.rows(), self.index);
+    }
+
+    fn measure(self: Column) usize {
+        var width = util.displayWidth(self.name);
+        var it = self.iterator();
+        while (it.next()) |f| {
+            width = @max(width, util.displayWidth(f));
+        }
+        return width;
     }
 };
 
@@ -19,6 +32,10 @@ pub const ColumnIterator = struct {
     rows: Rows,
     col: usize,
     row: usize = 0,
+
+    pub fn init(rows: Rows, col: usize) ColumnIterator {
+        return .{ .rows = rows, .col = col };
+    }
 
     pub fn next(self: *ColumnIterator) ?Field {
         if (self.row >= self.rows.len) return null;
@@ -35,8 +52,9 @@ test "column init stores table header and index" {
 
     const column = table.column(1);
     try std.testing.expectEqual(table, column.table);
-    try std.testing.expectEqualStrings("b", column.name());
+    try std.testing.expectEqualStrings("b", column.name);
     try std.testing.expectEqual(@as(usize, 1), column.index);
+    try std.testing.expectEqual(@as(usize, 1), column.width);
 }
 
 test "column iterator walks data rows only" {
@@ -50,7 +68,17 @@ test "column iterator walks data rows only" {
     try std.testing.expectEqual(@as(?Field, null), it.next());
 }
 
+test "column measures widest header or field" {
+    var in = std.io.fixedBufferStream("alpha,b\nx,longer\n");
+    const table = try Table.init(std.testing.allocator, .{}, in.reader());
+    defer table.deinit();
+
+    try std.testing.expectEqual(@as(usize, 5), table.column(0).width);
+    try std.testing.expectEqual(@as(usize, 6), table.column(1).width);
+}
+
 const std = @import("std");
 const Table = @import("table.zig").Table;
 const Field = @import("types.zig").Field;
 const Rows = @import("types.zig").Rows;
+const util = @import("util.zig");

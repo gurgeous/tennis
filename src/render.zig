@@ -113,29 +113,29 @@ pub const Render = struct {
 
     fn renderHeaders(self: *Render) !void {
         const out = &self.buf.writer;
-        const row = self.table.headers();
         const style = self.table.style();
         try appendStyled(out, style.chrome, pipe);
 
         var col: usize = 0;
         if (self.table.config.row_numbers) {
-            try out.writeByte(' ');
-            try writeStyledExactly(out, style.headers[col % style.headers.len], "#", self.layout.widths[col], .left);
-            try out.writeByte(' ');
-            try appendStyled(out, style.chrome, pipe);
-            col += 1;
+            try self.renderHeaderCell(out, &col, "#");
         }
 
-        for (row) |field| {
-            try out.writeByte(' ');
-            try writeStyledExactly(out, style.headers[col % style.headers.len], field, self.layout.widths[col], .left);
-            try out.writeByte(' ');
-            try appendStyled(out, style.chrome, pipe);
-            col += 1;
+        for (self.table.columns) |column| {
+            try self.renderHeaderCell(out, &col, column.name);
         }
 
         try out.writeByte('\n');
         try self.eol();
+    }
+
+    fn renderHeaderCell(self: *Render, out: *std.Io.Writer, col: *usize, text: []const u8) !void {
+        const style = self.table.style();
+        try out.writeByte(' ');
+        try writeStyledExactly(out, style.headers[col.* % style.headers.len], text, self.layout.widths[col.*], .left);
+        try out.writeByte(' ');
+        try appendStyled(out, style.chrome, pipe);
+        col.* += 1;
     }
 
     // render data row

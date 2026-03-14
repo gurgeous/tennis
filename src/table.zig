@@ -169,8 +169,8 @@ test "table builds columns from headers" {
     defer table.deinit();
 
     try std.testing.expectEqual(@as(usize, 2), table.columns.len);
-    try std.testing.expectEqualStrings("a", table.columns[0].name());
-    try std.testing.expectEqualStrings("b", table.columns[1].name());
+    try std.testing.expectEqualStrings("a", table.columns[0].name);
+    try std.testing.expectEqualStrings("b", table.columns[1].name);
 }
 
 test "style respects config" {

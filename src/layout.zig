@@ -32,21 +32,13 @@ pub const Layout = struct {
 fn measure(table: *const Table) ![]usize {
     const alloc = table.alloc;
     const min_col_width = 2;
-    const headers = table.headers();
-    const rows = table.rows();
-    if (headers.len == 0 or rows.len == 0) {
+    if (table.ncols() == 0) {
         return alloc.alloc(usize, 0);
     }
 
     var widths = std.ArrayList(usize).empty;
-    try widths.appendNTimes(alloc, min_col_width, headers.len);
-    for (headers, 0..) |value, ii| {
-        widths.items[ii] = @max(widths.items[ii], util.displayWidth(value));
-    }
-    for (rows) |row| {
-        for (row, 0..) |value, ii| {
-            widths.items[ii] = @max(widths.items[ii], util.displayWidth(value));
-        }
+    for (table.columns) |column| {
+        try widths.append(alloc, @max(min_col_width, column.width));
     }
     if (table.config.row_numbers) {
         const ndigits = util.digits(usize, table.nrows());
