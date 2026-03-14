@@ -32,27 +32,29 @@ pub const Column = struct {
     }
 
     fn inferColumnType(self: Column) ColumnType {
-        var floats: usize = 0;
-        var ints: usize = 0;
-        var strings: usize = 0;
+        var floats: bool = false;
+        var ints: bool = false;
 
         var it = self.iterator();
         while (it.next()) |field| {
+            // ignore blanks
             if (field.len == 0) continue;
+
             if (util.isInt(field)) {
-                ints += 1;
+                ints = true;
                 continue;
             }
             if (util.isFloat(field)) {
-                floats += 1;
+                floats = true;
                 continue;
             }
-            strings += 1;
+
+            // early exit if we hit a string
+            return .string;
         }
 
-        if (strings != 0) return .string;
-        if (floats != 0) return .float;
-        if (ints != 0) return .int;
+        if (floats) return .float;
+        if (ints) return .int;
         return .string;
     }
 };
