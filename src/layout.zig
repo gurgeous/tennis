@@ -28,42 +28,22 @@ pub const Layout = struct {
     }
 };
 
-// measure the max width of each column, including row number col if any
-fn measure(table: *const Table) ![]usize {
-    const alloc = table.alloc;
-    const min_col_width = 2;
-    if (table.ncols() == 0) {
-        return alloc.alloc(usize, 0);
-    }
-
-    var widths = std.ArrayList(usize).empty;
-    for (table.columns) |column| {
-        try widths.append(alloc, @max(min_col_width, column.width));
-    }
-    if (table.config.row_numbers) {
-        const ndigits = util.digits(usize, table.nrows());
-        try widths.insert(alloc, 0, @max(min_col_width, ndigits));
-    }
-    return widths.toOwnedSlice(alloc);
-}
-
 // fit widths into term_width. this is similar to the HTML table layout algo
 fn autolayout(table: *Table) ![]usize {
     const alloc = table.alloc;
+    if (table.isEmpty()) return alloc.alloc(usize, 0);
+
+    // measure staring col widths
     const widths = try measure(table);
     defer alloc.free(widths);
-    const term_width = table.termWidth();
-
-    if (widths.len == 0) {
-        return try alloc.alloc(usize, 0);
-    }
 
     // a little breathing room on the right side, which is nice visually and
     // helps with minor terminal layout snafus
-    const fudge: usize = 2;
+    const fudge = 2;
 
     // is the terminal big enough to contain the table without truncation?
     const input: Layout = .{ .widths = widths };
+    const term_width = table.termWidth();
     const available = term_width -| (input.chromeWidth() + fudge);
     if (available >= input.dataWidth()) {
         return try alloc.dupe(usize, widths);
@@ -71,8 +51,8 @@ fn autolayout(table: *Table) ![]usize {
 
     // what is the lower bound for a column width? 2 is pretty severe, let it
     // grow up to 10 if we don't have a lot of columns.
-    const lower_min: usize = 2;
-    const lower_max: usize = 10;
+    const lower_min = 2;
+    const lower_max = 10;
     const lower_bound = std.math.clamp(available / widths.len, lower_min, lower_max);
 
     // calculate min & max for each column. min is the width of the widest cell
@@ -80,12 +60,10 @@ fn autolayout(table: *Table) ![]usize {
     // cell.
     var min = try alloc.alloc(usize, widths.len);
     defer alloc.free(min);
-    var max = try alloc.alloc(usize, widths.len);
-    defer alloc.free(max);
-    for (widths, 0..) |w, i| {
-        min[i] = @min(w, lower_bound);
-        max[i] = w;
+    for (widths, 0..) |w, ii| {
+        min[ii] = @min(w, lower_bound);
     }
+    const max = widths;
 
     // calculate the ratio betweein min/max
     const min_sum = util.sum(usize, min);
@@ -125,6 +103,28 @@ fn autolayout(table: *Table) ![]usize {
     }
 
     return layout;
+}
+
+// measure widths of ALL columns. min 2 per col
+fn measure(table: *const Table) ![]usize {
+    const alloc = table.alloc;
+
+    // naive widths
+    var widths = std.ArrayList(usize).empty;
+    if (table.config.row_numbers) {
+        try widths.append(alloc, util.digits(usize, table.nrows()));
+    }
+    for (table.columns) |column| {
+        try widths.append(alloc, column.width);
+    }
+
+    // min 2
+    const min_col_width = 2;
+    for (widths.items, 0..) |_, i| {
+        widths.items[i] = @max(widths.items[i], min_col_width);
+    }
+
+    return widths.toOwnedSlice(alloc);
 }
 
 //

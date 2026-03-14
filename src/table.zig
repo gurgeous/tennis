@@ -71,6 +71,7 @@ pub const Table = struct {
         return self.csv.rows.len - 1;
     }
 
+    // note: does not include row-number column
     pub fn ncols(self: *const Table) usize {
         return self.columns.len;
     }

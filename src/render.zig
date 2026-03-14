@@ -99,7 +99,7 @@ pub const Render = struct {
         const out = &self.buf.writer;
         const style = self.table.style();
 
-        const chrome: usize = 4; // <pipe><space>[...title...]<space><pipe>
+        const chrome = 4; // <pipe><space>[...title...]<space><pipe>
         const width = self.layout.tableWidth() - chrome;
 
         try appendStyled(out, style.chrome, pipe);
