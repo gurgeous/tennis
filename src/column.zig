@@ -15,7 +15,7 @@ pub const Column = struct {
             .index = index,
         };
         column.type = column.inferColumnType();
-        if (column.type == .int and intFormatMode() == .PRE) {
+        if (column.type == .int) {
             try column.formatInts();
         }
         column.width = column.measure();
@@ -40,13 +40,6 @@ pub const Column = struct {
 
     fn measure(self: Column) usize {
         var width = util.displayWidth(self.name);
-        if (self.type == .int and intFormatMode() == .JIT) {
-            var it = self.iterator();
-            while (it.next()) |value| {
-                width = @max(width, util.intWidthDelimited(value));
-            }
-            return width;
-        }
         for (0..self.table.nrows()) |row_index| {
             width = @max(width, util.displayWidth(self.field(row_index)));
         }
@@ -82,27 +75,17 @@ pub const Column = struct {
 
     fn formatInts(self: *Column) !void {
         const alloc = self.table.alloc;
-        const nrows = self.table.nrows();
-        const fields = try alloc.alloc(Field, nrows);
+        const fields = try alloc.alloc(Field, self.table.nrows());
         errdefer alloc.free(fields);
 
-        for (0..nrows) |row_index| {
-            const raw = self.table.rows()[row_index][self.index];
-            const formatted = try util.formatIntDelimitedAlloc(alloc, raw);
-            fields[row_index] = formatted;
+        var ii: usize = 0;
+        var it = self.iterator();
+        while (it.next()) |raw| : (ii += 1) {
+            fields[ii] = try format.formatInt(alloc, raw);
         }
-
         self.formatted = fields;
     }
 };
-
-const IntFormatMode = enum { PRE, JIT };
-
-fn intFormatMode() IntFormatMode {
-    const mode = std.posix.getenv("FORMAT_INTS") orelse "PRE";
-    if (std.mem.eql(u8, mode, "JIT")) return .JIT;
-    return .PRE;
-}
 
 pub const ColumnIterator = struct {
     rows: Rows,
@@ -191,6 +174,7 @@ test "column inference ignores blanks and scans all rows" {
 }
 
 const Field = @import("types.zig").Field;
+const format = @import("format.zig");
 const Rows = @import("types.zig").Rows;
 const std = @import("std");
 const Table = @import("table.zig").Table;
