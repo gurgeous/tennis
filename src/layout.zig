@@ -13,6 +13,10 @@ pub const Layout = struct {
         alloc.free(self.widths);
     }
 
+    pub fn dataWidth(self: Layout) usize {
+        return util.sum(usize, self.widths);
+    }
+
     // how many chars do we need for the non-data stuff? (borders/whitespace)
     pub fn chromeWidth(self: Layout) usize {
         return self.widths.len * 3 + 1;
@@ -20,7 +24,7 @@ pub const Layout = struct {
 
     // how wide is this table?
     pub fn tableWidth(self: Layout) usize {
-        return self.chromeWidth() + util.sum(usize, self.widths);
+        return self.chromeWidth() + self.dataWidth();
     }
 };
 
@@ -69,7 +73,7 @@ fn autolayout(table: *Table) ![]usize {
     // is the terminal big enough to contain the table without truncation?
     const input: Layout = .{ .widths = widths };
     const available = term_width -| (input.chromeWidth() + fudge);
-    if (available >= input.tableWidth()) {
+    if (available >= input.dataWidth()) {
         return try alloc.dupe(usize, widths);
     }
 
