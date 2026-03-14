@@ -36,7 +36,9 @@ pub const Color = struct {
         };
         var sum: f64 = 0;
         for (rgb, coeff) |x, c| {
-            sum += std.math.pow(f64, x, 2.2) * c;
+            // Valgrind trips over std.math.pow(f64, x, 2.2)
+            // sum += std.math.pow(f64, x, 2.2) * c;
+            sum += (if (x == 0) 0 else @exp(@log(x) * 2.2)) * c;
         }
         return @round(sum * 1000.0) / 1000.0;
     }
