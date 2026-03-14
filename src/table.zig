@@ -37,6 +37,7 @@ pub const Table = struct {
     }
 
     pub fn deinit(self: *Table) void {
+        for (self.columns) |col| col.deinit(self.alloc);
         self.alloc.free(self.columns);
         self.csv.deinit(self.alloc);
         self.alloc.destroy(self);
@@ -112,7 +113,7 @@ pub const Table = struct {
     fn buildColumns(self: *const Table) ![]Column {
         const columns = try self.alloc.alloc(Column, self.headers().len);
         for (columns, 0..) |*col, ii| {
-            col.* = Column.init(self, ii);
+            col.* = try Column.init(self, ii);
         }
         return columns;
     }

@@ -137,6 +137,38 @@ pub fn benchmark(label: []const u8, elapsed_ns: u64) void {
     stderr.flush() catch {};
 }
 
+pub fn intWidthDelimited(s: []const u8) usize {
+    if (s.len == 0) return 0;
+    const off: usize = if (s[0] == '-') 1 else 0;
+    const ndigits = s.len - off;
+    if (ndigits <= 3) return s.len;
+    return s.len + (ndigits - 1) / 3;
+}
+
+pub fn formatIntDelimitedAlloc(alloc: std.mem.Allocator, s: []const u8) ![]u8 {
+    if (s.len == 0) return alloc.dupe(u8, s);
+
+    const width = intWidthDelimited(s);
+    if (width == s.len) return alloc.dupe(u8, s);
+
+    const out = try alloc.alloc(u8, width);
+    var src = s.len;
+    var dst = out.len;
+    var seen_digits: usize = 0;
+    while (src > 0 and std.ascii.isDigit(s[src - 1])) {
+        dst -= 1;
+        out[dst] = s[src - 1];
+        src -= 1;
+        seen_digits += 1;
+        if (src > 0 and seen_digits % 3 == 0 and std.ascii.isDigit(s[src - 1])) {
+            dst -= 1;
+            out[dst] = ',';
+        }
+    }
+    if (src > 0) out[0] = '-';
+    return out;
+}
+
 // does this env var exist?
 pub fn hasenv(name: []const u8) bool {
     return std.posix.getenv(name) != null;
@@ -186,6 +218,21 @@ test "fileExists" {
 test "hasenv" {
     try std.testing.expect(hasenv("PATH"));
     try std.testing.expect(!hasenv("TENNIS_TEST_ENV_DOES_NOT_EXIST"));
+}
+
+test "int delimit helpers" {
+    try std.testing.expectEqual(@as(usize, 0), intWidthDelimited(""));
+    try std.testing.expectEqual(@as(usize, 3), intWidthDelimited("123"));
+    try std.testing.expectEqual(@as(usize, 5), intWidthDelimited("1234"));
+    try std.testing.expectEqual(@as(usize, 6), intWidthDelimited("-1234"));
+
+    const a = try formatIntDelimitedAlloc(std.testing.allocator, "1234");
+    defer std.testing.allocator.free(a);
+    try std.testing.expectEqualStrings("1,234", a);
+
+    const b = try formatIntDelimitedAlloc(std.testing.allocator, "-1234567");
+    defer std.testing.allocator.free(b);
+    try std.testing.expectEqualStrings("-1,234,567", b);
 }
 
 test "inspect" {

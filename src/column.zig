@@ -6,27 +6,49 @@ pub const Column = struct {
     index: usize,
     width: usize = 0,
     type: ColumnType = .string,
+    formatted: ?[]Field = null,
 
-    pub fn init(table: *const Table, index: usize) Column {
+    pub fn init(table: *const Table, index: usize) !Column {
         var column: Column = .{
             .table = table,
             .name = table.headers()[index],
             .index = index,
         };
-        column.width = column.measure();
         column.type = column.inferColumnType();
+        if (column.type == .int and intFormatMode() == .PRE) {
+            try column.formatInts();
+        }
+        column.width = column.measure();
         return column;
+    }
+
+    pub fn deinit(self: Column, alloc: std.mem.Allocator) void {
+        if (self.formatted) |fields| {
+            for (fields) |formatted| alloc.free(formatted);
+            alloc.free(fields);
+        }
     }
 
     pub fn iterator(self: Column) ColumnIterator {
         return .init(self.table.rows(), self.index);
     }
 
+    pub fn field(self: Column, row_index: usize) Field {
+        if (self.formatted) |fields| return fields[row_index];
+        return self.table.rows()[row_index][self.index];
+    }
+
     fn measure(self: Column) usize {
         var width = util.displayWidth(self.name);
-        var it = self.iterator();
-        while (it.next()) |f| {
-            width = @max(width, util.displayWidth(f));
+        if (self.type == .int and intFormatMode() == .JIT) {
+            var it = self.iterator();
+            while (it.next()) |value| {
+                width = @max(width, util.intWidthDelimited(value));
+            }
+            return width;
+        }
+        for (0..self.table.nrows()) |row_index| {
+            width = @max(width, util.displayWidth(self.field(row_index)));
         }
         return width;
     }
@@ -36,15 +58,15 @@ pub const Column = struct {
         var ints: bool = false;
 
         var it = self.iterator();
-        while (it.next()) |field| {
+        while (it.next()) |value| {
             // ignore blanks
-            if (field.len == 0) continue;
+            if (value.len == 0) continue;
 
-            if (util.isInt(field)) {
+            if (util.isInt(value)) {
                 ints = true;
                 continue;
             }
-            if (util.isFloat(field)) {
+            if (util.isFloat(value)) {
                 floats = true;
                 continue;
             }
@@ -57,7 +79,30 @@ pub const Column = struct {
         if (ints) return .int;
         return .string;
     }
+
+    fn formatInts(self: *Column) !void {
+        const alloc = self.table.alloc;
+        const nrows = self.table.nrows();
+        const fields = try alloc.alloc(Field, nrows);
+        errdefer alloc.free(fields);
+
+        for (0..nrows) |row_index| {
+            const raw = self.table.rows()[row_index][self.index];
+            const formatted = try util.formatIntDelimitedAlloc(alloc, raw);
+            fields[row_index] = formatted;
+        }
+
+        self.formatted = fields;
+    }
 };
+
+const IntFormatMode = enum { PRE, JIT };
+
+fn intFormatMode() IntFormatMode {
+    const mode = std.posix.getenv("FORMAT_INTS") orelse "PRE";
+    if (std.mem.eql(u8, mode, "JIT")) return .JIT;
+    return .PRE;
+}
 
 pub const ColumnIterator = struct {
     rows: Rows,
@@ -107,6 +152,14 @@ test "column measures widest header or field" {
 
     try std.testing.expectEqual(@as(usize, 5), table.column(0).width);
     try std.testing.expectEqual(@as(usize, 6), table.column(1).width);
+}
+
+test "column int width includes delimiters" {
+    var in = std.io.fixedBufferStream("a\n1234\n");
+    const table = try Table.init(std.testing.allocator, .{}, in.reader());
+    defer table.deinit();
+
+    try std.testing.expectEqual(@as(usize, 5), table.column(0).width);
 }
 
 test "column infers data types" {
