@@ -28,8 +28,11 @@
 ## Testing
 
 - Keep `just check` green: lint, unit tests, snapshot smoke tests.
+- Run `just check` after every code change.
 - Use snapshot tests for CLI output and regressions in user-facing errors.
 - Keep tests deterministic by forcing `--width 80` where layout matters.
+- Use `just kcov` for coverage work.
+- Read `kcov/.../coverage.json` for machine-readable coverage results.
 
 ## Style
 

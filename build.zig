@@ -53,13 +53,22 @@ pub fn build(b: *std.Build) void {
     run_step.dependOn(&run_cmd.step);
 
     //
-    // test
+    // run tests
     //
 
     const test_step = b.step("test", "Run unit tests");
-    const unit_tests = b.addTest(.{ .root_module = mod });
+    const unit_tests = b.addTest(.{ .name = "tennis-tests", .root_module = mod });
     const run_unit_tests = b.addRunArtifact(unit_tests);
     test_step.dependOn(&run_unit_tests.step);
+
+    //
+    // tennis-tests artifact, for kcov
+    //
+
+    const kcov_step = b.step("kcov-tests", "Build unit test bin for kcov");
+    const cov_tests = b.addTest(.{ .name = "kcov-tests", .root_module = mod, .use_llvm = true });
+    const install_cov_tests = b.addInstallArtifact(cov_tests, .{ .dest_sub_path = "kcov-tests" });
+    kcov_step.dependOn(&install_cov_tests.step);
 }
 
 const std = @import("std");

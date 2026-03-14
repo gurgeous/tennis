@@ -52,6 +52,10 @@ pub const Args = struct {
         return args;
     }
 
+    pub fn deinit(self: Args, alloc: std.mem.Allocator) void {
+        if (self.err_str) |msg| alloc.free(msg);
+    }
+
     fn parse(
         alloc: std.mem.Allocator,
         argv: []const []const u8,
@@ -88,19 +92,7 @@ pub const Args = struct {
         // now handle filename
         //
 
-        const files = res.positionals[0];
-        switch (files.len) {
-            0 => {
-                // stdin, could be the naked case
-                if (std.posix.isatty(std.fs.File.stdin().handle)) {
-                    if (argv.len != 0) return error.CouldNotReadStdin;
-                    return .{ .action = .banner };
-                }
-                return .{ .config = config };
-            },
-            1 => return .{ .config = config, .filename = files[0] },
-            else => return error.TooManyArguments,
-        }
+        return try resolveInput(config, argv.len, res.positionals[0], std.posix.isatty(std.fs.File.stdin().handle));
     }
 
     fn errorString(buf: *[512]u8, err: anyerror, diag: *clap.Diagnostic) []const u8 {
@@ -115,6 +107,25 @@ pub const Args = struct {
             error.Windows => "Windows is not yet supported",
             else => "Argument parsing failed",
         };
+    }
+
+    fn resolveInput(
+        config: types.Config,
+        argv_len: usize,
+        files: []const []const u8,
+        stdin_is_tty: bool,
+    ) !Args {
+        switch (files.len) {
+            0 => {
+                if (stdin_is_tty) {
+                    if (argv_len != 0) return error.CouldNotReadStdin;
+                    return .{ .action = .banner };
+                }
+                return .{ .config = config };
+            },
+            1 => return .{ .config = config, .filename = files[0] },
+            else => return error.TooManyArguments,
+        }
     }
 
     pub fn writeHelp(writer: *std.Io.Writer) !void {
@@ -180,9 +191,65 @@ test "parse rejects old color value never" {
     }, &diag));
 }
 
+test "parse returns help action" {
+    var diag: clap.Diagnostic = .{};
+    const out = try Args.parse(std.testing.allocator, &.{"--help"}, &diag);
+    try std.testing.expectEqual(Action.help, out.action.?);
+}
+
+test "parse returns version action" {
+    var diag: clap.Diagnostic = .{};
+    const out = try Args.parse(std.testing.allocator, &.{"--version"}, &diag);
+    try std.testing.expectEqual(Action.version, out.action.?);
+}
+
+test "errorString handles direct mapped errors" {
+    var buf: [512]u8 = undefined;
+    var diag: clap.Diagnostic = .{};
+
+    try std.testing.expectEqualStrings("Could not read from stdin", Args.errorString(&buf, error.CouldNotReadStdin, &diag));
+    try std.testing.expectEqualStrings("Windows is not yet supported", Args.errorString(&buf, error.Windows, &diag));
+    try std.testing.expectEqualStrings("Argument parsing failed", Args.errorString(&buf, error.OutOfMemory, &diag));
+}
+
+test "errorString reports clap diagnostics" {
+    var buf: [512]u8 = undefined;
+    var diag: clap.Diagnostic = .{};
+    _ = Args.parse(std.testing.allocator, &.{
+        "--width",
+    }, &diag) catch |err| {
+        const msg = Args.errorString(&buf, err, &diag);
+        try std.testing.expect(std.mem.indexOf(u8, msg, "--width") != null);
+        try std.testing.expect(std.mem.indexOf(u8, msg, "require") != null or std.mem.indexOf(u8, msg, "value") != null);
+        return;
+    };
+    return error.TestUnexpectedResult;
+}
+
+test "resolveInput handles stdin cases" {
+    const config: types.Config = .{};
+
+    const banner = try Args.resolveInput(config, 0, &.{}, true);
+    try std.testing.expectEqual(Action.banner, banner.action.?);
+
+    try std.testing.expectError(error.CouldNotReadStdin, Args.resolveInput(config, 1, &.{}, true));
+
+    const stdin = try Args.resolveInput(config, 1, &.{}, false);
+    try std.testing.expectEqual(null, stdin.action);
+    try std.testing.expectEqual(null, stdin.filename);
+}
+
+test "init sets fatal action for parse failures" {
+    const out = try Args.init(std.testing.allocator, &.{"--bogus"});
+    defer out.deinit(std.testing.allocator);
+    try std.testing.expectEqual(Action.fatal, out.action.?);
+    try std.testing.expect(out.err_str != null);
+    try std.testing.expect(std.mem.indexOf(u8, out.err_str.?, "--bogus") != null);
+}
+
 test "init sets fatal action for missing file" {
     const out = try Args.init(std.testing.allocator, &.{"definitely-not-a-real-file.csv"});
-    defer if (out.err_str) |msg| std.testing.allocator.free(msg);
+    defer out.deinit(std.testing.allocator);
     try std.testing.expectEqual(Action.fatal, out.action.?);
     try std.testing.expect(out.err_str != null);
     try std.testing.expect(std.mem.indexOf(u8, out.err_str.?, "definitely-not-a-real-file.csv") != null);

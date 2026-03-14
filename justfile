@@ -1,5 +1,6 @@
 # Required for codex shell sessions where mise PATH hooks may not be active.
 export PATH := env("HOME") + "/.local/share/mise/installs/zig/0.15.2/bin:" + env("PATH")
+KCOV := "kcov"
 
 default:
   just --list
@@ -11,10 +12,26 @@ build-release:
   zig build -Doptimize=ReleaseSmall
 
 clean:
-    rm -rf .zig-cache zig-out
+    rm -rf {{KCOV}} .zig-cache zig-out
 
 run *ARGS:
   zig build run -- {{ARGS}}
+
+#
+# benchmark
+# Be sure to use the release binary here, debug builds are terrible for
+# benchmarking.
+#
+
+benchmark: build-release
+  awk 'BEGIN { \
+    for (c = 1; c <= 20; c++) printf "c%d%s", c, (c < 20 ? "," : "\n"); \
+    for (r = 1; r <= 100000; r++) { \
+      for (c = 1; c <= 20; c++) printf "%d%s", r * c, (c < 20 ? "," : "\n"); \
+    } \
+  }' > /tmp/tennis-benchmark.csv
+  BENCHMARK=1 ./zig-out/bin/tennis --color=on --width 80 /tmp/tennis-benchmark.csv > /dev/null
+  just banner "✓ benchmark ✓"
 
 #
 # goreleaser
@@ -37,10 +54,10 @@ goreleaser-snapshot: check
   goreleaser release --clean --snapshot
 
 #
-# check and friends
+# hygiene
 #
 
-check: lint build test bats
+check: lint lint-imports build test bats
   just banner "✓ check ✓"
 
 bats: build
@@ -58,9 +75,24 @@ lint:
   zig fmt --check .
   just banner "✓ lint ✓"
 
+lint-imports:
+  bash bin/lint-imports
+  just banner "✓ lint-imports ✓"
+
 test:
   zig build test --summary all
   just banner "✓ test ✓"
+
+#
+# more esoteric hygiene
+#
+
+kcov:
+  just banner "kcov..."
+  rm -rf {{KCOV}}/
+  zig build  -Doptimize=Debug kcov-tests
+  kcov --include-pattern=$PWD/src/ {{KCOV}} ./zig-out/bin/kcov-tests
+  just banner "✓ kcov ✓"
 
 valgrind: build
   valgrind --quiet --leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all --error-exitcode=1 \

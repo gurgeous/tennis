@@ -33,15 +33,13 @@ const Align = enum { left, center };
 pub const Render = struct {
     table: *Table,
     writer: *std.Io.Writer,
-    records: [][][]const u8,
     layout: Layout,
     buf: std.Io.Writer.Allocating,
 
-    pub fn init(table: *Table, writer: *std.Io.Writer, layout: Layout, records: [][][]const u8) Render {
+    pub fn init(table: *Table, writer: *std.Io.Writer, layout: Layout) Render {
         return .{
             .table = table,
             .writer = writer,
-            .records = records,
             .layout = layout,
             .buf = .init(table.alloc),
         };
@@ -52,9 +50,7 @@ pub const Render = struct {
     }
 
     pub fn render(self: *Render) !void {
-        // A csv with zero data rows is intentionally rendered as an "empty
-        // table", even if the parser produced a single header row.
-        if (self.layout.widths.len == 0) {
+        if (self.table.isEmpty()) {
             return self.renderEmpty();
         }
 
@@ -65,10 +61,12 @@ pub const Render = struct {
         } else {
             try self.renderSep(nw, bar, ne, n);
         }
-        try self.renderRow(0); // headers
+        try self.renderHeaders();
         try self.renderSep(w, bar, e, c);
-        for (1..self.records.len) |ii| {
-            try self.renderRow(ii);
+        var row_no: usize = 1;
+        for (self.table.rows()) |row| {
+            try self.renderRow(row_no, row);
+            row_no += 1;
         }
         try self.renderSep(sw, bar, se, s);
     }
@@ -101,7 +99,7 @@ pub const Render = struct {
         const out = &self.buf.writer;
         const style = self.table.style();
 
-        const chrome: usize = 4; // <pipe><space>[...title...]<space><pipe>
+        const chrome = 4; // <pipe><space>[...title...]<space><pipe>
         const width = self.layout.tableWidth() - chrome;
 
         try appendStyled(out, style.chrome, pipe);
@@ -113,24 +111,46 @@ pub const Render = struct {
         try self.eol();
     }
 
-    // render data row
-    fn renderRow(self: *Render, ii: usize) !void {
+    fn renderHeaders(self: *Render) !void {
         const out = &self.buf.writer;
-        const row = self.records[ii];
+        const style = self.table.style();
+        try appendStyled(out, style.chrome, pipe);
+
+        var col: usize = 0;
+        if (self.table.config.row_numbers) {
+            try self.renderHeaderCell(out, &col, "#");
+        }
+
+        for (self.table.columns) |column| {
+            try self.renderHeaderCell(out, &col, column.name);
+        }
+
+        try out.writeByte('\n');
+        try self.eol();
+    }
+
+    fn renderHeaderCell(self: *Render, out: *std.Io.Writer, col: *usize, text: []const u8) !void {
+        const style = self.table.style();
+        try out.writeByte(' ');
+        try writeStyledExactly(out, style.headers[col.* % style.headers.len], text, self.layout.widths[col.*], .left);
+        try out.writeByte(' ');
+        try appendStyled(out, style.chrome, pipe);
+        col.* += 1;
+    }
+
+    // render data row
+    fn renderRow(self: *Render, row_no: usize, row: Row) !void {
+        const out = &self.buf.writer;
         const style = self.table.style();
         try appendStyled(out, style.chrome, pipe);
 
         var col: usize = 0;
         if (self.table.config.row_numbers) {
             var num_buf: [32]u8 = undefined;
-            const label = if (ii == 0) "#" else try std.fmt.bufPrint(&num_buf, "{d}", .{ii});
+            const label = try std.fmt.bufPrint(&num_buf, "{d}", .{row_no});
 
             try out.writeByte(' ');
-            if (ii == 0) {
-                try writeStyledExactly(out, style.headers[0], label, self.layout.widths[col], .left);
-            } else {
-                try writeStyledExactly(out, style.chrome, label, self.layout.widths[col], .left);
-            }
+            try writeStyledExactly(out, style.chrome, label, self.layout.widths[col], .left);
             try out.writeByte(' ');
             try appendStyled(out, style.chrome, pipe);
             col += 1;
@@ -139,13 +159,7 @@ pub const Render = struct {
         for (row) |field| {
             const is_placeholder = field.len == 0;
             const val = if (is_placeholder) "—" else field;
-
-            const cell_style = if (ii == 0)
-                style.headers[col % style.headers.len]
-            else if (is_placeholder)
-                style.chrome
-            else
-                style.field;
+            const cell_style = if (is_placeholder) style.chrome else style.field;
 
             try out.writeByte(' ');
             try writeStyledExactly(out, cell_style, val, self.layout.widths[col], .left);
@@ -307,25 +321,17 @@ test "writeExactly padding and truncation" {
 
 test "ascii render simple" {
     var test_table: test_support.TestTable = undefined;
-    try test_table.init(std.testing.allocator);
+    try test_table.init(std.testing.allocator, "a,b\nc,d\n");
     defer test_table.deinit();
-
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
-
-    var in = std.io.fixedBufferStream("a,b\nc,d\n");
-    const csv = try csv_mod.Csv.init(alloc, in.reader());
-    defer csv.deinit(alloc);
-    const l = try Layout.init(alloc, csv.rows, false, 80);
-    defer l.deinit(alloc);
+    const l = try Layout.init(test_table.table);
+    defer l.deinit(test_table.table.alloc);
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
     test_table.table.config.color = .off;
     test_table.table.config.theme = .dark;
     test_table.table.config.row_numbers = false;
     test_table.table.config.title = "";
-    var render: Render = .init(&test_table.table, &writer, l, csv.rows);
+    var render: Render = .init(test_table.table, &writer, l);
     try render.render();
 
     const exp =
@@ -341,25 +347,17 @@ test "ascii render simple" {
 
 test "render with title and row numbers" {
     var test_table: test_support.TestTable = undefined;
-    try test_table.init(std.testing.allocator);
+    try test_table.init(std.testing.allocator, "a,b\nc,d\n");
     defer test_table.deinit();
-
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
-
-    var in = std.io.fixedBufferStream("a,b\nc,d\n");
-    const csv = try csv_mod.Csv.init(alloc, in.reader());
-    defer csv.deinit(alloc);
-    const l = try Layout.init(alloc, csv.rows, true, 80);
-    defer l.deinit(alloc);
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
     test_table.table.config.color = .off;
     test_table.table.config.theme = .dark;
     test_table.table.config.row_numbers = true;
     test_table.table.config.title = "foo";
-    var render: Render = .init(&test_table.table, &writer, l, csv.rows);
+    const l = try Layout.init(test_table.table);
+    defer l.deinit(test_table.table.alloc);
+    var render: Render = .init(test_table.table, &writer, l);
     try render.render();
 
     try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "foo"));
@@ -369,14 +367,16 @@ test "render with title and row numbers" {
 
 test "renderEmpty renders fallback table" {
     var test_table: test_support.TestTable = undefined;
-    try test_table.init(std.testing.allocator);
+    try test_table.init(std.testing.allocator, "");
     defer test_table.deinit();
 
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
     test_table.table.config.color = .off;
     test_table.table.config.theme = .dark;
-    var render: Render = .init(&test_table.table, &writer, .{ .widths = &.{} }, &.{});
+    const l = try Layout.init(test_table.table);
+    defer l.deinit(test_table.table.alloc);
+    var render: Render = .init(test_table.table, &writer, l);
     try render.render();
 
     const exp =
@@ -390,33 +390,56 @@ test "renderEmpty renders fallback table" {
     try std.testing.expectEqualStrings(exp, writer.buffered());
 }
 
-test "render uses placeholder for empty cells" {
+test "render header only table falls back to empty" {
     var test_table: test_support.TestTable = undefined;
-    try test_table.init(std.testing.allocator);
+    try test_table.init(std.testing.allocator, "a,b\n");
     defer test_table.deinit();
 
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
+    var buf: [4096]u8 = undefined;
+    var writer = std.Io.Writer.fixed(&buf);
+    const l = try Layout.init(test_table.table);
+    defer l.deinit(test_table.table.alloc);
+    var render: Render = .init(test_table.table, &writer, l);
+    try render.render();
 
-    var in = std.io.fixedBufferStream("a,b\n,\n");
-    const csv = try csv_mod.Csv.init(alloc, in.reader());
-    defer csv.deinit(alloc);
-    const l = try Layout.init(alloc, csv.rows, false, 80);
-    defer l.deinit(alloc);
+    try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "empty table"));
+}
+
+test "render uses placeholder for empty cells" {
+    var test_table: test_support.TestTable = undefined;
+    try test_table.init(std.testing.allocator, "a,b\n,\n");
+    defer test_table.deinit();
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
     test_table.table.config.color = .off;
     test_table.table.config.theme = .dark;
-    var render: Render = .init(&test_table.table, &writer, l, csv.rows);
+    const l = try Layout.init(test_table.table);
+    defer l.deinit(test_table.table.alloc);
+    var render: Render = .init(test_table.table, &writer, l);
     try render.render();
 
     try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 2, "—"));
 }
 
+test "render headers does not use placeholder for empty header cell" {
+    var test_table: test_support.TestTable = undefined;
+    try test_table.init(std.testing.allocator, "a,\n1,2\n");
+    defer test_table.deinit();
+    var buf: [4096]u8 = undefined;
+    var writer = std.Io.Writer.fixed(&buf);
+    test_table.table.config.color = .off;
+    const l = try Layout.init(test_table.table);
+    defer l.deinit(test_table.table.alloc);
+    var render: Render = .init(test_table.table, &writer, l);
+    try render.render();
+
+    try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "│ a  │    │"));
+    try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "│ 1  │ 2  │"));
+}
+
 const ansi = @import("ansi.zig");
-const csv_mod = @import("csv.zig");
 const Layout = @import("layout.zig").Layout;
+const Row = @import("types.zig").Row;
 const std = @import("std");
 const Table = @import("table.zig").Table;
 const test_support = @import("test_support.zig");

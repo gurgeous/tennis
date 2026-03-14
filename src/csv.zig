@@ -3,12 +3,12 @@
 //
 
 pub const Csv = struct {
-    rows: [][][]const u8,
+    rows: Rows,
     bufs: [][]u8,
 
     // Read a csv into memory with one owned buffer per row.
     pub fn init(alloc: std.mem.Allocator, reader: anytype) !Csv {
-        var rows = std.ArrayList([][]const u8).empty;
+        var rows = std.ArrayList(Row).empty;
         var bufs = std.ArrayList([]u8).empty;
         errdefer {
             for (rows.items) |row| alloc.free(row);
@@ -19,9 +19,22 @@ pub const Csv = struct {
 
         var parser = zcsv.allocs.column.init(alloc, reader, .{});
         var width: ?usize = null;
-        while (parser.next()) |row_csv| {
-            defer row_csv.deinit();
+        var next_ns: u64 = 0;
+        var fields_ns: u64 = 0;
+        var copy_ns: u64 = 0;
+        var row_deinit_ns: u64 = 0;
 
+        while (true) {
+            var timer = try std.time.Timer.start();
+            const row_csv = parser.next() orelse break;
+            next_ns += timer.read();
+            defer {
+                var deinit_timer = std.time.Timer.start() catch unreachable;
+                row_csv.deinit();
+                row_deinit_ns += deinit_timer.read();
+            }
+
+            timer = try std.time.Timer.start();
             if (width) |expected| {
                 if (row_csv.len() != expected) return error.JaggedCsv;
             } else {
@@ -33,13 +46,15 @@ pub const Csv = struct {
                 const field = try row_csv.field(ii);
                 total_len += util.strip(u8, field.data()).len;
             }
+            fields_ns += timer.read();
 
             // make a compact owned copy of the row bytes
+            timer = try std.time.Timer.start();
             const bytes = try alloc.alloc(u8, total_len);
             errdefer alloc.free(bytes);
 
             // our new row, with a slice for each field
-            const row = try alloc.alloc([]const u8, row_csv.len());
+            const row = try alloc.alloc(Field, row_csv.len());
             errdefer alloc.free(row);
 
             var cursor: usize = 0;
@@ -55,18 +70,31 @@ pub const Csv = struct {
             try rows.append(alloc, row);
             errdefer _ = rows.pop();
             try bufs.append(alloc, bytes);
+            copy_ns += timer.read();
         }
         if (parser.err) |err| return err;
 
         // arraylist => slice
+        var timer = try std.time.Timer.start();
         const rows_owned = try rows.toOwnedSlice(alloc);
+        const rows_slice_ns = timer.read();
         errdefer {
             for (rows_owned) |row| alloc.free(row);
             alloc.free(rows_owned);
         }
+        timer = try std.time.Timer.start();
+        const bufs_owned = try bufs.toOwnedSlice(alloc);
+        const bufs_slice_ns = timer.read();
+
+        util.benchmark("csv.next", next_ns);
+        util.benchmark("csv.fields", fields_ns);
+        util.benchmark("csv.copy", copy_ns);
+        util.benchmark("csv.row.deinit", row_deinit_ns);
+        util.benchmark("csv.rows.slice", rows_slice_ns);
+        util.benchmark("csv.bufs.slice", bufs_slice_ns);
         return .{
             .rows = rows_owned,
-            .bufs = try bufs.toOwnedSlice(alloc),
+            .bufs = bufs_owned,
         };
     }
 
@@ -139,14 +167,15 @@ test "readCsv empty input yields empty header cell" {
 
 test "deinit releases owned rows" {
     const alloc = std.testing.allocator;
-    const rows = try alloc.alloc([][]const u8, 1);
+    const rows = try alloc.alloc(Row, 1);
     errdefer alloc.free(rows);
-    rows[0] = try alloc.alloc([]const u8, 2);
-    errdefer alloc.free(rows[0]);
+    const row = try alloc.alloc(Field, 2);
+    errdefer alloc.free(row);
     const buf = try alloc.dupe(u8, "ab");
     errdefer alloc.free(buf);
-    rows[0][0] = buf[0..1];
-    rows[0][1] = buf[1..2];
+    row[0] = buf[0..1];
+    row[1] = buf[1..2];
+    rows[0] = row;
     const bufs = try alloc.alloc([]u8, 1);
     errdefer alloc.free(bufs);
     bufs[0] = buf;
@@ -155,6 +184,9 @@ test "deinit releases owned rows" {
     csv.deinit(alloc);
 }
 
+const Field = @import("types.zig").Field;
+const Row = @import("types.zig").Row;
+const Rows = @import("types.zig").Rows;
 const std = @import("std");
 const util = @import("util.zig");
 const zcsv = @import("zcsv");
