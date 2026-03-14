@@ -50,7 +50,7 @@ pub const Render = struct {
     }
 
     pub fn render(self: *Render) !void {
-        if (self.table.empty) {
+        if (self.table.isEmpty()) {
             return self.renderEmpty();
         }
 
@@ -61,10 +61,12 @@ pub const Render = struct {
         } else {
             try self.renderSep(nw, bar, ne, n);
         }
-        try self.renderRow(0); // headers
+        try self.renderHeaders();
         try self.renderSep(w, bar, e, c);
-        for (1..self.table.csv.rows.len) |ii| {
-            try self.renderRow(ii);
+        var row_no: usize = 1;
+        for (self.table.rows()) |row| {
+            try self.renderRow(row_no, row);
+            row_no += 1;
         }
         try self.renderSep(sw, bar, se, s);
     }
@@ -109,24 +111,46 @@ pub const Render = struct {
         try self.eol();
     }
 
-    // render data row
-    fn renderRow(self: *Render, ii: usize) !void {
+    fn renderHeaders(self: *Render) !void {
         const out = &self.buf.writer;
-        const row = self.table.csv.rows[ii];
+        const row = self.table.headers();
+        const style = self.table.style();
+        try appendStyled(out, style.chrome, pipe);
+
+        var col: usize = 0;
+        if (self.table.config.row_numbers) {
+            try out.writeByte(' ');
+            try writeStyledExactly(out, style.headers[0], "#", self.layout.widths[col], .left);
+            try out.writeByte(' ');
+            try appendStyled(out, style.chrome, pipe);
+            col += 1;
+        }
+
+        for (row) |field| {
+            try out.writeByte(' ');
+            try writeStyledExactly(out, style.headers[col % style.headers.len], field, self.layout.widths[col], .left);
+            try out.writeByte(' ');
+            try appendStyled(out, style.chrome, pipe);
+            col += 1;
+        }
+
+        try out.writeByte('\n');
+        try self.eol();
+    }
+
+    // render data row
+    fn renderRow(self: *Render, row_no: usize, row: Row) !void {
+        const out = &self.buf.writer;
         const style = self.table.style();
         try appendStyled(out, style.chrome, pipe);
 
         var col: usize = 0;
         if (self.table.config.row_numbers) {
             var num_buf: [32]u8 = undefined;
-            const label = if (ii == 0) "#" else try std.fmt.bufPrint(&num_buf, "{d}", .{ii});
+            const label = try std.fmt.bufPrint(&num_buf, "{d}", .{row_no});
 
             try out.writeByte(' ');
-            if (ii == 0) {
-                try writeStyledExactly(out, style.headers[0], label, self.layout.widths[col], .left);
-            } else {
-                try writeStyledExactly(out, style.chrome, label, self.layout.widths[col], .left);
-            }
+            try writeStyledExactly(out, style.chrome, label, self.layout.widths[col], .left);
             try out.writeByte(' ');
             try appendStyled(out, style.chrome, pipe);
             col += 1;
@@ -135,13 +159,7 @@ pub const Render = struct {
         for (row) |field| {
             const is_placeholder = field.len == 0;
             const val = if (is_placeholder) "—" else field;
-
-            const cell_style = if (ii == 0)
-                style.headers[col % style.headers.len]
-            else if (is_placeholder)
-                style.chrome
-            else
-                style.field;
+            const cell_style = if (is_placeholder) style.chrome else style.field;
 
             try out.writeByte(' ');
             try writeStyledExactly(out, cell_style, val, self.layout.widths[col], .left);
@@ -390,6 +408,7 @@ test "render uses placeholder for empty cells" {
 
 const ansi = @import("ansi.zig");
 const Layout = @import("layout.zig").Layout;
+const Row = @import("types.zig").Row;
 const std = @import("std");
 const Table = @import("table.zig").Table;
 const test_support = @import("test_support.zig");

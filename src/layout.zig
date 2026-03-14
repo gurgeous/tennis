@@ -6,10 +6,7 @@ pub const Layout = struct {
     widths: []const usize,
 
     pub fn init(table: *Table) !Layout {
-        const measured = try measure(table.alloc, table.csv.rows, table.config.row_numbers);
-        defer table.alloc.free(measured);
-        const widths = try autolayout(table.alloc, measured, table.termWidth());
-        return .{ .widths = widths };
+        return .{ .widths = try autolayout(table) };
     }
 
     pub fn deinit(self: Layout, alloc: std.mem.Allocator) void {
@@ -28,29 +25,39 @@ pub const Layout = struct {
 };
 
 // measure the max width of each column, including row number col if any
-fn measure(alloc: std.mem.Allocator, records: types.Rows, row_numbers: bool) ![]usize {
+fn measure(table: *const Table) ![]usize {
+    const alloc = table.alloc;
     const min_col_width = 2;
-
-    if (records.len <= 1 or records[0].len == 0) {
+    const headers = table.headers();
+    const rows = table.rows();
+    if (headers.len == 0 or rows.len == 0) {
         return alloc.alloc(usize, 0);
     }
 
     var widths = std.ArrayList(usize).empty;
-    try widths.appendNTimes(alloc, min_col_width, records[0].len);
-    for (records) |row| {
+    try widths.appendNTimes(alloc, min_col_width, headers.len);
+    for (headers, 0..) |value, ii| {
+        widths.items[ii] = @max(widths.items[ii], util.displayWidth(value));
+    }
+    for (rows) |row| {
         for (row, 0..) |value, ii| {
             widths.items[ii] = @max(widths.items[ii], util.displayWidth(value));
         }
     }
-    if (row_numbers) {
-        const ndigits = util.digits(usize, records.len - 1);
+    if (table.config.row_numbers) {
+        const ndigits = util.digits(usize, table.nrows());
         try widths.insert(alloc, 0, @max(min_col_width, ndigits));
     }
     return widths.toOwnedSlice(alloc);
 }
 
 // fit widths into term_width. this is similar to the HTML table layout algo
-fn autolayout(alloc: std.mem.Allocator, widths: []const usize, term_width: usize) ![]usize {
+fn autolayout(table: *Table) ![]usize {
+    const alloc = table.alloc;
+    const widths = try measure(table);
+    defer alloc.free(widths);
+    const term_width = table.termWidth();
+
     if (widths.len == 0) {
         return try alloc.alloc(usize, 0);
     }
@@ -129,72 +136,70 @@ fn autolayout(alloc: std.mem.Allocator, widths: []const usize, term_width: usize
 //
 
 test "layout" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
-    const input = Layout{ .widths = &[_]usize{ 32, 20, 10 } };
+    var in1 = std.io.fixedBufferStream("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,bbbbbbbbbbbbbbbbbbbb,cccccccccc\nx,y,z\n");
+    var table1 = try Table.init(std.testing.allocator, .{ .width = 100 }, in1.reader());
+    defer table1.deinit();
+    const l1 = try autolayout(&table1);
+    defer std.testing.allocator.free(l1);
+    try std.testing.expectEqualSlices(usize, &[_]usize{ 32, 20, 10 }, l1);
 
-    const l1 = try autolayout(alloc, input.widths, 100);
-    defer alloc.free(l1);
-    try std.testing.expectEqualSlices(usize, input.widths, l1);
-
-    const l2 = try autolayout(alloc, input.widths, 50);
-    defer alloc.free(l2);
+    var in2 = std.io.fixedBufferStream("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,bbbbbbbbbbbbbbbbbbbb,cccccccccc\nx,y,z\n");
+    var table2 = try Table.init(std.testing.allocator, .{ .width = 50 }, in2.reader());
+    defer table2.deinit();
+    const l2 = try autolayout(&table2);
+    defer std.testing.allocator.free(l2);
     try std.testing.expectEqualSlices(usize, &[_]usize{ 16, 12, 10 }, l2);
 }
 
 test "layout handles tiny terminals without underflow" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
-    const input = Layout{ .widths = &[_]usize{ 8, 8, 8, 8, 8, 8, 8, 8 } };
-
-    const l = try autolayout(alloc, input.widths, 40);
-    defer alloc.free(l);
-    try std.testing.expectEqual(input.widths.len, l.len);
+    var in = std.io.fixedBufferStream("12345678,12345678,12345678,12345678,12345678,12345678,12345678,12345678\nx,x,x,x,x,x,x,x\n");
+    var table = try Table.init(std.testing.allocator, .{ .width = 40 }, in.reader());
+    defer table.deinit();
+    const l = try autolayout(&table);
+    defer std.testing.allocator.free(l);
+    try std.testing.expectEqual(@as(usize, 8), l.len);
 }
 
 test "measure includes row numbers and unicode width" {
-    const alloc = std.testing.allocator;
-    var row1 = [_]types.Field{ "a", "éé" };
-    var row2 = [_]types.Field{ "10", "x" };
-    var records = [_]types.Row{ &row1, &row2 };
-    const widths = try measure(alloc, &records, true);
-    defer alloc.free(widths);
+    var in = std.io.fixedBufferStream("a,\xc3\xa9\xc3\xa9\n10,x\n");
+    var table = try Table.init(std.testing.allocator, .{ .row_numbers = true }, in.reader());
+    defer table.deinit();
+    const widths = try measure(&table);
+    defer std.testing.allocator.free(widths);
 
     try std.testing.expectEqualSlices(usize, &[_]usize{ 2, 2, 2 }, widths);
 }
 
 test "measure returns empty layout for empty table" {
-    const alloc = std.testing.allocator;
-    var row = [_]types.Field{""};
-    var records = [_]types.Row{&row};
-    const widths = try measure(alloc, &records, false);
-    defer alloc.free(widths);
+    var in = std.io.fixedBufferStream("");
+    var table = try Table.init(std.testing.allocator, .{}, in.reader());
+    defer table.deinit();
+    const widths = try measure(&table);
+    defer std.testing.allocator.free(widths);
 
     try std.testing.expectEqual(0, widths.len);
 }
 
 test "autolayout keeps widths when term width exactly fits" {
-    const alloc = std.testing.allocator;
-    const input = Layout{ .widths = &[_]usize{ 7, 9, 11 } };
-    const exact = input.tableWidth() + 2;
-    const out = try autolayout(alloc, input.widths, exact);
-    defer alloc.free(out);
+    var in = std.io.fixedBufferStream("1234567,123456789,12345678901\nx,y,z\n");
+    var table = try Table.init(std.testing.allocator, .{ .width = 39 }, in.reader());
+    defer table.deinit();
+    const out = try autolayout(&table);
+    defer std.testing.allocator.free(out);
 
-    try std.testing.expectEqualSlices(usize, input.widths, out);
+    try std.testing.expectEqualSlices(usize, &[_]usize{ 7, 9, 11 }, out);
 }
 
 test "autolayout handles empty widths" {
-    const alloc = std.testing.allocator;
-    const input = Layout{ .widths = &.{} };
-    const out = try autolayout(alloc, input.widths, 80);
-    defer alloc.free(out);
+    var in = std.io.fixedBufferStream("");
+    var table = try Table.init(std.testing.allocator, .{ .width = 80 }, in.reader());
+    defer table.deinit();
+    const out = try autolayout(&table);
+    defer std.testing.allocator.free(out);
 
     try std.testing.expectEqual(0, out.len);
 }
 
 const std = @import("std");
 const Table = @import("table.zig").Table;
-const types = @import("types.zig");
 const util = @import("util.zig");

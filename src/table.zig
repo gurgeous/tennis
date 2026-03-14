@@ -48,7 +48,11 @@ pub const Table = struct {
     // accessors
     //
 
-    pub fn headers(self: *const Table) types.Row {
+    pub fn isEmpty(self: *const Table) bool {
+        return self.empty;
+    }
+
+    pub fn headers(self: *const Table) Row {
         if (self.empty) return &.{};
         return self.csv.rows[0];
     }
@@ -63,7 +67,7 @@ pub const Table = struct {
         return self.csv.rows[0].len;
     }
 
-    pub fn rows(self: *const Table) types.Rows {
+    pub fn rows(self: *const Table) Rows {
         if (self.empty) return &.{};
         return self.csv.rows[1..];
     }
@@ -92,11 +96,11 @@ pub const Table = struct {
 };
 
 pub const ColumnIterator = struct {
-    rows: types.Rows,
+    rows: Rows,
     index: usize,
     row_index: usize = 0,
 
-    pub fn next(self: *ColumnIterator) ?types.Field {
+    pub fn next(self: *ColumnIterator) ?Field {
         if (self.row_index >= self.rows.len) return null;
         const field = self.rows[self.row_index][self.index];
         self.row_index += 1;
@@ -114,7 +118,7 @@ test "headers length and emptiness reflect table shape" {
     try std.testing.expectEqualStrings("b", table.headers()[1]);
     try std.testing.expectEqual(@as(usize, 1), table.nrows());
     try std.testing.expectEqual(@as(usize, 2), table.ncols());
-    try std.testing.expect(!table.empty);
+    try std.testing.expect(!table.isEmpty());
 }
 
 test "empty input reports empty table" {
@@ -125,7 +129,7 @@ test "empty input reports empty table" {
     try std.testing.expectEqual(@as(usize, 0), table.headers().len);
     try std.testing.expectEqual(@as(usize, 0), table.nrows());
     try std.testing.expectEqual(@as(usize, 0), table.ncols());
-    try std.testing.expect(table.empty);
+    try std.testing.expect(table.isEmpty());
 }
 
 test "rows returns data rows only" {
@@ -153,7 +157,7 @@ test "column iterator returns column values for data rows only" {
     var column = table.column(1);
     try std.testing.expectEqualStrings("d", column.next().?);
     try std.testing.expectEqualStrings("f", column.next().?);
-    try std.testing.expectEqual(@as(?types.Field, null), column.next());
+    try std.testing.expectEqual(@as(?Field, null), column.next());
 }
 
 const Csv = @import("csv.zig").Csv;
@@ -163,3 +167,6 @@ const std = @import("std");
 const Style = @import("style.zig").Style;
 const types = @import("types.zig");
 const util = @import("util.zig");
+const Field = @import("types.zig").Field;
+const Row = @import("types.zig").Row;
+const Rows = @import("types.zig").Rows;
