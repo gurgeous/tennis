@@ -1,7 +1,5 @@
 pub const ColumnType = enum { int, float, string };
 
-const sample_rows = 100;
-
 pub const Column = struct {
     table: *const Table,
     name: []const u8,
@@ -34,41 +32,6 @@ pub const Column = struct {
     }
 
     fn inferColumnType(self: Column) ColumnType {
-        const mode = std.posix.getenv("INFER_COLUMN_TYPE") orelse "A";
-        if (std.mem.eql(u8, mode, "B")) return self.inferColumnTypeB();
-        return self.inferColumnTypeA();
-    }
-
-    fn inferColumnTypeA(self: Column) ColumnType {
-        var floats: usize = 0;
-        var ints: usize = 0;
-        var strings: usize = 0;
-
-        var it = self.iterator();
-        var n: usize = 0;
-        while (it.next()) |field| {
-            if (n >= sample_rows) break;
-            n += 1;
-
-            if (field.len == 0) continue;
-            if (util.isInt(field)) {
-                ints += 1;
-                continue;
-            }
-            if (util.isFloat(field)) {
-                floats += 1;
-                continue;
-            }
-            strings += 1;
-        }
-
-        if (strings != 0) return .string;
-        if (floats != 0) return .float;
-        if (ints != 0) return .int;
-        return .string;
-    }
-
-    fn inferColumnTypeB(self: Column) ColumnType {
         var floats: usize = 0;
         var ints: usize = 0;
         var strings: usize = 0;
@@ -154,12 +117,12 @@ test "column infers data types" {
     try std.testing.expectEqual(ColumnType.string, table.column(2).type);
 }
 
-test "column inference ignores blanks and samples first 100 rows" {
+test "column inference ignores blanks and scans all rows" {
     var buf = std.ArrayList(u8).empty;
     defer buf.deinit(std.testing.allocator);
 
     try buf.appendSlice(std.testing.allocator, "a,b\n");
-    for (0..sample_rows) |ii| {
+    for (0..100) |ii| {
         try buf.writer(std.testing.allocator).print("{d},\n", .{ii});
     }
     try buf.appendSlice(std.testing.allocator, "not-a-number,\n");
@@ -168,7 +131,7 @@ test "column inference ignores blanks and samples first 100 rows" {
     const table = try Table.init(std.testing.allocator, .{}, in.reader());
     defer table.deinit();
 
-    try std.testing.expectEqual(ColumnType.int, table.column(0).type);
+    try std.testing.expectEqual(ColumnType.string, table.column(0).type);
     try std.testing.expectEqual(ColumnType.string, table.column(1).type);
 }
 

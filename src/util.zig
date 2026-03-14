@@ -128,6 +128,15 @@ pub fn strip(comptime T: type, slice: []const T) []const T {
 // misc
 //
 
+// print a benchmark line
+pub fn benchmark(label: []const u8, elapsed_ns: u64) void {
+    if (!hasenv("BENCHMARK")) return;
+    const ms = elapsed_ns / std.time.ns_per_ms;
+    const frac = (elapsed_ns % std.time.ns_per_ms) / std.time.ns_per_us;
+    stderr.print("{s:<16} {d}.{d:0>3} ms\n", .{ label, ms, frac }) catch {};
+    stderr.flush() catch {};
+}
+
 // does this env var exist?
 pub fn hasenv(name: []const u8) bool {
     return std.posix.getenv(name) != null;
@@ -137,18 +146,6 @@ pub fn hasenv(name: []const u8) bool {
 pub fn tdebug(comptime fmt: []const u8, args: anytype) void {
     if (!hasenv("TENNIS_DEBUG")) return;
     stderr.print("tennis: " ++ fmt ++ "\n", args) catch {};
-    stderr.flush() catch {};
-}
-
-pub fn benchmarkEnabled() bool {
-    return;
-}
-
-pub fn benchmark(label: []const u8, elapsed_ns: u64) void {
-    if (!hasenv("BENCHMARK")) return;
-    const ms = elapsed_ns / std.time.ns_per_ms;
-    const frac = (elapsed_ns % std.time.ns_per_ms) / std.time.ns_per_us;
-    stderr.print("{s:<16} {d}.{d:0>3} ms\n", .{ label, ms, frac }) catch {};
     stderr.flush() catch {};
 }
 
