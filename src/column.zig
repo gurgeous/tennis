@@ -141,8 +141,8 @@ test "column inference ignores blanks and samples first 100 rows" {
     try std.testing.expectEqual(DataType.string, table.column(1).data_type);
 }
 
-const std = @import("std");
-const Table = @import("table.zig").Table;
 const Field = @import("types.zig").Field;
 const Rows = @import("types.zig").Rows;
+const std = @import("std");
+const Table = @import("table.zig").Table;
 const util = @import("util.zig");

@@ -1,5 +1,3 @@
-const version = @import("build_options").version;
-
 pub fn main() !void {
     const code = try main0();
     std.process.exit(code);
@@ -136,3 +134,4 @@ const builtin = @import("builtin");
 const std = @import("std");
 const Table = @import("table.zig").Table;
 const util = @import("util.zig");
+const version = @import("build_options").version;

@@ -156,9 +156,9 @@ test "deinit releases owned rows" {
     csv.deinit(alloc);
 }
 
-const std = @import("std");
-const util = @import("util.zig");
-const zcsv = @import("zcsv");
 const Field = @import("types.zig").Field;
 const Row = @import("types.zig").Row;
 const Rows = @import("types.zig").Rows;
+const std = @import("std");
+const util = @import("util.zig");
+const zcsv = @import("zcsv");

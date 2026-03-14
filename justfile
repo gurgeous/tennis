@@ -41,7 +41,7 @@ goreleaser-snapshot: check
 # hygiene
 #
 
-check: lint build test bats
+check: lint lint-imports build test bats
   just banner "✓ check ✓"
 
 bats: build
@@ -58,6 +58,10 @@ fmt:
 lint:
   zig fmt --check .
   just banner "✓ lint ✓"
+
+lint-imports:
+  bash bin/lint-imports
+  just banner "✓ lint-imports ✓"
 
 test:
   zig build test --summary all

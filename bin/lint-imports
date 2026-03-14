@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+# Check that bottom-of-file Zig imports are alphabetized within each source file.
+
+set -euo pipefail
+status=0
+
+while IFS= read -r path; do
+  mapfile -t imports < <(grep '^const .* = @import(' "$path" || true)
+  [[ ${#imports[@]} -eq 0 ]] && continue
+
+  mapfile -t want < <(printf '%s\n' "${imports[@]}" | sort -f)
+  if [[ ${imports[*]} != "${want[*]}" ]]; then
+    printf 'lint-imports: unsorted imports in %s\n' "$path"
+    status=1
+  fi
+done < <(find src -name '*.zig' -type f | sort -f)
+
+exit "$status"
