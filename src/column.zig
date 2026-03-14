@@ -1,4 +1,4 @@
-pub const DataType = enum { int, float, string };
+pub const ColumnType = enum { int, float, string };
 
 const sample_rows = 100;
 
@@ -7,7 +7,7 @@ pub const Column = struct {
     name: []const u8,
     index: usize,
     width: usize = 0,
-    data_type: DataType = .string,
+    type: ColumnType = .string,
 
     pub fn init(table: *const Table, index: usize) Column {
         var column: Column = .{
@@ -16,7 +16,7 @@ pub const Column = struct {
             .index = index,
         };
         column.width = column.measure();
-        column.data_type = column.inferDataType();
+        column.type = column.inferColumnType();
         return column;
     }
 
@@ -33,7 +33,7 @@ pub const Column = struct {
         return width;
     }
 
-    fn inferDataType(self: Column) DataType {
+    fn inferColumnType(self: Column) ColumnType {
         var floats: usize = 0;
         var ints: usize = 0;
         var strings: usize = 0;
@@ -90,7 +90,7 @@ test "column init stores table header and index" {
     try std.testing.expectEqualStrings("b", column.name);
     try std.testing.expectEqual(@as(usize, 1), column.index);
     try std.testing.expectEqual(@as(usize, 1), column.width);
-    try std.testing.expectEqual(DataType.string, column.data_type);
+    try std.testing.expectEqual(ColumnType.string, column.type);
 }
 
 test "column iterator walks data rows only" {
@@ -118,9 +118,9 @@ test "column infers data types" {
     const table = try Table.init(std.testing.allocator, .{}, in.reader());
     defer table.deinit();
 
-    try std.testing.expectEqual(DataType.int, table.column(0).data_type);
-    try std.testing.expectEqual(DataType.float, table.column(1).data_type);
-    try std.testing.expectEqual(DataType.string, table.column(2).data_type);
+    try std.testing.expectEqual(ColumnType.int, table.column(0).type);
+    try std.testing.expectEqual(ColumnType.float, table.column(1).type);
+    try std.testing.expectEqual(ColumnType.string, table.column(2).type);
 }
 
 test "column inference ignores blanks and samples first 100 rows" {
@@ -137,8 +137,8 @@ test "column inference ignores blanks and samples first 100 rows" {
     const table = try Table.init(std.testing.allocator, .{}, in.reader());
     defer table.deinit();
 
-    try std.testing.expectEqual(DataType.int, table.column(0).data_type);
-    try std.testing.expectEqual(DataType.string, table.column(1).data_type);
+    try std.testing.expectEqual(ColumnType.int, table.column(0).type);
+    try std.testing.expectEqual(ColumnType.string, table.column(1).type);
 }
 
 const Field = @import("types.zig").Field;
