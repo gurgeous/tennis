@@ -390,6 +390,21 @@ test "renderEmpty renders fallback table" {
     try std.testing.expectEqualStrings(exp, writer.buffered());
 }
 
+test "render header only table falls back to empty" {
+    var test_table: test_support.TestTable = undefined;
+    try test_table.init(std.testing.allocator, "a,b\n");
+    defer test_table.deinit();
+
+    var buf: [4096]u8 = undefined;
+    var writer = std.Io.Writer.fixed(&buf);
+    const l = try Layout.init(&test_table.table);
+    defer l.deinit(test_table.table.alloc);
+    var render: Render = .init(&test_table.table, &writer, l);
+    try render.render();
+
+    try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "empty table"));
+}
+
 test "render uses placeholder for empty cells" {
     var test_table: test_support.TestTable = undefined;
     try test_table.init(std.testing.allocator, "a,b\n,\n");
@@ -404,6 +419,22 @@ test "render uses placeholder for empty cells" {
     try render.render();
 
     try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 2, "—"));
+}
+
+test "render headers does not use placeholder for empty header cell" {
+    var test_table: test_support.TestTable = undefined;
+    try test_table.init(std.testing.allocator, "a,\n1,2\n");
+    defer test_table.deinit();
+    var buf: [4096]u8 = undefined;
+    var writer = std.Io.Writer.fixed(&buf);
+    test_table.table.config.color = .off;
+    const l = try Layout.init(&test_table.table);
+    defer l.deinit(test_table.table.alloc);
+    var render: Render = .init(&test_table.table, &writer, l);
+    try render.render();
+
+    try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "│ a  │    │"));
+    try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "│ 1  │ 2  │"));
 }
 
 const ansi = @import("ansi.zig");

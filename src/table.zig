@@ -132,6 +132,16 @@ test "empty input reports empty table" {
     try std.testing.expect(table.isEmpty());
 }
 
+test "header only input is empty" {
+    var in = std.io.fixedBufferStream("a,b\n");
+    var table = try Table.init(std.testing.allocator, .{}, in.reader());
+    defer table.deinit();
+
+    try std.testing.expect(table.isEmpty());
+    try std.testing.expectEqual(@as(usize, 0), table.headers().len);
+    try std.testing.expectEqual(@as(usize, 0), table.nrows());
+}
+
 test "rows returns data rows only" {
     var in = std.io.fixedBufferStream("a,b\nc,d\ne,f\n");
     var table = try Table.init(std.testing.allocator, .{}, in.reader());
@@ -158,6 +168,37 @@ test "column iterator returns column values for data rows only" {
     try std.testing.expectEqualStrings("d", column.next().?);
     try std.testing.expectEqualStrings("f", column.next().?);
     try std.testing.expectEqual(@as(?Field, null), column.next());
+}
+
+test "column iterator is empty for empty table" {
+    var in = std.io.fixedBufferStream("a,b\n");
+    var table = try Table.init(std.testing.allocator, .{}, in.reader());
+    defer table.deinit();
+
+    var column = table.column(0);
+    try std.testing.expectEqual(@as(?Field, null), column.next());
+}
+
+test "style respects config" {
+    var in = std.io.fixedBufferStream("a,b\nc,d\n");
+    var table1 = try Table.init(std.testing.allocator, .{ .color = .off, .theme = .dark }, in.reader());
+    defer table1.deinit();
+    try std.testing.expectEqualStrings("", table1.style().title);
+    try std.testing.expectEqualStrings("", table1.style().chrome);
+
+    var in2 = std.io.fixedBufferStream("a,b\nc,d\n");
+    var table2 = try Table.init(std.testing.allocator, .{ .color = .on, .theme = .dark }, in2.reader());
+    defer table2.deinit();
+    try std.testing.expect(table2.style().title.len > 0);
+    try std.testing.expect(table2.style().chrome.len > 0);
+}
+
+test "termWidth respects config width" {
+    var in = std.io.fixedBufferStream("a,b\nc,d\n");
+    var table = try Table.init(std.testing.allocator, .{ .width = 123 }, in.reader());
+    defer table.deinit();
+
+    try std.testing.expectEqual(@as(usize, 123), table.termWidth());
 }
 
 const Csv = @import("csv.zig").Csv;

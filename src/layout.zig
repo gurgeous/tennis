@@ -180,6 +180,26 @@ test "measure returns empty layout for empty table" {
     try std.testing.expectEqual(0, widths.len);
 }
 
+test "measure returns empty layout for header only table" {
+    var in = std.io.fixedBufferStream("a,b\n");
+    var table = try Table.init(std.testing.allocator, .{}, in.reader());
+    defer table.deinit();
+    const widths = try measure(&table);
+    defer std.testing.allocator.free(widths);
+
+    try std.testing.expectEqual(0, widths.len);
+}
+
+test "measure ignores empty data cell width" {
+    var in = std.io.fixedBufferStream("alpha,beta\n,xyz\n");
+    var table = try Table.init(std.testing.allocator, .{}, in.reader());
+    defer table.deinit();
+    const widths = try measure(&table);
+    defer std.testing.allocator.free(widths);
+
+    try std.testing.expectEqualSlices(usize, &[_]usize{ 5, 4 }, widths);
+}
+
 test "autolayout keeps widths when term width exactly fits" {
     var in = std.io.fixedBufferStream("1234567,123456789,12345678901\nx,y,z\n");
     var table = try Table.init(std.testing.allocator, .{ .width = 39 }, in.reader());
