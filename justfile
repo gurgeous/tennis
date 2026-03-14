@@ -62,6 +62,12 @@ test:
   zig build test --summary all
   just banner "✓ test ✓"
 
+coverage:
+  rm -rf kcov/
+  zig build  -Doptimize=Debug coverage-bin
+  kcov --clean --include-pattern=$PWD/src/ kcov ./zig-out/bin/tennis-coverage-tests
+  just banner "✓ coverage ✓"
+
 valgrind: build
   valgrind --quiet --leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all --error-exitcode=1 \
     ./zig-out/bin/tennis  --color=on -n --title foo testdata/test.csv > /dev/null

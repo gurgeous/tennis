@@ -1,4 +1,5 @@
 .DS_Store
 .zig-cache/
 dist
+kcov/
 zig-out/
