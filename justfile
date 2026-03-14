@@ -70,8 +70,8 @@ test:
 kcov:
   just banner "kcov..."
   rm -rf {{KCOV}}/
-  zig build  -Doptimize=Debug coverage-bin
-  kcov --include-pattern=$PWD/src/ {{KCOV}} ./zig-out/bin/tennis-coverage-tests
+  zig build  -Doptimize=Debug kcov-tests
+  kcov --include-pattern=$PWD/src/ {{KCOV}} ./zig-out/bin/kcov-tests
   just banner "✓ kcov ✓"
 
 valgrind: build
