@@ -5,10 +5,10 @@ pub const TestTable = struct {
     arena: std.heap.ArenaAllocator = undefined,
     table: Table = undefined,
 
-    pub fn init(self: *TestTable, alloc: std.mem.Allocator) !void {
+    pub fn init(self: *TestTable, alloc: std.mem.Allocator, input: []const u8) !void {
         self.arena = std.heap.ArenaAllocator.init(alloc);
         errdefer self.arena.deinit();
-        var in = std.io.fixedBufferStream("");
+        var in = std.io.fixedBufferStream(input);
         self.table = try .init(self.arena.allocator(), .{}, in.reader());
     }
 

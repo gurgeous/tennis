@@ -5,10 +5,10 @@
 pub const Layout = struct {
     widths: []const usize,
 
-    pub fn init(alloc: std.mem.Allocator, records: [][][]const u8, row_numbers: bool, term_width: usize) !Layout {
-        const measured = try measure(alloc, records, row_numbers);
-        defer alloc.free(measured);
-        const widths = try autolayout(alloc, measured, term_width);
+    pub fn init(table: *Table) !Layout {
+        const measured = try measure(table.alloc, table.csv.rows, table.config.row_numbers);
+        defer table.alloc.free(measured);
+        const widths = try autolayout(table.alloc, measured, table.termWidth());
         return .{ .widths = widths };
     }
 
@@ -28,7 +28,7 @@ pub const Layout = struct {
 };
 
 // measure the max width of each column, including row number col if any
-fn measure(alloc: std.mem.Allocator, records: [][][]const u8, row_numbers: bool) ![]usize {
+fn measure(alloc: std.mem.Allocator, records: types.Rows, row_numbers: bool) ![]usize {
     const min_col_width = 2;
 
     if (records.len <= 1 or records[0].len == 0) {
@@ -156,9 +156,9 @@ test "layout handles tiny terminals without underflow" {
 
 test "measure includes row numbers and unicode width" {
     const alloc = std.testing.allocator;
-    var row1 = [_][]const u8{ "a", "éé" };
-    var row2 = [_][]const u8{ "10", "x" };
-    var records = [_][][]const u8{ &row1, &row2 };
+    var row1 = [_]types.Field{ "a", "éé" };
+    var row2 = [_]types.Field{ "10", "x" };
+    var records = [_]types.Row{ &row1, &row2 };
     const widths = try measure(alloc, &records, true);
     defer alloc.free(widths);
 
@@ -167,8 +167,8 @@ test "measure includes row numbers and unicode width" {
 
 test "measure returns empty layout for empty table" {
     const alloc = std.testing.allocator;
-    var row = [_][]const u8{""};
-    var records = [_][][]const u8{&row};
+    var row = [_]types.Field{""};
+    var records = [_]types.Row{&row};
     const widths = try measure(alloc, &records, false);
     defer alloc.free(widths);
 
@@ -195,4 +195,6 @@ test "autolayout handles empty widths" {
 }
 
 const std = @import("std");
+const Table = @import("table.zig").Table;
+const types = @import("types.zig");
 const util = @import("util.zig");

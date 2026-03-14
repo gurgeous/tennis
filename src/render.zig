@@ -33,15 +33,13 @@ const Align = enum { left, center };
 pub const Render = struct {
     table: *Table,
     writer: *std.Io.Writer,
-    records: [][][]const u8,
     layout: Layout,
     buf: std.Io.Writer.Allocating,
 
-    pub fn init(table: *Table, writer: *std.Io.Writer, layout: Layout, records: [][][]const u8) Render {
+    pub fn init(table: *Table, writer: *std.Io.Writer, layout: Layout) Render {
         return .{
             .table = table,
             .writer = writer,
-            .records = records,
             .layout = layout,
             .buf = .init(table.alloc),
         };
@@ -52,9 +50,7 @@ pub const Render = struct {
     }
 
     pub fn render(self: *Render) !void {
-        // A csv with zero data rows is intentionally rendered as an "empty
-        // table", even if the parser produced a single header row.
-        if (self.layout.widths.len == 0) {
+        if (self.table.empty) {
             return self.renderEmpty();
         }
 
@@ -67,7 +63,7 @@ pub const Render = struct {
         }
         try self.renderRow(0); // headers
         try self.renderSep(w, bar, e, c);
-        for (1..self.records.len) |ii| {
+        for (1..self.table.csv.rows.len) |ii| {
             try self.renderRow(ii);
         }
         try self.renderSep(sw, bar, se, s);
@@ -116,7 +112,7 @@ pub const Render = struct {
     // render data row
     fn renderRow(self: *Render, ii: usize) !void {
         const out = &self.buf.writer;
-        const row = self.records[ii];
+        const row = self.table.csv.rows[ii];
         const style = self.table.style();
         try appendStyled(out, style.chrome, pipe);
 
@@ -307,25 +303,17 @@ test "writeExactly padding and truncation" {
 
 test "ascii render simple" {
     var test_table: test_support.TestTable = undefined;
-    try test_table.init(std.testing.allocator);
+    try test_table.init(std.testing.allocator, "a,b\nc,d\n");
     defer test_table.deinit();
-
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
-
-    var in = std.io.fixedBufferStream("a,b\nc,d\n");
-    const csv = try csv_mod.Csv.init(alloc, in.reader());
-    defer csv.deinit(alloc);
-    const l = try Layout.init(alloc, csv.rows, false, 80);
-    defer l.deinit(alloc);
+    const l = try Layout.init(&test_table.table);
+    defer l.deinit(test_table.table.alloc);
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
     test_table.table.config.color = .off;
     test_table.table.config.theme = .dark;
     test_table.table.config.row_numbers = false;
     test_table.table.config.title = "";
-    var render: Render = .init(&test_table.table, &writer, l, csv.rows);
+    var render: Render = .init(&test_table.table, &writer, l);
     try render.render();
 
     const exp =
@@ -341,25 +329,17 @@ test "ascii render simple" {
 
 test "render with title and row numbers" {
     var test_table: test_support.TestTable = undefined;
-    try test_table.init(std.testing.allocator);
+    try test_table.init(std.testing.allocator, "a,b\nc,d\n");
     defer test_table.deinit();
-
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
-
-    var in = std.io.fixedBufferStream("a,b\nc,d\n");
-    const csv = try csv_mod.Csv.init(alloc, in.reader());
-    defer csv.deinit(alloc);
-    const l = try Layout.init(alloc, csv.rows, true, 80);
-    defer l.deinit(alloc);
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
     test_table.table.config.color = .off;
     test_table.table.config.theme = .dark;
     test_table.table.config.row_numbers = true;
     test_table.table.config.title = "foo";
-    var render: Render = .init(&test_table.table, &writer, l, csv.rows);
+    const l = try Layout.init(&test_table.table);
+    defer l.deinit(test_table.table.alloc);
+    var render: Render = .init(&test_table.table, &writer, l);
     try render.render();
 
     try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "foo"));
@@ -369,14 +349,16 @@ test "render with title and row numbers" {
 
 test "renderEmpty renders fallback table" {
     var test_table: test_support.TestTable = undefined;
-    try test_table.init(std.testing.allocator);
+    try test_table.init(std.testing.allocator, "");
     defer test_table.deinit();
 
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
     test_table.table.config.color = .off;
     test_table.table.config.theme = .dark;
-    var render: Render = .init(&test_table.table, &writer, .{ .widths = &.{} }, &.{});
+    const l = try Layout.init(&test_table.table);
+    defer l.deinit(test_table.table.alloc);
+    var render: Render = .init(&test_table.table, &writer, l);
     try render.render();
 
     const exp =
@@ -392,30 +374,21 @@ test "renderEmpty renders fallback table" {
 
 test "render uses placeholder for empty cells" {
     var test_table: test_support.TestTable = undefined;
-    try test_table.init(std.testing.allocator);
+    try test_table.init(std.testing.allocator, "a,b\n,\n");
     defer test_table.deinit();
-
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
-
-    var in = std.io.fixedBufferStream("a,b\n,\n");
-    const csv = try csv_mod.Csv.init(alloc, in.reader());
-    defer csv.deinit(alloc);
-    const l = try Layout.init(alloc, csv.rows, false, 80);
-    defer l.deinit(alloc);
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
     test_table.table.config.color = .off;
     test_table.table.config.theme = .dark;
-    var render: Render = .init(&test_table.table, &writer, l, csv.rows);
+    const l = try Layout.init(&test_table.table);
+    defer l.deinit(test_table.table.alloc);
+    var render: Render = .init(&test_table.table, &writer, l);
     try render.render();
 
     try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 2, "—"));
 }
 
 const ansi = @import("ansi.zig");
-const csv_mod = @import("csv.zig");
 const Layout = @import("layout.zig").Layout;
 const std = @import("std");
 const Table = @import("table.zig").Table;

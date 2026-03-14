@@ -3,6 +3,7 @@ pub const Table = struct {
     alloc: std.mem.Allocator,
     csv: Csv,
     config: types.Config = .{},
+    empty: bool = false,
     // calculated from config + terminal
     style_cache: ?Style = null,
     term_width: ?usize = null,
@@ -12,10 +13,17 @@ pub const Table = struct {
     //
 
     pub fn init(alloc: std.mem.Allocator, config: types.Config, reader: anytype) !Table {
+        const csv = try Csv.init(alloc, reader);
+
+        // A csv with zero data rows is intentionally rendered as an "empty
+        // table", even if the parser produced a single header row.
+        const empty = csv.rows.len < 2 or csv.rows[0].len == 0;
+
         return .{
             .alloc = alloc,
-            .csv = try Csv.init(alloc, reader),
             .config = config,
+            .csv = csv,
+            .empty = empty,
         };
     }
 
@@ -28,24 +36,45 @@ pub const Table = struct {
     //
 
     pub fn renderTable(self: *Table, writer: *std.Io.Writer) !void {
-        const layout = try Layout.init(self.alloc, self.csv.rows, self.config.row_numbers, self.termWidth());
+        const layout = try Layout.init(self);
         defer layout.deinit(self.alloc);
 
-        var renderer: Render = .init(self, writer, layout, self.csv.rows);
+        var renderer: Render = .init(self, writer, layout);
         defer renderer.deinit();
         try renderer.render();
     }
 
     //
-    // memoized accessors
+    // accessors
     //
 
-    pub fn termWidth(self: *Table) usize {
-        if (self.term_width == null) {
-            self.term_width = if (self.config.width > 0) self.config.width else util.termWidth();
-        }
-        return self.term_width.?;
+    pub fn headers(self: *const Table) types.Row {
+        if (self.empty) return &.{};
+        return self.csv.rows[0];
     }
+
+    pub fn nrows(self: *const Table) usize {
+        if (self.empty) return 0;
+        return self.csv.rows.len - 1;
+    }
+
+    pub fn ncols(self: *const Table) usize {
+        if (self.empty) return 0;
+        return self.csv.rows[0].len;
+    }
+
+    pub fn rows(self: *const Table) types.Rows {
+        if (self.empty) return &.{};
+        return self.csv.rows[1..];
+    }
+
+    pub fn column(self: *const Table, index: usize) ColumnIterator {
+        return .{ .rows = self.rows(), .index = index };
+    }
+
+    //
+    // memoized accessors
+    //
 
     pub fn style(self: *Table) *const Style {
         if (self.style_cache == null) {
@@ -53,7 +82,79 @@ pub const Table = struct {
         }
         return &self.style_cache.?;
     }
+
+    pub fn termWidth(self: *Table) usize {
+        if (self.term_width == null) {
+            self.term_width = if (self.config.width > 0) self.config.width else util.termWidth();
+        }
+        return self.term_width.?;
+    }
 };
+
+pub const ColumnIterator = struct {
+    rows: types.Rows,
+    index: usize,
+    row_index: usize = 0,
+
+    pub fn next(self: *ColumnIterator) ?types.Field {
+        if (self.row_index >= self.rows.len) return null;
+        const field = self.rows[self.row_index][self.index];
+        self.row_index += 1;
+        return field;
+    }
+};
+
+test "headers length and emptiness reflect table shape" {
+    var in = std.io.fixedBufferStream("a,b\nc,d\n");
+    var table = try Table.init(std.testing.allocator, .{}, in.reader());
+    defer table.deinit();
+
+    try std.testing.expectEqual(@as(usize, 2), table.headers().len);
+    try std.testing.expectEqualStrings("a", table.headers()[0]);
+    try std.testing.expectEqualStrings("b", table.headers()[1]);
+    try std.testing.expectEqual(@as(usize, 1), table.nrows());
+    try std.testing.expectEqual(@as(usize, 2), table.ncols());
+    try std.testing.expect(!table.empty);
+}
+
+test "empty input reports empty table" {
+    var in = std.io.fixedBufferStream("");
+    var table = try Table.init(std.testing.allocator, .{}, in.reader());
+    defer table.deinit();
+
+    try std.testing.expectEqual(@as(usize, 0), table.headers().len);
+    try std.testing.expectEqual(@as(usize, 0), table.nrows());
+    try std.testing.expectEqual(@as(usize, 0), table.ncols());
+    try std.testing.expect(table.empty);
+}
+
+test "rows returns data rows only" {
+    var in = std.io.fixedBufferStream("a,b\nc,d\ne,f\n");
+    var table = try Table.init(std.testing.allocator, .{}, in.reader());
+    defer table.deinit();
+
+    const rows = table.rows();
+    try std.testing.expectEqual(@as(usize, 2), rows.len);
+
+    const row1 = rows[0];
+    try std.testing.expectEqualStrings("c", row1[0]);
+    try std.testing.expectEqualStrings("d", row1[1]);
+
+    const row2 = rows[1];
+    try std.testing.expectEqualStrings("e", row2[0]);
+    try std.testing.expectEqualStrings("f", row2[1]);
+}
+
+test "column iterator returns column values for data rows only" {
+    var in = std.io.fixedBufferStream("a,b\nc,d\ne,f\n");
+    var table = try Table.init(std.testing.allocator, .{}, in.reader());
+    defer table.deinit();
+
+    var column = table.column(1);
+    try std.testing.expectEqualStrings("d", column.next().?);
+    try std.testing.expectEqualStrings("f", column.next().?);
+    try std.testing.expectEqual(@as(?types.Field, null), column.next());
+}
 
 const Csv = @import("csv.zig").Csv;
 const Layout = @import("layout.zig").Layout;

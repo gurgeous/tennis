@@ -3,12 +3,12 @@
 //
 
 pub const Csv = struct {
-    rows: [][][]const u8,
+    rows: types.Rows,
     bufs: [][]u8,
 
     // Read a csv into memory with one owned buffer per row.
     pub fn init(alloc: std.mem.Allocator, reader: anytype) !Csv {
-        var rows = std.ArrayList([][]const u8).empty;
+        var rows = std.ArrayList(types.Row).empty;
         var bufs = std.ArrayList([]u8).empty;
         errdefer {
             for (rows.items) |row| alloc.free(row);
@@ -39,7 +39,7 @@ pub const Csv = struct {
             errdefer alloc.free(bytes);
 
             // our new row, with a slice for each field
-            const row = try alloc.alloc([]const u8, row_csv.len());
+            const row = try alloc.alloc(types.Field, row_csv.len());
             errdefer alloc.free(row);
 
             var cursor: usize = 0;
@@ -139,14 +139,15 @@ test "readCsv empty input yields empty header cell" {
 
 test "deinit releases owned rows" {
     const alloc = std.testing.allocator;
-    const rows = try alloc.alloc([][]const u8, 1);
+    const rows = try alloc.alloc(types.Row, 1);
     errdefer alloc.free(rows);
-    rows[0] = try alloc.alloc([]const u8, 2);
-    errdefer alloc.free(rows[0]);
+    const row = try alloc.alloc(types.Field, 2);
+    errdefer alloc.free(row);
     const buf = try alloc.dupe(u8, "ab");
     errdefer alloc.free(buf);
-    rows[0][0] = buf[0..1];
-    rows[0][1] = buf[1..2];
+    row[0] = buf[0..1];
+    row[1] = buf[1..2];
+    rows[0] = row;
     const bufs = try alloc.alloc([]u8, 1);
     errdefer alloc.free(bufs);
     bufs[0] = buf;
@@ -156,5 +157,6 @@ test "deinit releases owned rows" {
 }
 
 const std = @import("std");
+const types = @import("types.zig");
 const util = @import("util.zig");
 const zcsv = @import("zcsv");
