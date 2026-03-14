@@ -1,7 +1,5 @@
 pub const ColumnType = enum { int, float, string };
 
-const sample_rows = 100;
-
 pub const Column = struct {
     table: *const Table,
     name: []const u8,
@@ -37,6 +35,9 @@ pub const Column = struct {
         var floats: usize = 0;
         var ints: usize = 0;
         var strings: usize = 0;
+
+        // we only look at the first 100 rows to infer column type
+        const sample_rows = 100;
 
         var it = self.iterator();
         var n: usize = 0;
