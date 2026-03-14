@@ -1,5 +1,6 @@
 # Required for codex shell sessions where mise PATH hooks may not be active.
 export PATH := env("HOME") + "/.local/share/mise/installs/zig/0.15.2/bin:" + env("PATH")
+KCOV := "kcov"
 
 default:
   just --list
@@ -11,7 +12,7 @@ build-release:
   zig build -Doptimize=ReleaseSmall
 
 clean:
-    rm -rf .zig-cache zig-out
+    rm -rf {{KCOV}} .zig-cache zig-out
 
 run *ARGS:
   zig build run -- {{ARGS}}
@@ -37,7 +38,7 @@ goreleaser-snapshot: check
   goreleaser release --clean --snapshot
 
 #
-# check and friends
+# hygiene
 #
 
 check: lint build test bats
@@ -62,11 +63,16 @@ test:
   zig build test --summary all
   just banner "✓ test ✓"
 
-coverage:
-  rm -rf kcov/
+#
+# more esoteric hygiene
+#
+
+kcov:
+  just banner "kcov..."
+  rm -rf {{KCOV}}/
   zig build  -Doptimize=Debug coverage-bin
-  kcov --clean --include-pattern=$PWD/src/ kcov ./zig-out/bin/tennis-coverage-tests
-  just banner "✓ coverage ✓"
+  kcov --include-pattern=$PWD/src/ {{KCOV}} ./zig-out/bin/tennis-coverage-tests
+  just banner "✓ kcov ✓"
 
 valgrind: build
   valgrind --quiet --leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all --error-exitcode=1 \
