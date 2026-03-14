@@ -76,8 +76,9 @@ pub const Render = struct {
     // render a separator line with these border chars
     fn renderSep(self: *Render, left: []const u8, line: []const u8, right: []const u8, middle: []const u8) !void {
         const out = &self.buf.writer;
-        if (self.table.style.chrome.len > 0) {
-            try out.writeAll(self.table.style.chrome);
+        const style = self.table.style();
+        if (style.chrome.len > 0) {
+            try out.writeAll(style.chrome);
         }
         for (self.layout.widths, 0..) |width, ii| {
             if (ii == 0) {
@@ -88,7 +89,7 @@ pub const Render = struct {
             for (0..width + 2) |_| try out.writeAll(line);
         }
         try out.writeAll(right);
-        if (self.table.style.chrome.len > 0) {
+        if (style.chrome.len > 0) {
             try out.writeAll(ansi.reset);
         }
         try out.writeByte('\n');
@@ -98,15 +99,16 @@ pub const Render = struct {
     // render title line
     fn renderTitle(self: *Render) !void {
         const out = &self.buf.writer;
+        const style = self.table.style();
 
         const chrome: usize = 4; // <pipe><space>[...title...]<space><pipe>
         const width = self.layout.tableWidth() - chrome;
 
-        try appendStyled(out, self.table.style.chrome, pipe);
+        try appendStyled(out, style.chrome, pipe);
         try out.writeByte(' ');
-        try writeStyledExactly(out, self.table.style.title, self.table.config.title, width, .center);
+        try writeStyledExactly(out, style.title, self.table.config.title, width, .center);
         try out.writeByte(' ');
-        try appendStyled(out, self.table.style.chrome, pipe);
+        try appendStyled(out, style.chrome, pipe);
         try out.writeByte('\n');
         try self.eol();
     }
@@ -115,7 +117,8 @@ pub const Render = struct {
     fn renderRow(self: *Render, ii: usize) !void {
         const out = &self.buf.writer;
         const row = self.records[ii];
-        try appendStyled(out, self.table.style.chrome, pipe);
+        const style = self.table.style();
+        try appendStyled(out, style.chrome, pipe);
 
         var col: usize = 0;
         if (self.table.config.row_numbers) {
@@ -124,12 +127,12 @@ pub const Render = struct {
 
             try out.writeByte(' ');
             if (ii == 0) {
-                try writeStyledExactly(out, self.table.style.headers[0], label, self.layout.widths[col], .left);
+                try writeStyledExactly(out, style.headers[0], label, self.layout.widths[col], .left);
             } else {
-                try writeStyledExactly(out, self.table.style.chrome, label, self.layout.widths[col], .left);
+                try writeStyledExactly(out, style.chrome, label, self.layout.widths[col], .left);
             }
             try out.writeByte(' ');
-            try appendStyled(out, self.table.style.chrome, pipe);
+            try appendStyled(out, style.chrome, pipe);
             col += 1;
         }
 
@@ -138,16 +141,16 @@ pub const Render = struct {
             const val = if (is_placeholder) "—" else field;
 
             const cell_style = if (ii == 0)
-                self.table.style.headers[col % self.table.style.headers.len]
+                style.headers[col % style.headers.len]
             else if (is_placeholder)
-                self.table.style.chrome
+                style.chrome
             else
-                self.table.style.field;
+                style.field;
 
             try out.writeByte(' ');
             try writeStyledExactly(out, cell_style, val, self.layout.widths[col], .left);
             try out.writeByte(' ');
-            try appendStyled(out, self.table.style.chrome, pipe);
+            try appendStyled(out, style.chrome, pipe);
             col += 1;
         }
 
@@ -156,33 +159,36 @@ pub const Render = struct {
     }
 
     fn renderEmpty(self: *Render) !void {
+        const style = self.table.style();
         const title = "empty table";
         const body = "no data";
         const width = @max(util.displayWidth(title), util.displayWidth(body));
 
         try self.renderEmptySep(nw, bar, ne, width);
-        try self.renderEmptyRow(self.table.style.title, title, width);
+        try self.renderEmptyRow(style.title, title, width);
         try self.renderEmptySep(w, bar, e, width);
-        try self.renderEmptyRow(self.table.style.field, body, width);
+        try self.renderEmptyRow(style.field, body, width);
         try self.renderEmptySep(sw, bar, se, width);
     }
 
     fn renderEmptySep(self: *Render, left: []const u8, line: []const u8, right: []const u8, width: usize) !void {
         const out = &self.buf.writer;
-        try appendStyled(out, self.table.style.chrome, left);
-        for (0..width + 2) |_| try appendStyled(out, self.table.style.chrome, line);
-        try appendStyled(out, self.table.style.chrome, right);
+        const style = self.table.style();
+        try appendStyled(out, style.chrome, left);
+        for (0..width + 2) |_| try appendStyled(out, style.chrome, line);
+        try appendStyled(out, style.chrome, right);
         try out.writeByte('\n');
         try self.eol();
     }
 
     fn renderEmptyRow(self: *Render, text_style: []const u8, text: []const u8, width: usize) !void {
         const out = &self.buf.writer;
-        try appendStyled(out, self.table.style.chrome, pipe);
+        const style = self.table.style();
+        try appendStyled(out, style.chrome, pipe);
         try out.writeByte(' ');
         try writeStyledExactly(out, text_style, text, width, .center);
         try out.writeByte(' ');
-        try appendStyled(out, self.table.style.chrome, pipe);
+        try appendStyled(out, style.chrome, pipe);
         try out.writeByte('\n');
         try self.eol();
     }
@@ -301,7 +307,7 @@ test "writeExactly padding and truncation" {
 
 test "ascii render simple" {
     var test_table: test_support.TestTable = undefined;
-    test_table.init(std.testing.allocator);
+    try test_table.init(std.testing.allocator);
     defer test_table.deinit();
 
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
@@ -315,7 +321,8 @@ test "ascii render simple" {
     defer l.deinit(alloc);
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
-    test_table.table.style = Style.init(std.testing.allocator, .off, .dark);
+    test_table.table.config.color = .off;
+    test_table.table.config.theme = .dark;
     test_table.table.config.row_numbers = false;
     test_table.table.config.title = "";
     var render: Render = .init(&test_table.table, &writer, l, csv.rows);
@@ -334,7 +341,7 @@ test "ascii render simple" {
 
 test "render with title and row numbers" {
     var test_table: test_support.TestTable = undefined;
-    test_table.init(std.testing.allocator);
+    try test_table.init(std.testing.allocator);
     defer test_table.deinit();
 
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
@@ -348,7 +355,8 @@ test "render with title and row numbers" {
     defer l.deinit(alloc);
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
-    test_table.table.style = Style.init(std.testing.allocator, .off, .dark);
+    test_table.table.config.color = .off;
+    test_table.table.config.theme = .dark;
     test_table.table.config.row_numbers = true;
     test_table.table.config.title = "foo";
     var render: Render = .init(&test_table.table, &writer, l, csv.rows);
@@ -361,12 +369,13 @@ test "render with title and row numbers" {
 
 test "renderEmpty renders fallback table" {
     var test_table: test_support.TestTable = undefined;
-    test_table.init(std.testing.allocator);
+    try test_table.init(std.testing.allocator);
     defer test_table.deinit();
 
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
-    test_table.table.style = Style.init(std.testing.allocator, .off, .dark);
+    test_table.table.config.color = .off;
+    test_table.table.config.theme = .dark;
     var render: Render = .init(&test_table.table, &writer, .{ .widths = &.{} }, &.{});
     try render.render();
 
@@ -383,7 +392,7 @@ test "renderEmpty renders fallback table" {
 
 test "render uses placeholder for empty cells" {
     var test_table: test_support.TestTable = undefined;
-    test_table.init(std.testing.allocator);
+    try test_table.init(std.testing.allocator);
     defer test_table.deinit();
 
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
@@ -397,7 +406,8 @@ test "render uses placeholder for empty cells" {
     defer l.deinit(alloc);
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
-    test_table.table.style = Style.init(std.testing.allocator, .off, .dark);
+    test_table.table.config.color = .off;
+    test_table.table.config.theme = .dark;
     var render: Render = .init(&test_table.table, &writer, l, csv.rows);
     try render.render();
 
@@ -408,7 +418,6 @@ const ansi = @import("ansi.zig");
 const csv_mod = @import("csv.zig");
 const Layout = @import("layout.zig").Layout;
 const std = @import("std");
-const Style = @import("style.zig").Style;
 const Table = @import("table.zig").Table;
 const test_support = @import("test_support.zig");
 const util = @import("util.zig");

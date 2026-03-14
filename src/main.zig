@@ -60,10 +60,10 @@ fn main0() !u8 {
     defer if (needs_close) input.close();
 
     //
-    // read all records into memory
+    // table
     //
 
-    const csv = csv_mod.Csv.init(alloc, input) catch |err| {
+    var table = Table.init(alloc, args.config, input) catch |err| {
         if (err == error.OutOfMemory) return err;
         const err_str = if (err == error.JaggedCsv)
             "All csv rows must have same number of columns"
@@ -72,14 +72,8 @@ fn main0() !u8 {
         try printBanner(err_str);
         return 1;
     };
-    defer csv.deinit(alloc);
-
-    //
-    // table
-    //
-
-    var table: Table = .init(alloc, args.config);
-    try table.renderTable(csv.rows, util.stdout);
+    defer table.deinit();
+    try table.renderTable(util.stdout);
     return 0;
 }
 
@@ -138,7 +132,6 @@ test "printBanner writes errors to stderr" {
 
 const Args = @import("args.zig").Args;
 const builtin = @import("builtin");
-const csv_mod = @import("csv.zig");
 const std = @import("std");
 const Table = @import("table.zig").Table;
 const util = @import("util.zig");
