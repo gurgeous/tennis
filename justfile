@@ -24,7 +24,7 @@ run *ARGS:
 #
 
 benchmark: build-release
-  bash bin/gen-benchmark-csv /tmp/tennis-benchmark.csv
+  bin/gen-benchmark-csv > /tmp/tennis-benchmark.csv
   BENCHMARK=1 ./zig-out/bin/tennis --color=on --width 80 /tmp/tennis-benchmark.csv > /dev/null
   just banner "✓ benchmark ✓"
 

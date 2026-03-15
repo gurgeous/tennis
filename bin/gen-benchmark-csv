@@ -2,8 +2,6 @@
 
 set -euo pipefail
 
-out=${1:-/tmp/tennis-benchmark.csv}
-
 awk 'BEGIN {
   print "int1,float1,str1,int2,float2,str2,int3,float3,str3,int4,float4,str4,int5,float5,str5,int6,float6,str6,int7,float7"
   for (r = 1; r <= 100000; r++) {
@@ -29,4 +27,4 @@ awk 'BEGIN {
       r * 59,
       (r * 61) / 10.0
   }
-}' > "$out"
+}'
