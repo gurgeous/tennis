@@ -45,6 +45,12 @@ $ tennis diamonds\&.csv
 .P
 .SH OPTIONS
 .P
+\fB-d\fR, \fB--delimiter\fR <char>
+.RS 4
+Set the delimiter when reading input.\& Defaults to '\&\fB,\fR'\& naturally.\& It
+accepts any char, or \fBtab\fR for tab-delimited input.\&
+.P
+.RE
 \fB-n\fR, \fB--row-numbers\fR
 .RS 4
 Show row numbers.\&
@@ -102,6 +108,12 @@ Disable colors and numeric formatting:
 .P
 .RS 4
 $ tennis --color off --vanilla diamonds.\&csv
+.P
+.RE
+Render a tab-delimited file:
+.P
+.RS 4
+$ tennis --delimiter tab data.\&tsv
 .P
 .RE
 .SH SIMILAR TOOLS

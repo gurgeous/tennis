@@ -67,18 +67,6 @@ $ tennis diamonds.csv
 
 # EXAMPLES
 
-Render a semicolon-delimited file:
-
-	$ tennis -d ';' data.csv
-
-Render a tab-delimited file:
-
-	$ tennis --delimiter tab data.tsv
-
-Render a tab-delimited file with a literal escape:
-
-	$ tennis --delimiter '\t' data.tsv
-
 Render with row numbers and a title:
 
 	$ tennis --row-numbers --title Diamonds diamonds.csv
@@ -90,6 +78,10 @@ Read from standard input:
 Disable colors and numeric formatting:
 
 	$ tennis --color off --vanilla diamonds.csv
+
+Render a tab-delimited file:
+
+	$ tennis --delimiter tab data.tsv
 
 # SIMILAR TOOLS
 

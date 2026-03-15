@@ -47,14 +47,14 @@ goreleaser-preview *ARGS:
 
 goreleaser-snapshot: check
   goreleaser release --clean --snapshot
-  just banner "snapshot macOS tarball contents"
+  just banner "macOS tarball"
   tar -tvzf "$(find dist -maxdepth 1 -name 'tennis_*_darwin_arm64.tar.gz' | head -n 1)"
 
 #
 # hygiene
 #
 
-check: lint lint-imports build test bats man
+check: lint lint-imports build test bats man-gen
   just banner "✓ check ✓"
 
 bats: build
@@ -76,10 +76,11 @@ lint-imports:
   bash bin/lint-imports
   just banner "✓ lint-imports ✓"
 
-man:
+man-gen:
   scdoc < extra/tennis.scd > extra/tennis.1
+  just banner "✓ man ✓"
 
-man-preview: man
+man: man-gen
   man -l extra/tennis.1
 
 readme:
