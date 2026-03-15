@@ -5,12 +5,12 @@
 pub const Args = struct {
     const params = clap.parseParamsComptime(
         \\    --color <COLOR>       Turn color off and on (on|off|auto)
-        \\    --digits <INT>        Digits after decimal for floats (1-6)
         \\    --theme <THEME>       Select color theme (auto|dark|light)
         \\-n, --row-numbers         Turn on row numbers
         \\-t, --title <STRING>      Add a title to the table
-        \\    --vanilla             Disable numeric formatting
         \\-w, --width <INT>         Set max table width in chars
+        \\    --digits <INT>        Digits after decimal for floats (1-6)
+        \\    --vanilla             Disable numeric formatting
         \\-h, --help                Show this help
         \\    --version             Show version number
         \\<FILE>...                 CSV file to process, or "-" for stdin
