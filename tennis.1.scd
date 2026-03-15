@@ -37,8 +37,8 @@ $ tennis diamonds.csv
 # OPTIONS
 
 *-d*, *--delimiter* <char>
-	Set the delimiter when reading a CSV. The default is *,*. It accepts any
-	printable ASCII character, or *tab* for tab-delimited input.
+	Set the delimiter when reading input. Defaults to '*,*' naturally. It
+	accepts any char, or *tab* for tab-delimited input.
 
 *-n*, *--row-numbers*
 	Show row numbers.

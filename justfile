@@ -77,6 +77,9 @@ lint-imports:
 man-preview:
   scdoc < tennis.1.scd | man -l -
 
+readme:
+  glow --pager README.md
+
 test:
   zig build test --summary all
   just banner "✓ test ✓"
