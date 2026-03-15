@@ -14,10 +14,11 @@ pub fn isFloat(str: []const u8) bool {
 
 // Format str as a delimited float truncated to ndecimals
 pub fn floatFormat(alloc: std.mem.Allocator, str: []const u8) ![]u8 {
+    if (str.len == 0) return alloc.dupe(u8, str);
     // divide up into whole/fract
-    const dot = std.mem.indexOfScalar(u8, str, '.') orelse return alloc.dupe(u8, str);
-    const whole = str[0..dot];
-    const fract = str[dot + 1 ..];
+    const dot = std.mem.indexOfScalar(u8, str, '.');
+    const whole = if (dot) |ii| str[0..ii] else str;
+    const fract = if (dot) |ii| str[ii + 1 ..] else "";
     const whole_width = int.intWidth(whole);
     const fract_width = ndecimals;
     const out = try alloc.alloc(u8, whole_width + 1 + fract_width);
@@ -43,6 +44,8 @@ test "floatFormat" {
         in: []const u8,
         exp: []const u8,
     }{
+        .{ .in = "", .exp = "" },
+        .{ .in = "4", .exp = "4.000" },
         .{ .in = "0.0", .exp = "0.000" },
         .{ .in = "1.0", .exp = "1.000" },
         .{ .in = "-1.0", .exp = "-1.000" },

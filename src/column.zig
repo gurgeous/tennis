@@ -177,6 +177,17 @@ test "column float width includes delimiters and precision" {
     try std.testing.expectEqualStrings("1,234.000", table.column(0).field(0));
 }
 
+test "column float formatting handles integer-looking and blank cells" {
+    var in = std.io.fixedBufferStream("a,b\n64,\n61.5,\n,\n");
+    const table = try Table.init(std.testing.allocator, .{}, in.reader());
+    defer table.deinit();
+
+    try std.testing.expectEqual(ColumnType.float, table.column(0).type);
+    try std.testing.expectEqualStrings("64.000", table.column(0).field(0));
+    try std.testing.expectEqualStrings("61.500", table.column(0).field(1));
+    try std.testing.expectEqualStrings("", table.column(0).field(2));
+}
+
 test "column infers data types" {
     var in = std.io.fixedBufferStream("a,b,c\n1,12.5,foo\n22,3.0,barbaz\n");
     const table = try Table.init(std.testing.allocator, .{}, in.reader());
