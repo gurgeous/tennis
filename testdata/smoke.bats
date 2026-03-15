@@ -11,6 +11,12 @@ setup() {
   [[ "$output" == *"tennis: Invalid argument '--bogus'"* ]]
 }
 
+@test "rejects invalid enum values" {
+  run "$TENNIS_BIN" --color bogus
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"tennis: Error while parsing arguments: NameNotPartOfEnum"* ]]
+}
+
 @test "rejects extra file arguments" {
   run "$TENNIS_BIN" "$REPO_ROOT/testdata/test.csv" bogus
   [ "$status" -eq 1 ]
@@ -20,9 +26,11 @@ setup() {
 @test "prints help text" {
   run "$TENNIS_BIN" --help
   [ "$status" -eq 0 ]
-  [[ "$output" == *"Usage: tennis [options] <FILE>"* ]]
-  [[ "$output" == *"--color <COLOR>"* ]]
-  [[ "$output" == *"--version                   Show version number"* ]]
+  [[ "$output" == *"Usage: tennis [options...] <file.csv>"* ]]
+  [[ "$output" == *"--color <color>"* ]]
+  [[ "$output" == *"--digits <int>"* ]]
+  [[ "$output" == *"--vanilla"* ]]
+  [[ "$output" == *"--version           Show version number amd exit"* ]]
 }
 
 @test "fails on invalid csv input" {
@@ -50,8 +58,16 @@ setup() {
   run "$TENNIS_BIN" --color=off --width 80 -n "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 0 ]
   [[ "$output" == *"│ #  │"* ]]
-  [[ "$output" == *"│ 1  │ 0.23"* ]]
-  [[ "$output" == *"│ 14 │ 0.31"* ]]
+  [[ "$output" == *"│  1 │ 0.2… │"* ]]
+  [[ "$output" == *"│ 14 │ 0.3… │"* ]]
+}
+
+@test "renders formatted floats and ints" {
+  run "$TENNIS_BIN" --color=off --width 120 -n "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"│  1 │ 0.230 │"* ]]
+  [[ "$output" == *"│  1 │ 0.230 │ Ideal"* ]]
+  [[ "$output" == *"│  1 │ 0.230 │ Ideal     │ E     │ SI2     │ 61.500 │    55 │   326 │"* ]]
 }
 
 @test "renders a title" {

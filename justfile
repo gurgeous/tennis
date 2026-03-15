@@ -24,12 +24,7 @@ run *ARGS:
 #
 
 benchmark: build-release
-  awk 'BEGIN { \
-    for (c = 1; c <= 20; c++) printf "c%d%s", c, (c < 20 ? "," : "\n"); \
-    for (r = 1; r <= 100000; r++) { \
-      for (c = 1; c <= 20; c++) printf "%d%s", r * c, (c < 20 ? "," : "\n"); \
-    } \
-  }' > /tmp/tennis-benchmark.csv
+  bin/gen-benchmark-csv > /tmp/tennis-benchmark.csv
   BENCHMARK=1 ./zig-out/bin/tennis --color=on --width 80 /tmp/tennis-benchmark.csv > /dev/null
   just banner "✓ benchmark ✓"
 

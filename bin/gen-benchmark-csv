@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+awk 'BEGIN {
+  print "int1,float1,str1,int2,float2,str2,int3,float3,str3,int4,float4,str4,int5,float5,str5,int6,float6,str6,int7,float7"
+  for (r = 1; r <= 100000; r++) {
+    printf "%d,%.6f,s%06d,%d,%.6f,t%06d,%d,%.6f,u%06d,%d,%.6f,v%06d,%d,%.6f,w%06d,%d,%.6f,x%06d,%d,%.6f\n",
+      r * 11,
+      (r * 13) / 10.0,
+      r,
+      r * 17,
+      (r * 19) / 100.0,
+      r * 2,
+      r * 23,
+      (r * 29) / 1000.0,
+      r * 3,
+      r * 31,
+      (r * 37) / 10.0,
+      r * 4,
+      r * 41,
+      (r * 43) / 100.0,
+      r * 5,
+      r * 47,
+      (r * 53) / 1000.0,
+      r * 6,
+      r * 59,
+      (r * 61) / 10.0
+  }
+}'
