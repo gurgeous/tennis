@@ -4,6 +4,8 @@ tennis(1)
 
 tennis - print stylish CSV tables in your terminal
 
+https://github.com/gurgeous/tennis
+
 # SYNOPSIS
 
 *tennis* [_options..._] <file.csv>
@@ -73,10 +75,19 @@ Disable colors and numeric formatting:
 
 	$ tennis --color off --vanilla diamonds.csv
 
-# SOURCE
+# SIMILAR TOOLS
 
-https://github.com/gurgeous/tennis
+- *bat* - Syntax-highlighting pager that also works well for CSV files.
+- *csvlens* - Terminal CSV viewer for browsing files interactively.
+- *miller* - Miller, for CSV/TSV/JSON processing and transformation.
+- *nushell* - Modern shell with first-class structured table data.
+- *qsv* - Fast CSV toolkit for filtering, joining, and summarizing data.
+- *table_tennis* - Related table-rendering project that inspired this one.
+- *tabiew* - Interactive terminal table viewer.
+- *tidyviewer* - Colorful terminal viewer for delimited data.
+- *Terminal::Table* - Ruby library for pretty-printing tabular data.
+- *visidata* - Powerful terminal data exploration tool.
 
 # SEE ALSO
 
-*column*(1), *awk*(1), *cut*(1), *sort*(1)
+*column*(1), *awk*(1), *cut*(1), *mlr*(1), *sort*(1)

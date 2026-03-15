@@ -68,7 +68,9 @@ There are many features I can add if there is demand, including zebra striping, 
 We love CSV tools and use them all the time! Here are a few that we rely on:
 
 - [bat](https://github.com/sharkdp/bat) - syntax highlights csv files, and many others
-- [csvlens](https://github.com/YS-L/csvlens) & [tidy viewer](https://github.com/alexhallam/tv) - great viewers for CSV files, beautiful and fun
+- [csvlens](https://github.com/YS-L/csvlens), [tabiew](https://github.com/shshemi/tabiew) & [tidy viewer](https://github.com/alexhallam/tv) - great viewers for CSV files, beautiful and fun
+- [miller](https://github.com/johnkerl/miller) - csv processing and transformation
+- [nushell](https://www.nushell.sh) - modern shell with first-class structured table data
 - [qsv](https://github.com/dathere/qsv) - filter, sort, combine, join... (a fork of [xsv](https://github.com/BurntSushi/xsv))
 - [Terminal::Table](https://github.com/tj/terminal-table) - wonderful rubygem for pretty printing tables, great for non-hash data like confusion matrices
 - [visidata](https://www.visidata.org) - the best for poking around large files, it does everything
