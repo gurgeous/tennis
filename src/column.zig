@@ -31,6 +31,10 @@ pub const Column = struct {
         }
     }
 
+    //
+    // accessors
+    //
+
     pub fn iterator(self: Column) ColumnIterator {
         return .init(self.table.rows(), self.index);
     }
@@ -39,6 +43,10 @@ pub const Column = struct {
         if (self.formatted) |fields| return fields[row_index];
         return self.table.rows()[row_index][self.index];
     }
+
+    //
+    // measure/infer
+    //
 
     fn measure(self: Column) usize {
         var width = util.displayWidth(self.name);
@@ -75,6 +83,10 @@ pub const Column = struct {
         return .string;
     }
 
+    //
+    // format
+    //
+
     fn formatInts(self: *Column) !void {
         const alloc = self.table.alloc;
         const fields = try alloc.alloc(Field, self.table.nrows());
@@ -101,6 +113,10 @@ pub const Column = struct {
         self.formatted = fields;
     }
 };
+
+//
+// iterator
+//
 
 pub const ColumnIterator = struct {
     rows: Rows,
