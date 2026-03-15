@@ -19,22 +19,22 @@ pub fn floatFormat(alloc: std.mem.Allocator, str: []const u8, ndecimals: usize) 
     const whole = if (dot) |ii| str[0..ii] else str;
     const fract = if (dot) |ii| str[ii + 1 ..] else "";
     const whole_width = int.intWidth(whole);
-    const out = try alloc.alloc(u8, whole_width + 1 + ndecimals);
+    const buf = try alloc.alloc(u8, whole_width + 1 + ndecimals);
 
     // whole
     var ii: usize = 0;
-    int.formatInto(out[0..whole_width], whole);
+    int.formatInto(buf[0..whole_width], whole);
     ii += whole_width;
 
     // dot
-    out[ii] = '.';
+    buf[ii] = '.';
     ii += 1;
 
     // fract
     const copy_len = @min(fract.len, ndecimals);
-    @memset(out[ii .. ii + ndecimals], '0');
-    @memcpy(out[ii..][0..copy_len], fract[0..copy_len]);
-    return out;
+    @memset(buf[ii .. ii + ndecimals], '0');
+    @memcpy(buf[ii..][0..copy_len], fract[0..copy_len]);
+    return buf;
 }
 
 test "floatFormat" {

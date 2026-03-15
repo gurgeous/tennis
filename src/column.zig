@@ -16,10 +16,10 @@ pub const Column = struct {
         // infer/format if not --vanilla
         if (!table.config.vanilla) {
             column.type = column.inferColumnType();
-            if (column.type == .int) {
-                try column.formatColumn(int.intFormat);
-            } else if (column.type == .float) {
-                try column.formatColumn(float.floatFormat);
+            switch (column.type) {
+                .float => try column.formatColumn(formatFloat),
+                .int => try column.formatColumn(formatInt),
+                .string => {},
             }
         }
 
@@ -92,7 +92,10 @@ pub const Column = struct {
     // format
     //
 
-    fn formatColumn(self: *Column, comptime formatter: fn (std.mem.Allocator, []const u8) anyerror![]u8) !void {
+    fn formatColumn(
+        self: *Column,
+        comptime formatter: fn (*Column, std.mem.Allocator, []const u8) anyerror![]u8,
+    ) !void {
         const alloc = self.table.alloc;
         const fields = try alloc.alloc(Field, self.table.nrows());
         errdefer alloc.free(fields);
@@ -100,9 +103,18 @@ pub const Column = struct {
         var ii: usize = 0;
         var it = self.iterator();
         while (it.next()) |raw| : (ii += 1) {
-            fields[ii] = try formatter(alloc, raw);
+            fields[ii] = try formatter(self, alloc, raw);
         }
         self.formatted = fields;
+    }
+
+    fn formatInt(self: *Column, alloc: std.mem.Allocator, raw: []const u8) ![]u8 {
+        _ = self;
+        return int.intFormat(alloc, raw);
+    }
+
+    fn formatFloat(self: *Column, alloc: std.mem.Allocator, raw: []const u8) ![]u8 {
+        return float.floatFormat(alloc, raw, self.table.config.digits);
     }
 };
 

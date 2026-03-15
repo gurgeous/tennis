@@ -96,7 +96,7 @@ pub const Render = struct {
         if (style.chrome.len > 0) {
             try out.writeAll(ansi.reset);
         }
-        try self.eol();
+        try self.newline();
     }
 
     //
@@ -115,7 +115,7 @@ pub const Render = struct {
         try writeStyledExactly(out, style.title, self.table.config.title, width, .center);
         try out.writeByte(' ');
         try appendStyled(out, style.chrome, pipe);
-        try self.eol();
+        try self.newline();
     }
 
     //
@@ -135,7 +135,7 @@ pub const Render = struct {
             try self.renderHeaderField(out, &col, column.name);
         }
 
-        try self.eol();
+        try self.newline();
     }
 
     fn renderHeaderField(self: *Render, out: *std.Io.Writer, col: *usize, text: []const u8) !void {
@@ -175,7 +175,7 @@ pub const Render = struct {
             col += 1;
         }
 
-        try self.eol();
+        try self.newline();
     }
 
     //
@@ -201,7 +201,7 @@ pub const Render = struct {
         try appendStyled(out, style.chrome, left);
         for (0..width + 2) |_| try appendStyled(out, style.chrome, line);
         try appendStyled(out, style.chrome, right);
-        try self.eol();
+        try self.newline();
     }
 
     fn renderEmptyRow(self: *Render, text_style: []const u8, text: []const u8, width: usize) !void {
@@ -212,14 +212,14 @@ pub const Render = struct {
         try writeStyledExactly(out, text_style, text, width, .center);
         try out.writeByte(' ');
         try appendStyled(out, style.chrome, pipe);
-        try self.eol();
+        try self.newline();
     }
 
     //
     // internal
     //
 
-    fn eol(self: *Render) !void {
+    fn newline(self: *Render) !void {
         try self.buf.writer.writeByte('\n');
         try self.writer.writeAll(self.buf.written());
         self.buf.clearRetainingCapacity();
