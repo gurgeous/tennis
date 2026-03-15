@@ -36,14 +36,18 @@ $ zig build
 ### Options
 
 ```
-Usage: tennis [options] <FILE>
+ Usage: tennis [options...] <file.csv>
 
-Options:
-        --color <COLOR>             Turn color off and on (on|off|auto)
-        --theme <THEME>             Select color theme (auto|dark|light)
-    -n, --row-numbers               Turn on row numbers
-    -t, --title <STRING>            Add a title to the table
-    -w, --width <INT>               Set max table width in columns
+  -n, --row-numbers       Turn on row numbers
+  -t, --title <string>    Add a title to the table
+  -w, --width <int>       Set max table width in chars
+
+      --color <color>     Turn color off and on (on|off|auto)
+      --digits <int>      Digits after decimal for float columns (1-6)
+      --theme <theme>     Select color theme (auto|dark|light)
+      --vanilla           Disable numeric formatting entirely
+      --help              Get help
+      --version           Show version number amd exit
 ```
 
 Note that color defaults to `on`. Tennis likes to be colorful.
@@ -64,13 +68,19 @@ There are many features I can add if there is demand, including zebra striping, 
 We love CSV tools and use them all the time! Here are a few that we rely on:
 
 - [bat](https://github.com/sharkdp/bat) - syntax highlights csv files, and many others
-- [csvlens](https://github.com/YS-L/csvlens) & [tidy viewer](https://github.com/alexhallam/tv) - great viewers for CSV files, beautiful and fun
+- [csvlens](https://github.com/YS-L/csvlens), [tabiew](https://github.com/shshemi/tabiew) & [tidy viewer](https://github.com/alexhallam/tv) - great viewers for CSV files, beautiful and fun
+- [miller](https://github.com/johnkerl/miller) - csv processing and transformation
+- [nushell](https://www.nushell.sh) - modern shell with first-class structured table data
 - [qsv](https://github.com/dathere/qsv) - filter, sort, combine, join... (a fork of [xsv](https://github.com/BurntSushi/xsv))
 - [Terminal::Table](https://github.com/tj/terminal-table) - wonderful rubygem for pretty printing tables, great for non-hash data like confusion matrices
 - [visidata](https://www.visidata.org) - the best for poking around large files, it does everything
 - [table_tennis](https://github.com/gurgeous/table_tennis) - my own project, the basis for this one
 
 ### Changelog
+
+#### 0.0.3 (unreleased)
+
+- Added auto-numeric formatting, including delims and rounding for int/float columns. Disable with --vanilla.
 
 #### 0.0.2 (Mar '26)
 
