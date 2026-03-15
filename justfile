@@ -54,7 +54,7 @@ goreleaser-snapshot: check
 # hygiene
 #
 
-check: lint lint-imports build test bats man-gen
+check: lint lint-imports build test bats
   just banner "✓ check ✓"
 
 bats: build
@@ -76,11 +76,8 @@ lint-imports:
   bash bin/lint-imports
   just banner "✓ lint-imports ✓"
 
-man-gen:
+man:
   scdoc < extra/tennis.scd > extra/tennis.1
-  just banner "✓ man ✓"
-
-man: man-gen
   man -l extra/tennis.1
 
 readme:
