@@ -1,27 +1,29 @@
 // Match -?\d+
 pub fn isInt(slice: []const u8) bool {
     var scan = Scanner.init(slice);
-    var ch = scan.next() orelse return false;
-    if (ch == '-') ch = scan.next() orelse return false;
-    if (!std.ascii.isDigit(ch)) return false;
-
-    while (scan.next()) |next_ch| {
-        if (!std.ascii.isDigit(next_ch)) return false;
-    }
-    return true;
+    _ = scan.scanCh('-'); // skip neg
+    return scan.scanDigits() > 0 and scan.done();
 }
 
 // format s as a delimited int
 pub fn intFormat(alloc: std.mem.Allocator, s: []const u8) ![]u8 {
-    // in many cases we don't have to do anything at all
+    // Small ints do not need separators. This is common.
     const width = intWidth(s);
     if (width == s.len) return alloc.dupe(u8, s);
+
+    // gotta add delims, which requires a bigger buffer
     const out = try alloc.alloc(u8, width);
+    formatInto(out, s);
+    return out;
+}
 
-    const neg = s[0] == '-';
+// format an int (as string) with delimiters.
+pub fn formatInto(out: []u8, str: []const u8) void {
+    const neg = str[0] == '-';
     if (neg) out[0] = '-';
+    const digits = if (neg) str[1..] else str;
 
-    const digits = if (neg) s[1..] else s;
+    // Fill from the right so we can add commas every 3 digits.
     var src = digits.len;
     var dst = out.len;
     var n: usize = 0;
@@ -29,14 +31,14 @@ pub fn intFormat(alloc: std.mem.Allocator, s: []const u8) ![]u8 {
         src -= 1;
         dst -= 1;
         out[dst] = digits[src];
-        // maybe a comma
+
+        // maybe a comma?
         n += 1;
         if (src > 0 and n % 3 == 0) {
             dst -= 1;
             out[dst] = ',';
         }
     }
-    return out;
 }
 
 // calculate how big a buf we need to format an int with delims
