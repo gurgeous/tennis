@@ -1,40 +1,40 @@
 const ndecimals = 3;
 const max_float_len = 64;
 
-// Is this a float? Match -?\d+\.\d+
+// Does this str contain a float? -?\d+\.\d+
 pub fn isFloat(str: []const u8) bool {
     // Keep obviously huge numeric-looking cells out of the float formatter.
     if (str.len > max_float_len) return false;
     var scan = Scanner.init(str);
-    _ = scan.scanCh('-'); // neg
+    _ = scan.scanCh('-'); // neg, maybe
     if (scan.scanDigits() == 0) return false; // whole
     if (!scan.scanCh('.')) return false; // dot
-    return scan.scanDigits() > 0 and scan.eos(); // frac
+    return scan.scanDigits() > 0 and scan.eos(); // fract
 }
 
 // Format str as a delimited float truncated to ndecimals
 pub fn floatFormat(alloc: std.mem.Allocator, str: []const u8) ![]u8 {
-    // divide up into whole/frac
+    // divide up into whole/fract
     const dot = std.mem.indexOfScalar(u8, str, '.') orelse return alloc.dupe(u8, str);
     const whole = str[0..dot];
-    const whole_len = int.intWidth(whole);
-    const frac = str[dot + 1 ..];
-    const frac_len = ndecimals;
-    const out = try alloc.alloc(u8, whole_len + 1 + frac_len);
+    const fract = str[dot + 1 ..];
+    const whole_width = int.intWidth(whole);
+    const fract_width = ndecimals;
+    const out = try alloc.alloc(u8, whole_width + 1 + fract_width);
 
     // whole
     var ii: usize = 0;
-    int.formatInto(out[0..whole_len], whole);
-    ii += whole_len;
+    int.formatInto(out[0..whole_width], whole);
+    ii += whole_width;
 
     // dot
     out[ii] = '.';
     ii += 1;
 
-    // frac
-    const copy_len = @min(frac.len, frac_len);
-    @memset(out[ii .. ii + frac_len], '0');
-    @memcpy(out[ii..][0..copy_len], frac[0..copy_len]);
+    // fract
+    const copy_len = @min(fract.len, fract_width);
+    @memset(out[ii .. ii + fract_width], '0');
+    @memcpy(out[ii..][0..copy_len], fract[0..copy_len]);
     return out;
 }
 

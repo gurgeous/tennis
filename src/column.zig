@@ -1,12 +1,10 @@
-pub const ColumnType = enum { int, float, string };
-
 pub const Column = struct {
     table: *const Table,
     name: []const u8,
     index: usize,
-    width: usize = 0,
-    type: ColumnType = .string,
-    formatted: ?[]Field = null,
+    width: usize = 0, // how wide is this column?
+    type: ColumnType = .string, // what does it contain?
+    formatted: ?[]Field = null, // numerics get formatted in here
 
     pub fn init(table: *const Table, index: usize) !Column {
         var column: Column = .{
@@ -14,13 +12,18 @@ pub const Column = struct {
             .name = table.headers()[index],
             .index = index,
         };
+
+        // infer/format
         column.type = column.inferColumnType();
         if (column.type == .int) {
-            try column.formatInts();
+            try column.formatColumn(int.intFormat);
         } else if (column.type == .float) {
-            try column.formatFloats();
+            try column.formatColumn(float.floatFormat);
         }
+
+        // now that we've formatted, measure width
         column.width = column.measure();
+
         return column;
     }
 
@@ -87,7 +90,7 @@ pub const Column = struct {
     // format
     //
 
-    fn formatInts(self: *Column) !void {
+    fn formatColumn(self: *Column, comptime formatter: fn (std.mem.Allocator, []const u8) anyerror![]u8) !void {
         const alloc = self.table.alloc;
         const fields = try alloc.alloc(Field, self.table.nrows());
         errdefer alloc.free(fields);
@@ -95,24 +98,13 @@ pub const Column = struct {
         var ii: usize = 0;
         var it = self.iterator();
         while (it.next()) |raw| : (ii += 1) {
-            fields[ii] = try int.intFormat(alloc, raw);
-        }
-        self.formatted = fields;
-    }
-
-    fn formatFloats(self: *Column) !void {
-        const alloc = self.table.alloc;
-        const fields = try alloc.alloc(Field, self.table.nrows());
-        errdefer alloc.free(fields);
-
-        var ii: usize = 0;
-        var it = self.iterator();
-        while (it.next()) |raw| : (ii += 1) {
-            fields[ii] = try float.floatFormat(alloc, raw);
+            fields[ii] = try formatter(alloc, raw);
         }
         self.formatted = fields;
     }
 };
+
+pub const ColumnType = enum { int, float, string };
 
 //
 // iterator
