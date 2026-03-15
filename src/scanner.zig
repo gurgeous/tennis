@@ -7,18 +7,20 @@ pub const Scanner = struct {
         return .{ .buf = buf };
     }
 
+    // take a peek at next char, but don't consume it
     pub fn peek(self: *const Scanner) ?u8 {
-        if (self.done()) return null;
+        if (self.eos()) return null;
         return self.buf[self.ii];
     }
 
+    // get next char, if any
     pub fn next(self: *Scanner) ?u8 {
         const ch = self.peek() orelse return null;
         self.ii += 1;
         return ch;
     }
 
-    // scan a specific char, returns true if scanned
+    // scan (consume) a specific char, returns true if scanned
     pub fn scanCh(self: *Scanner, ch: u8) bool {
         const nxt = self.peek() orelse return false;
         if (nxt != ch) return false;
@@ -26,7 +28,7 @@ pub const Scanner = struct {
         return true;
     }
 
-    // scan 1+ digits
+    // scan (consume) 1+ digits
     pub fn scanDigits(self: *Scanner) usize {
         var n: usize = 0;
         while (self.peek()) |ch| {
@@ -37,7 +39,7 @@ pub const Scanner = struct {
         return n;
     }
 
-    pub fn done(self: *const Scanner) bool {
+    pub fn eos(self: *const Scanner) bool {
         return self.ii == self.buf.len;
     }
 };
@@ -50,6 +52,30 @@ test "scanner walks a buffer one item at a time" {
     try std.testing.expectEqual(@as(?u8, 'b'), scan.next());
     try std.testing.expectEqual(@as(?u8, null), scan.peek());
     try std.testing.expectEqual(@as(?u8, null), scan.next());
+}
+
+test "scanCh consumes only a matching char" {
+    var scan = Scanner.init("-12");
+    try std.testing.expect(scan.scanCh('-'));
+    try std.testing.expectEqual(@as(?u8, '1'), scan.peek());
+    try std.testing.expect(!scan.scanCh('-'));
+    try std.testing.expectEqual(@as(?u8, '1'), scan.peek());
+}
+
+test "scanDigits consumes only digits" {
+    var scan = Scanner.init("123x");
+    try std.testing.expectEqual(@as(usize, 3), scan.scanDigits());
+    try std.testing.expectEqual(@as(?u8, 'x'), scan.peek());
+    try std.testing.expectEqual(@as(?u8, 'x'), scan.next());
+}
+
+test "eos reports only true end of stream" {
+    var scan = Scanner.init("1.");
+    try std.testing.expect(!scan.eos());
+    try std.testing.expectEqual(@as(usize, 1), scan.scanDigits());
+    try std.testing.expect(!scan.eos());
+    try std.testing.expect(scan.scanCh('.'));
+    try std.testing.expect(scan.eos());
 }
 
 const std = @import("std");

@@ -1,37 +1,39 @@
 const ndecimals = 3;
 const max_float_len = 64;
 
-// Match -?\d+\.\d+
-pub fn isFloat(slice: []const u8) bool {
+// Is this a float? Match -?\d+\.\d+
+pub fn isFloat(str: []const u8) bool {
     // Keep obviously huge numeric-looking cells out of the float formatter.
-    if (slice.len > max_float_len) return false;
-    var scan = Scanner.init(slice);
-    _ = scan.scanCh('-'); // skip neg
+    if (str.len > max_float_len) return false;
+    var scan = Scanner.init(str);
+    _ = scan.scanCh('-'); // neg
     if (scan.scanDigits() == 0) return false; // whole
     if (!scan.scanCh('.')) return false; // dot
-    return scan.scanDigits() > 0 and scan.done(); // frac
+    return scan.scanDigits() > 0 and scan.eos(); // frac
 }
 
-// format s as a delimited float truncated to ndecimals decimals
-pub fn floatFormat(alloc: std.mem.Allocator, s: []const u8) ![]u8 {
+// Format str as a delimited float truncated to ndecimals
+pub fn floatFormat(alloc: std.mem.Allocator, str: []const u8) ![]u8 {
     // divide up into whole/frac
-    const dot = std.mem.indexOfScalar(u8, s, '.') orelse return alloc.dupe(u8, s);
-    const whole = s[0..dot];
-    const whole_width = int.intWidth(whole);
-    const frac = s[dot + 1 ..];
-    const frac_width = ndecimals;
+    const dot = std.mem.indexOfScalar(u8, str, '.') orelse return alloc.dupe(u8, str);
+    const whole = str[0..dot];
+    const whole_len = int.intWidth(whole);
+    const frac = str[dot + 1 ..];
+    const frac_len = ndecimals;
+    const out = try alloc.alloc(u8, whole_len + 1 + frac_len);
 
     // whole
     var ii: usize = 0;
-    const out = try alloc.alloc(u8, whole_width + 1 + frac_width);
-    int.formatInto(out[0..whole_width], whole);
-    ii += whole_width;
+    int.formatInto(out[0..whole_len], whole);
+    ii += whole_len;
+
     // dot
     out[ii] = '.';
     ii += 1;
+
     // frac
-    @memset(out[ii .. ii + frac_width], '0');
-    const copy_len = @min(frac.len, frac_width);
+    const copy_len = @min(frac.len, frac_len);
+    @memset(out[ii .. ii + frac_len], '0');
     @memcpy(out[ii..][0..copy_len], frac[0..copy_len]);
     return out;
 }

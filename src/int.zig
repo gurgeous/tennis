@@ -1,19 +1,19 @@
 // Match -?\d+
-pub fn isInt(slice: []const u8) bool {
-    var scan = Scanner.init(slice);
+pub fn isInt(str: []const u8) bool {
+    var scan = Scanner.init(str);
     _ = scan.scanCh('-'); // skip neg
-    return scan.scanDigits() > 0 and scan.done();
+    return scan.scanDigits() > 0 and scan.eos();
 }
 
 // format s as a delimited int
-pub fn intFormat(alloc: std.mem.Allocator, s: []const u8) ![]u8 {
+pub fn intFormat(alloc: std.mem.Allocator, str: []const u8) ![]u8 {
     // Small ints do not need separators. This is common.
-    const width = intWidth(s);
-    if (width == s.len) return alloc.dupe(u8, s);
+    const width = intWidth(str);
+    if (width == str.len) return alloc.dupe(u8, str);
 
     // gotta add delims, which requires a bigger buffer
     const out = try alloc.alloc(u8, width);
-    formatInto(out, s);
+    formatInto(out, str);
     return out;
 }
 
