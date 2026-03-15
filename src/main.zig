@@ -8,6 +8,11 @@ fn main0() !u8 {
     defer util.stdout.flush() catch {};
     defer util.stderr.flush() catch {};
 
+    if (util.hasenv("BENCHMARK") and builtin.mode == .Debug) {
+        try util.stderr.writeAll("tennis: BENCHMARK=1 requires `just benchmark` or a release build\n");
+        std.process.exit(1);
+    }
+
     var total = try std.time.Timer.start();
     defer util.benchmark("total", total.read());
 
@@ -104,6 +109,7 @@ test {
     _ = @import("column.zig");
     _ = @import("color.zig");
     _ = @import("csv.zig");
+    _ = @import("float.zig");
     _ = @import("layout.zig");
     _ = @import("render.zig");
     _ = @import("style.zig");

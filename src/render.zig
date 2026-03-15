@@ -23,8 +23,9 @@ const se = boxch(3, 4);
 // horizontal/vertical chrome
 const bar = boxch(0, 1);
 const pipe = boxch(1, 0);
+const placeholder = "—";
 
-const Align = enum { left, center };
+const Align = enum { left, center, right };
 
 //
 // Render
@@ -38,16 +39,20 @@ pub const Render = struct {
 
     pub fn init(table: *Table, writer: *std.Io.Writer, layout: Layout) Render {
         return .{
+            .buf = .init(table.alloc),
+            .layout = layout,
             .table = table,
             .writer = writer,
-            .layout = layout,
-            .buf = .init(table.alloc),
         };
     }
 
     pub fn deinit(self: *Render) void {
         self.buf.deinit();
     }
+
+    //
+    // main entry point
+    //
 
     pub fn render(self: *Render) !void {
         if (self.table.isEmpty()) {
@@ -63,15 +68,16 @@ pub const Render = struct {
         }
         try self.renderHeaders();
         try self.renderSep(w, bar, e, c);
-        var row_no: usize = 1;
-        for (self.table.rows()) |row| {
-            try self.renderRow(row_no, row);
-            row_no += 1;
+        for (0..self.table.nrows()) |row_index| {
+            try self.renderRow(row_index);
         }
         try self.renderSep(sw, bar, se, s);
     }
 
+    //
     // render a separator line with these border chars
+    //
+
     fn renderSep(self: *Render, left: []const u8, line: []const u8, right: []const u8, middle: []const u8) !void {
         const out = &self.buf.writer;
         const style = self.table.style();
@@ -90,11 +96,13 @@ pub const Render = struct {
         if (style.chrome.len > 0) {
             try out.writeAll(ansi.reset);
         }
-        try out.writeByte('\n');
-        try self.eol();
+        try self.newline();
     }
 
+    //
     // render title line
+    //
+
     fn renderTitle(self: *Render) !void {
         const out = &self.buf.writer;
         const style = self.table.style();
@@ -107,9 +115,12 @@ pub const Render = struct {
         try writeStyledExactly(out, style.title, self.table.config.title, width, .center);
         try out.writeByte(' ');
         try appendStyled(out, style.chrome, pipe);
-        try out.writeByte('\n');
-        try self.eol();
+        try self.newline();
     }
+
+    //
+    // headers
+    //
 
     fn renderHeaders(self: *Render) !void {
         const out = &self.buf.writer;
@@ -118,59 +129,58 @@ pub const Render = struct {
 
         var col: usize = 0;
         if (self.table.config.row_numbers) {
-            try self.renderHeaderCell(out, &col, "#");
+            try self.renderHeaderField(out, &col, "#");
         }
-
         for (self.table.columns) |column| {
-            try self.renderHeaderCell(out, &col, column.name);
+            try self.renderHeaderField(out, &col, column.name);
         }
 
-        try out.writeByte('\n');
-        try self.eol();
+        try self.newline();
     }
 
-    fn renderHeaderCell(self: *Render, out: *std.Io.Writer, col: *usize, text: []const u8) !void {
+    fn renderHeaderField(self: *Render, out: *std.Io.Writer, col: *usize, text: []const u8) !void {
         const style = self.table.style();
-        try out.writeByte(' ');
-        try writeStyledExactly(out, style.headers[col.* % style.headers.len], text, self.layout.widths[col.*], .left);
-        try out.writeByte(' ');
-        try appendStyled(out, style.chrome, pipe);
+        try self.renderField(out, style.headers[col.* % style.headers.len], text, col.*, .left);
         col.* += 1;
     }
 
-    // render data row
-    fn renderRow(self: *Render, row_no: usize, row: Row) !void {
+    //
+    // rows
+    //
+
+    fn renderRow(self: *Render, row_index: usize) !void {
         const out = &self.buf.writer;
         const style = self.table.style();
         try appendStyled(out, style.chrome, pipe);
 
+        const row_no = row_index + 1;
         var col: usize = 0;
         if (self.table.config.row_numbers) {
             var num_buf: [32]u8 = undefined;
             const label = try std.fmt.bufPrint(&num_buf, "{d}", .{row_no});
-
-            try out.writeByte(' ');
-            try writeStyledExactly(out, style.chrome, label, self.layout.widths[col], .left);
-            try out.writeByte(' ');
-            try appendStyled(out, style.chrome, pipe);
+            try self.renderField(out, style.chrome, label, col, .right);
             col += 1;
         }
 
-        for (row) |field| {
-            const is_placeholder = field.len == 0;
-            const val = if (is_placeholder) "—" else field;
+        for (self.table.columns) |column| {
+            const raw = column.field(row_index);
+            const is_placeholder = raw.len == 0;
             const cell_style = if (is_placeholder) style.chrome else style.field;
-
-            try out.writeByte(' ');
-            try writeStyledExactly(out, cell_style, val, self.layout.widths[col], .left);
-            try out.writeByte(' ');
-            try appendStyled(out, style.chrome, pipe);
+            const field = if (is_placeholder) placeholder else raw;
+            const al: Align = switch (column.type) {
+                .int, .float => .right,
+                .string => .left,
+            };
+            try self.renderField(out, cell_style, field, col, al);
             col += 1;
         }
 
-        try out.writeByte('\n');
-        try self.eol();
+        try self.newline();
     }
+
+    //
+    // empty
+    //
 
     fn renderEmpty(self: *Render) !void {
         const style = self.table.style();
@@ -191,8 +201,7 @@ pub const Render = struct {
         try appendStyled(out, style.chrome, left);
         for (0..width + 2) |_| try appendStyled(out, style.chrome, line);
         try appendStyled(out, style.chrome, right);
-        try out.writeByte('\n');
-        try self.eol();
+        try self.newline();
     }
 
     fn renderEmptyRow(self: *Render, text_style: []const u8, text: []const u8, width: usize) !void {
@@ -203,13 +212,25 @@ pub const Render = struct {
         try writeStyledExactly(out, text_style, text, width, .center);
         try out.writeByte(' ');
         try appendStyled(out, style.chrome, pipe);
-        try out.writeByte('\n');
-        try self.eol();
+        try self.newline();
     }
 
-    fn eol(self: *Render) !void {
+    //
+    // internal
+    //
+
+    fn newline(self: *Render) !void {
+        try self.buf.writer.writeByte('\n');
         try self.writer.writeAll(self.buf.written());
         self.buf.clearRetainingCapacity();
+    }
+
+    fn renderField(self: *Render, out: *std.Io.Writer, field_style: []const u8, text: []const u8, col: usize, al: Align) !void {
+        const style = self.table.style();
+        try out.writeByte(' ');
+        try writeStyledExactly(out, field_style, text, self.layout.widths[col], al);
+        try out.writeByte(' ');
+        try appendStyled(out, style.chrome, pipe);
     }
 };
 
@@ -246,6 +267,9 @@ fn writeExactly(writer: *std.Io.Writer, text: []const u8, width: usize, al: Alig
             try writeSpaces(writer, left);
             try writer.writeAll(text);
             try writeSpaces(writer, right);
+        } else if (al == .right) {
+            try writeSpaces(writer, pad);
+            try writer.writeAll(text);
         } else {
             try writer.writeAll(text);
             try writeSpaces(writer, pad);
@@ -362,7 +386,7 @@ test "render with title and row numbers" {
 
     try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "foo"));
     try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "│ #  │ a  │ b  │"));
-    try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "│ 1  │ c  │ d  │"));
+    try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "│  1 │ c  │ d  │"));
 }
 
 test "renderEmpty renders fallback table" {
@@ -434,7 +458,7 @@ test "render headers does not use placeholder for empty header cell" {
     try render.render();
 
     try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "│ a  │    │"));
-    try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "│ 1  │ 2  │"));
+    try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "│  1 │  2 │"));
 }
 
 const ansi = @import("ansi.zig");

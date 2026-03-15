@@ -84,40 +84,6 @@ pub fn inspect(alloc: std.mem.Allocator, s: []const u8) ![]u8 {
     return out.toOwnedSlice(alloc);
 }
 
-// Match -?\d+\.\d+
-pub fn isFloat(slice: []const u8) bool {
-    var scan = Scanner.init(slice);
-    var ch = scan.next() orelse return false;
-    if (ch == '-') ch = scan.next() orelse return false;
-    if (!std.ascii.isDigit(ch)) return false;
-
-    while (scan.next()) |next_ch| {
-        if (std.ascii.isDigit(next_ch)) continue;
-        if (next_ch != '.') return false;
-
-        var saw_frac_digit = false;
-        while (scan.next()) |frac_ch| {
-            if (!std.ascii.isDigit(frac_ch)) return false;
-            saw_frac_digit = true;
-        }
-        return saw_frac_digit;
-    }
-    return false;
-}
-
-// Match -?\d+
-pub fn isInt(slice: []const u8) bool {
-    var scan = Scanner.init(slice);
-    var ch = scan.next() orelse return false;
-    if (ch == '-') ch = scan.next() orelse return false;
-    if (!std.ascii.isDigit(ch)) return false;
-
-    while (scan.next()) |next_ch| {
-        if (!std.ascii.isDigit(next_ch)) return false;
-    }
-    return true;
-}
-
 // trim whitespace from slice
 pub fn strip(comptime T: type, slice: []const T) []const T {
     const whitespace = [_]T{ ' ', '\t', '\r', '\n' };
@@ -133,7 +99,7 @@ pub fn benchmark(label: []const u8, elapsed_ns: u64) void {
     if (!hasenv("BENCHMARK")) return;
     const ms = elapsed_ns / std.time.ns_per_ms;
     const frac = (elapsed_ns % std.time.ns_per_ms) / std.time.ns_per_us;
-    stderr.print("{s:<16} {d}.{d:0>3} ms\n", .{ label, ms, frac }) catch {};
+    stderr.print("{s:<16} {d:>8}.{d:0>3} ms\n", .{ label, ms, frac }) catch {};
     stderr.flush() catch {};
 }
 
@@ -198,30 +164,6 @@ test "inspect" {
     try std.testing.expectEqualStrings("\"\\\"\\\\\\x0a\\xff\"", s2);
 }
 
-test "isXXX" {
-    try std.testing.expect(isInt("0"));
-    try std.testing.expect(isInt("123"));
-    try std.testing.expect(isInt("-123"));
-    try std.testing.expect(!isInt(""));
-    try std.testing.expect(!isInt("-"));
-    try std.testing.expect(!isInt("1.0"));
-    try std.testing.expect(!isInt("+1"));
-    try std.testing.expect(!isInt("1e6"));
-    try std.testing.expect(!isInt("abc"));
-
-    try std.testing.expect(isFloat("1.0"));
-    try std.testing.expect(isFloat("-1.0"));
-    try std.testing.expect(isFloat("12.34"));
-    try std.testing.expect(!isFloat(""));
-    try std.testing.expect(!isFloat("1"));
-    try std.testing.expect(!isFloat("1."));
-    try std.testing.expect(!isFloat(".5"));
-    try std.testing.expect(!isFloat("-.5"));
-    try std.testing.expect(!isFloat("1e6"));
-    try std.testing.expect(!isFloat("1.2.3"));
-    try std.testing.expect(!isFloat("+1.0"));
-}
-
 test "readByte" {
     const fds = try std.posix.pipe();
     defer std.posix.close(fds[0]);
@@ -249,5 +191,4 @@ test "termWidth returns a positive width" {
 }
 
 const mibu = @import("mibu");
-const Scanner = @import("scanner.zig").Scanner;
 const std = @import("std");

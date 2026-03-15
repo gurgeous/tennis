@@ -32,11 +32,12 @@ pub const Table = struct {
         };
         var timer = try std.time.Timer.start();
         table.columns = try table.buildColumns();
-        util.benchmark("table.columns", timer.read());
+        util.benchmark(" table.columns", timer.read());
         return table;
     }
 
     pub fn deinit(self: *Table) void {
+        for (self.columns) |col| col.deinit(self.alloc);
         self.alloc.free(self.columns);
         self.csv.deinit(self.alloc);
         self.alloc.destroy(self);
@@ -50,13 +51,13 @@ pub const Table = struct {
         var timer = try std.time.Timer.start();
         const layout = try Layout.init(self);
         defer layout.deinit(self.alloc);
-        util.benchmark("render.layout", timer.read());
+        util.benchmark(" render.layout", timer.read());
 
         var renderer: Render = .init(self, writer, layout);
         defer renderer.deinit();
         timer = try std.time.Timer.start();
         try renderer.render();
-        util.benchmark("render.output", timer.read());
+        util.benchmark(" render.output", timer.read());
     }
 
     //
@@ -112,7 +113,7 @@ pub const Table = struct {
     fn buildColumns(self: *const Table) ![]Column {
         const columns = try self.alloc.alloc(Column, self.headers().len);
         for (columns, 0..) |*col, ii| {
-            col.* = Column.init(self, ii);
+            col.* = try Column.init(self, ii);
         }
         return columns;
     }
