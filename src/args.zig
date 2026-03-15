@@ -5,8 +5,8 @@
 pub const Args = struct {
     const params = clap.parseParamsComptime(
         \\    --color <COLOR>
-        \\-d, --delimiter <CHAR>
         \\    --theme <THEME>
+        \\-d, --delimiter <CHAR>
         \\-n, --row-numbers
         \\-t, --title <STRING>
         \\-w, --width <INT>
@@ -28,9 +28,9 @@ pub const Args = struct {
     };
 
     fn parseChar(input: []const u8) error{InvalidArgument}!u8 {
-        if (input.len == 1) return input[0];
-        // support common names
+        if (input.len == 1 and std.ascii.isPrint(input[0]) and input[0] < 0x7f) return input[0];
         if (std.mem.eql(u8, input, "tab")) return '\t';
+        if (std.mem.eql(u8, input, "\\t")) return '\t';
         return error.InvalidArgument;
     }
 
@@ -99,7 +99,6 @@ pub const Args = struct {
             if (v < 1 or v > 6) return error.InvalidDigits;
             config.digits = v;
         }
-        if (res.args.delimiter) |v| config.delimiter = v;
         if (res.args.theme) |v| config.theme = v;
         if (res.args.title) |v| config.title = v;
         if (res.args.width) |v| config.width = v;
@@ -151,7 +150,7 @@ pub const Args = struct {
         try writer.writeAll(
             \\ Usage: tennis [options...] <file.csv>
             \\
-            \\  -d, --delimiter <char>   Set field delimiter (default ',' or "tab")
+            \\  -d, --delimiter <char>  CSV delim (can be any char or "tab")
             \\  -n, --row-numbers       Turn on row numbers
             \\  -t, --title <string>    Add a title to the table
             \\  -w, --width <int>       Set max table width in chars
@@ -240,11 +239,29 @@ test "parse parses tab delimiter name" {
     try std.testing.expectEqual(@as(u8, '\t'), out.config.delimiter);
 }
 
+test "parse parses tab delimiter escape" {
+    var diag: clap.Diagnostic = .{};
+    const out = try Args.parse(std.testing.allocator, &.{
+        "--delimiter",
+        "\\t",
+        "-",
+    }, &diag);
+    try std.testing.expectEqual(@as(u8, '\t'), out.config.delimiter);
+}
+
 test "parse rejects multi-char delimiter" {
     var diag: clap.Diagnostic = .{};
     try std.testing.expectError(error.InvalidArgument, Args.parse(std.testing.allocator, &.{
         "--delimiter",
         ";;",
+    }, &diag));
+}
+
+test "parse rejects non-printable delimiter" {
+    var diag: clap.Diagnostic = .{};
+    try std.testing.expectError(error.InvalidArgument, Args.parse(std.testing.allocator, &.{
+        "--delimiter",
+        "\x01",
     }, &diag));
 }
 

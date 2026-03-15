@@ -36,6 +36,10 @@ $ tennis diamonds.csv
 
 # OPTIONS
 
+*-d*, *--delimiter* <char>
+	Set the delimiter when reading a CSV. The default is *,*. It accepts any
+	printable ASCII character, or *tab* for tab-delimited input.
+
 *-n*, *--row-numbers*
 	Show row numbers.
 
@@ -62,6 +66,18 @@ $ tennis diamonds.csv
 	Disable type inference and numeric formatting.
 
 # EXAMPLES
+
+Render a semicolon-delimited file:
+
+	$ tennis -d ';' data.csv
+
+Render a tab-delimited file:
+
+	$ tennis --delimiter tab data.tsv
+
+Render a tab-delimited file with a literal escape:
+
+	$ tennis --delimiter '\t' data.tsv
 
 Render with row numbers and a title:
 
