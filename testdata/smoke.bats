@@ -20,9 +20,11 @@ setup() {
 @test "prints help text" {
   run "$TENNIS_BIN" --help
   [ "$status" -eq 0 ]
-  [[ "$output" == *"Usage: tennis [options] <FILE>"* ]]
-  [[ "$output" == *"--color <COLOR>"* ]]
-  [[ "$output" == *"--version                   Show version number"* ]]
+  [[ "$output" == *"Usage: tennis [options...] <file.csv>"* ]]
+  [[ "$output" == *"--color <color>"* ]]
+  [[ "$output" == *"--digits <int>"* ]]
+  [[ "$output" == *"--vanilla"* ]]
+  [[ "$output" == *"--version           Show version number amd exit"* ]]
 }
 
 @test "fails on invalid csv input" {
