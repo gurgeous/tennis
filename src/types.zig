@@ -1,6 +1,7 @@
 // table config, from cli args
 pub const Config = struct {
     color: Color = .on,
+    delimiter: u8 = ',',
     row_numbers: bool = false,
     theme: Theme = .auto,
     title: []const u8 = "",
