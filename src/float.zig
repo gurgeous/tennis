@@ -3,13 +3,10 @@ pub fn isFloat(slice: []const u8) bool {
     // Keep obviously huge numeric-looking cells out of the float formatter.
     if (slice.len > max_float_len) return false;
     var scan = Scanner.init(slice);
-
-    // skip neg
     _ = scan.scanCh('-'); // skip neg
     if (scan.scanDigits() == 0) return false; // whole
     if (!scan.scanCh('.')) return false; // dot
-    if (scan.scanDigits() == 0) return false; // frac
-    return true;
+    return scan.scanDigits() > 0 and scan.done(); // frac
 }
 
 // format s as a delimited float rounded to three decimals
@@ -54,17 +51,18 @@ test "floatFormat" {
 
 test "isFloat" {
     try std.testing.expect(isFloat("1.0"));
-    // try std.testing.expect(isFloat("-1.0"));
-    // try std.testing.expect(isFloat("12.34"));
-    // try std.testing.expect(!isFloat(""));
-    // try std.testing.expect(!isFloat("1"));
-    // try std.testing.expect(!isFloat("1."));
-    // try std.testing.expect(!isFloat(".5"));
-    // try std.testing.expect(!isFloat("-.5"));
-    // try std.testing.expect(!isFloat("1e6"));
-    // try std.testing.expect(!isFloat("1.2.3"));
-    // try std.testing.expect(!isFloat("+1.0"));
-    // try std.testing.expect(!isFloat("12345678901234567890123456789012345678901234567890123456789012345.0"));
+    try std.testing.expect(isFloat("-1.0"));
+    try std.testing.expect(isFloat("12.34"));
+    try std.testing.expect(!isFloat(""));
+    try std.testing.expect(!isFloat("1"));
+    try std.testing.expect(!isFloat("1."));
+    try std.testing.expect(!isFloat("1.0b"));
+    try std.testing.expect(!isFloat(".5"));
+    try std.testing.expect(!isFloat("-.5"));
+    try std.testing.expect(!isFloat("1e6"));
+    try std.testing.expect(!isFloat("1.2.3"));
+    try std.testing.expect(!isFloat("+1.0"));
+    try std.testing.expect(!isFloat("12345678901234567890123456789012345678901234567890123456789012345.0"));
 }
 
 const int = @import("int.zig");

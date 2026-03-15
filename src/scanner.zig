@@ -29,8 +29,9 @@ pub const Scanner = struct {
     // scan 1+ digits
     pub fn scanDigits(self: *Scanner) usize {
         var n: usize = 0;
-        while (self.next()) |ch| {
+        while (self.peek()) |ch| {
             if (!std.ascii.isDigit(ch)) break;
+            self.ii += 1;
             n += 1;
         }
         return n;
