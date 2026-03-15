@@ -13,12 +13,14 @@ pub const Column = struct {
             .index = index,
         };
 
-        // infer/format
-        column.type = column.inferColumnType();
-        if (column.type == .int) {
-            try column.formatColumn(int.intFormat);
-        } else if (column.type == .float) {
-            try column.formatColumn(float.floatFormat);
+        // infer/format if not --vanilla
+        if (!table.config.vanilla) {
+            column.type = column.inferColumnType();
+            if (column.type == .int) {
+                try column.formatColumn(int.intFormat);
+            } else if (column.type == .float) {
+                try column.formatColumn(float.floatFormat);
+            }
         }
 
         // now that we've formatted, measure width
@@ -140,6 +142,16 @@ test "column init stores table header and index" {
     try std.testing.expectEqual(ColumnType.string, column.type);
 }
 
+test "column vanilla skips inference and formatting" {
+    var in = std.io.fixedBufferStream("a\n1234\n");
+    const table = try Table.init(std.testing.allocator, .{ .vanilla = true }, in.reader());
+    defer table.deinit();
+
+    try std.testing.expectEqual(ColumnType.string, table.column(0).type);
+    try std.testing.expectEqualStrings("1234", table.column(0).field(0));
+    try std.testing.expectEqual(@as(usize, 4), table.column(0).width);
+}
+
 test "column iterator walks data rows only" {
     var in = std.io.fixedBufferStream("a,b\nc,d\ne,f\n");
     const table = try Table.init(std.testing.allocator, .{}, in.reader());
@@ -175,6 +187,15 @@ test "column float width includes delimiters and precision" {
 
     try std.testing.expectEqual(@as(usize, 9), table.column(0).width);
     try std.testing.expectEqualStrings("1,234.000", table.column(0).field(0));
+}
+
+test "column float formatting respects digits config" {
+    var in = std.io.fixedBufferStream("a\n12.34567\n");
+    const table = try Table.init(std.testing.allocator, .{ .digits = 2 }, in.reader());
+    defer table.deinit();
+
+    try std.testing.expectEqualStrings("12.34", table.column(0).field(0));
+    try std.testing.expectEqual(@as(usize, 5), table.column(0).width);
 }
 
 test "column float formatting handles integer-looking and blank cells" {

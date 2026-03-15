@@ -1,9 +1,11 @@
 // table config, from cli args
 pub const Config = struct {
     color: Color = .on,
+    digits: usize = 3,
     row_numbers: bool = false,
     theme: Theme = .auto,
     title: []const u8 = "",
+    vanilla: bool = false,
     width: usize = 0,
 };
 

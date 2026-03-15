@@ -1,4 +1,3 @@
-const ndecimals = 3;
 const max_float_len = 64;
 
 // Does this str contain a float? -?\d+\.\d+
@@ -12,16 +11,15 @@ pub fn isFloat(str: []const u8) bool {
     return scan.scanDigits() > 0 and scan.eos(); // fract
 }
 
-// Format str as a delimited float truncated to ndecimals
-pub fn floatFormat(alloc: std.mem.Allocator, str: []const u8) ![]u8 {
+// Format str as a delimited float truncated to ndecimals.
+pub fn floatFormat(alloc: std.mem.Allocator, str: []const u8, ndecimals: usize) ![]u8 {
     if (str.len == 0) return alloc.dupe(u8, str);
     // divide up into whole/fract
     const dot = std.mem.indexOfScalar(u8, str, '.');
     const whole = if (dot) |ii| str[0..ii] else str;
     const fract = if (dot) |ii| str[ii + 1 ..] else "";
     const whole_width = int.intWidth(whole);
-    const fract_width = ndecimals;
-    const out = try alloc.alloc(u8, whole_width + 1 + fract_width);
+    const out = try alloc.alloc(u8, whole_width + 1 + ndecimals);
 
     // whole
     var ii: usize = 0;
@@ -33,8 +31,8 @@ pub fn floatFormat(alloc: std.mem.Allocator, str: []const u8) ![]u8 {
     ii += 1;
 
     // fract
-    const copy_len = @min(fract.len, fract_width);
-    @memset(out[ii .. ii + fract_width], '0');
+    const copy_len = @min(fract.len, ndecimals);
+    @memset(out[ii .. ii + ndecimals], '0');
     @memcpy(out[ii..][0..copy_len], fract[0..copy_len]);
     return out;
 }
@@ -59,10 +57,16 @@ test "floatFormat" {
     };
 
     for (cases) |case| {
-        const act = try floatFormat(std.testing.allocator, case.in);
+        const act = try floatFormat(std.testing.allocator, case.in, 3);
         defer std.testing.allocator.free(act);
         try std.testing.expectEqualStrings(case.exp, act);
     }
+}
+
+test "floatFormat uses requested digits" {
+    const act = try floatFormat(std.testing.allocator, "12.34567", 1);
+    defer std.testing.allocator.free(act);
+    try std.testing.expectEqualStrings("12.3", act);
 }
 
 test "isFloat" {
