@@ -32,7 +32,7 @@ pub const Table = struct {
         };
         var timer = try std.time.Timer.start();
         table.columns = try table.buildColumns();
-        util.benchmark("table.columns", timer.read());
+        util.benchmark(" table.columns", timer.read());
         return table;
     }
 
@@ -51,13 +51,13 @@ pub const Table = struct {
         var timer = try std.time.Timer.start();
         const layout = try Layout.init(self);
         defer layout.deinit(self.alloc);
-        util.benchmark("render.layout", timer.read());
+        util.benchmark(" render.layout", timer.read());
 
         var renderer: Render = .init(self, writer, layout);
         defer renderer.deinit();
         timer = try std.time.Timer.start();
         try renderer.render();
-        util.benchmark("render.output", timer.read());
+        util.benchmark(" render.output", timer.read());
     }
 
     //
