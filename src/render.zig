@@ -39,16 +39,20 @@ pub const Render = struct {
 
     pub fn init(table: *Table, writer: *std.Io.Writer, layout: Layout) Render {
         return .{
+            .buf = .init(table.alloc),
+            .layout = layout,
             .table = table,
             .writer = writer,
-            .layout = layout,
-            .buf = .init(table.alloc),
         };
     }
 
     pub fn deinit(self: *Render) void {
         self.buf.deinit();
     }
+
+    //
+    // main entry point
+    //
 
     pub fn render(self: *Render) !void {
         if (self.table.isEmpty()) {
@@ -70,7 +74,10 @@ pub const Render = struct {
         try self.renderSep(sw, bar, se, s);
     }
 
+    //
     // render a separator line with these border chars
+    //
+
     fn renderSep(self: *Render, left: []const u8, line: []const u8, right: []const u8, middle: []const u8) !void {
         const out = &self.buf.writer;
         const style = self.table.style();
@@ -89,11 +96,13 @@ pub const Render = struct {
         if (style.chrome.len > 0) {
             try out.writeAll(ansi.reset);
         }
-        try out.writeByte('\n');
         try self.eol();
     }
 
+    //
     // render title line
+    //
+
     fn renderTitle(self: *Render) !void {
         const out = &self.buf.writer;
         const style = self.table.style();
@@ -106,7 +115,6 @@ pub const Render = struct {
         try writeStyledExactly(out, style.title, self.table.config.title, width, .center);
         try out.writeByte(' ');
         try appendStyled(out, style.chrome, pipe);
-        try out.writeByte('\n');
         try self.eol();
     }
 
@@ -123,12 +131,10 @@ pub const Render = struct {
         if (self.table.config.row_numbers) {
             try self.renderHeaderField(out, &col, "#");
         }
-
         for (self.table.columns) |column| {
             try self.renderHeaderField(out, &col, column.name);
         }
 
-        try out.writeByte('\n');
         try self.eol();
     }
 
@@ -169,7 +175,6 @@ pub const Render = struct {
             col += 1;
         }
 
-        try out.writeByte('\n');
         try self.eol();
     }
 
@@ -196,7 +201,6 @@ pub const Render = struct {
         try appendStyled(out, style.chrome, left);
         for (0..width + 2) |_| try appendStyled(out, style.chrome, line);
         try appendStyled(out, style.chrome, right);
-        try out.writeByte('\n');
         try self.eol();
     }
 
@@ -208,7 +212,6 @@ pub const Render = struct {
         try writeStyledExactly(out, text_style, text, width, .center);
         try out.writeByte(' ');
         try appendStyled(out, style.chrome, pipe);
-        try out.writeByte('\n');
         try self.eol();
     }
 
@@ -217,6 +220,7 @@ pub const Render = struct {
     //
 
     fn eol(self: *Render) !void {
+        try self.buf.writer.writeByte('\n');
         try self.writer.writeAll(self.buf.written());
         self.buf.clearRetainingCapacity();
     }
