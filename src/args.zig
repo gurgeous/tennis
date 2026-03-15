@@ -4,16 +4,16 @@
 
 pub const Args = struct {
     const params = clap.parseParamsComptime(
-        \\    --color <COLOR>       Turn color off and on (on|off|auto)
-        \\    --theme <THEME>       Select color theme (auto|dark|light)
-        \\-n, --row-numbers         Turn on row numbers
-        \\-t, --title <STRING>      Add a title to the table
-        \\-w, --width <INT>         Set max table width in chars
-        \\    --digits <INT>        Digits after decimal for floats (1-6)
-        \\    --vanilla             Disable numeric formatting
-        \\-h, --help                Show this help
-        \\    --version             Show version number
-        \\<FILE>...                 CSV file to process, or "-" for stdin
+        \\    --color <COLOR>
+        \\    --theme <THEME>
+        \\-n, --row-numbers
+        \\-t, --title <STRING>
+        \\-w, --width <INT>
+        \\    --digits <INT>
+        \\    --vanilla
+        \\-h, --help
+        \\    --version
+        \\<FILE>...
     );
 
     // clap parsers
@@ -102,6 +102,8 @@ pub const Args = struct {
         return try resolveInput(config, argv.len, res.positionals[0], std.posix.isatty(std.fs.File.stdin().handle));
     }
 
+    // REMIND: I think some of these are broken
+
     fn errorString(buf: *[512]u8, err: anyerror, diag: *clap.Diagnostic) []const u8 {
         return switch (err) {
             error.DoesntTakeValue, error.MissingValue, error.InvalidArgument => blk: {
@@ -137,11 +139,21 @@ pub const Args = struct {
     }
 
     pub fn writeHelp(writer: *std.Io.Writer) !void {
-        try writer.writeAll("Usage: tennis [options] <FILE>\n\nOptions:\n");
-        try clap.help(writer, clap.Help, &params, .{
-            .description_on_new_line = false,
-            .spacing_between_parameters = 0,
-        });
+        try writer.writeAll(
+            \\ Usage: tennis [options...] <file.csv>
+            \\
+            \\  -n, --row-numbers       Turn on row numbers
+            \\  -t, --title <string>    Add a title to the table
+            \\  -w, --width <int>       Set max table width in chars
+            \\
+            \\      --color <color>     Turn color off and on (on|off|auto)
+            \\      --digits <int>      Digits after decimal for float columns (1-6)
+            \\      --theme <theme>     Select color theme (auto|dark|light)
+            \\      --vanilla           Disable numeric formatting entirely
+            \\      --help              Get help
+            \\      --version           Show version number amd exit
+            \\
+        );
     }
 };
 
