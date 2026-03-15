@@ -23,6 +23,7 @@ const se = boxch(3, 4);
 // horizontal/vertical chrome
 const bar = boxch(0, 1);
 const pipe = boxch(1, 0);
+const placeholder = "—";
 
 const Align = enum { left, center };
 
@@ -109,6 +110,10 @@ pub const Render = struct {
         try self.eol();
     }
 
+    //
+    // headers
+    //
+
     fn renderHeaders(self: *Render) !void {
         const out = &self.buf.writer;
         const style = self.table.style();
@@ -116,27 +121,27 @@ pub const Render = struct {
 
         var col: usize = 0;
         if (self.table.config.row_numbers) {
-            try self.renderHeaderCell(out, &col, "#");
+            try self.renderHeaderField(out, &col, "#");
         }
 
         for (self.table.columns) |column| {
-            try self.renderHeaderCell(out, &col, column.name);
+            try self.renderHeaderField(out, &col, column.name);
         }
 
         try out.writeByte('\n');
         try self.eol();
     }
 
-    fn renderHeaderCell(self: *Render, out: *std.Io.Writer, col: *usize, text: []const u8) !void {
+    fn renderHeaderField(self: *Render, out: *std.Io.Writer, col: *usize, text: []const u8) !void {
         const style = self.table.style();
-        try out.writeByte(' ');
-        try writeStyledExactly(out, style.headers[col.* % style.headers.len], text, self.layout.widths[col.*], .left);
-        try out.writeByte(' ');
-        try appendStyled(out, style.chrome, pipe);
+        try self.renderField(out, style.headers[col.* % style.headers.len], text, col.*);
         col.* += 1;
     }
 
-    // render data row
+    //
+    // rows
+    //
+
     fn renderRow(self: *Render, row_index: usize) !void {
         const out = &self.buf.writer;
         const style = self.table.style();
@@ -147,33 +152,26 @@ pub const Render = struct {
         if (self.table.config.row_numbers) {
             var num_buf: [32]u8 = undefined;
             const label = try std.fmt.bufPrint(&num_buf, "{d}", .{row_no});
-
-            try out.writeByte(' ');
-            try writeStyledExactly(out, style.chrome, label, self.layout.widths[col], .left);
-            try out.writeByte(' ');
-            try appendStyled(out, style.chrome, pipe);
+            try self.renderField(out, style.chrome, label, col);
             col += 1;
         }
 
         for (self.table.columns) |column| {
-            const field = column.field(row_index);
-            const is_placeholder = field.len == 0;
+            const raw = column.field(row_index);
+            const is_placeholder = raw.len == 0;
             const cell_style = if (is_placeholder) style.chrome else style.field;
-
-            try out.writeByte(' ');
-            if (is_placeholder) {
-                try writeStyledExactly(out, cell_style, "—", self.layout.widths[col], .left);
-            } else {
-                try writeStyledExactly(out, cell_style, field, self.layout.widths[col], .left);
-            }
-            try out.writeByte(' ');
-            try appendStyled(out, style.chrome, pipe);
+            const field = if (is_placeholder) placeholder else raw;
+            try self.renderField(out, cell_style, field, col);
             col += 1;
         }
 
         try out.writeByte('\n');
         try self.eol();
     }
+
+    //
+    // empty
+    //
 
     fn renderEmpty(self: *Render) !void {
         const style = self.table.style();
@@ -210,9 +208,21 @@ pub const Render = struct {
         try self.eol();
     }
 
+    //
+    // internal
+    //
+
     fn eol(self: *Render) !void {
         try self.writer.writeAll(self.buf.written());
         self.buf.clearRetainingCapacity();
+    }
+
+    fn renderField(self: *Render, out: *std.Io.Writer, field_style: []const u8, text: []const u8, col: usize) !void {
+        const style = self.table.style();
+        try out.writeByte(' ');
+        try writeStyledExactly(out, field_style, text, self.layout.widths[col], .left);
+        try out.writeByte(' ');
+        try appendStyled(out, style.chrome, pipe);
     }
 };
 
