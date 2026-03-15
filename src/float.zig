@@ -1,3 +1,6 @@
+const ndecimals = 3;
+const max_float_len = 64;
+
 // Match -?\d+\.\d+
 pub fn isFloat(slice: []const u8) bool {
     // Keep obviously huge numeric-looking cells out of the float formatter.
@@ -9,23 +12,29 @@ pub fn isFloat(slice: []const u8) bool {
     return scan.scanDigits() > 0 and scan.done(); // frac
 }
 
-// format s as a delimited float rounded to three decimals
+// format s as a delimited float truncated to ndecimals decimals
 pub fn floatFormat(alloc: std.mem.Allocator, s: []const u8) ![]u8 {
-    if (s.len == 0) return alloc.dupe(u8, s);
-    var buf: [max_float_len]u8 = undefined;
-    // Round first, then add delimiters only to the whole-number part.
-    const rounded = try std.fmt.bufPrint(&buf, "{d:.3}", .{try std.fmt.parseFloat(f64, s)});
-    const dot = std.mem.indexOfScalar(u8, rounded, '.') orelse return alloc.dupe(u8, rounded);
-    const whole = rounded[0..dot];
-    const frac = rounded[dot..];
+    // divide up into whole/frac
+    const dot = std.mem.indexOfScalar(u8, s, '.') orelse return alloc.dupe(u8, s);
+    const whole = s[0..dot];
     const whole_width = int.intWidth(whole);
-    const out = try alloc.alloc(u8, whole_width + frac.len);
+    const frac = s[dot + 1 ..];
+    const frac_width = ndecimals;
+
+    // whole
+    var ii: usize = 0;
+    const out = try alloc.alloc(u8, whole_width + 1 + frac_width);
     int.formatInto(out[0..whole_width], whole);
-    @memcpy(out[whole_width..], frac);
+    ii += whole_width;
+    // dot
+    out[ii] = '.';
+    ii += 1;
+    // frac
+    @memset(out[ii .. ii + frac_width], '0');
+    const copy_len = @min(frac.len, frac_width);
+    @memcpy(out[ii..][0..copy_len], frac[0..copy_len]);
     return out;
 }
-
-const max_float_len = 64;
 
 test "floatFormat" {
     const cases = [_]struct {
@@ -39,7 +48,9 @@ test "floatFormat" {
         .{ .in = "-10.0", .exp = "-10.000" },
         .{ .in = "1234.0", .exp = "1,234.000" },
         .{ .in = "-1234567.8912", .exp = "-1,234,567.891" },
-        .{ .in = "12.34567", .exp = "12.346" },
+        .{ .in = "12.34567", .exp = "12.345" },
+        .{ .in = "0.9996", .exp = "0.999" },
+        .{ .in = "999.9995", .exp = "999.999" },
     };
 
     for (cases) |case| {
