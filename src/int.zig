@@ -40,7 +40,7 @@ pub fn intFormat(alloc: std.mem.Allocator, s: []const u8) ![]u8 {
 }
 
 // calculate how big a buf we need to format an int with delims
-fn intWidth(s: []const u8) usize {
+pub fn intWidth(s: []const u8) usize {
     if (s.len == 0) return 0;
     const off: usize = if (s[0] == '-') 1 else 0;
     const ndigits = s.len - off;

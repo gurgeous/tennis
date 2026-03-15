@@ -25,7 +25,7 @@ const bar = boxch(0, 1);
 const pipe = boxch(1, 0);
 const placeholder = "—";
 
-const Align = enum { left, center };
+const Align = enum { left, center, right };
 
 //
 // Render
@@ -134,7 +134,7 @@ pub const Render = struct {
 
     fn renderHeaderField(self: *Render, out: *std.Io.Writer, col: *usize, text: []const u8) !void {
         const style = self.table.style();
-        try self.renderField(out, style.headers[col.* % style.headers.len], text, col.*);
+        try self.renderField(out, style.headers[col.* % style.headers.len], text, col.*, .left);
         col.* += 1;
     }
 
@@ -152,7 +152,7 @@ pub const Render = struct {
         if (self.table.config.row_numbers) {
             var num_buf: [32]u8 = undefined;
             const label = try std.fmt.bufPrint(&num_buf, "{d}", .{row_no});
-            try self.renderField(out, style.chrome, label, col);
+            try self.renderField(out, style.chrome, label, col, .right);
             col += 1;
         }
 
@@ -161,7 +161,11 @@ pub const Render = struct {
             const is_placeholder = raw.len == 0;
             const cell_style = if (is_placeholder) style.chrome else style.field;
             const field = if (is_placeholder) placeholder else raw;
-            try self.renderField(out, cell_style, field, col);
+            const al: Align = switch (column.type) {
+                .int, .float => .right,
+                .string => .left,
+            };
+            try self.renderField(out, cell_style, field, col, al);
             col += 1;
         }
 
@@ -217,10 +221,10 @@ pub const Render = struct {
         self.buf.clearRetainingCapacity();
     }
 
-    fn renderField(self: *Render, out: *std.Io.Writer, field_style: []const u8, text: []const u8, col: usize) !void {
+    fn renderField(self: *Render, out: *std.Io.Writer, field_style: []const u8, text: []const u8, col: usize, al: Align) !void {
         const style = self.table.style();
         try out.writeByte(' ');
-        try writeStyledExactly(out, field_style, text, self.layout.widths[col], .left);
+        try writeStyledExactly(out, field_style, text, self.layout.widths[col], al);
         try out.writeByte(' ');
         try appendStyled(out, style.chrome, pipe);
     }
@@ -259,6 +263,9 @@ fn writeExactly(writer: *std.Io.Writer, text: []const u8, width: usize, al: Alig
             try writeSpaces(writer, left);
             try writer.writeAll(text);
             try writeSpaces(writer, right);
+        } else if (al == .right) {
+            try writeSpaces(writer, pad);
+            try writer.writeAll(text);
         } else {
             try writer.writeAll(text);
             try writeSpaces(writer, pad);
@@ -375,7 +382,7 @@ test "render with title and row numbers" {
 
     try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "foo"));
     try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "│ #  │ a  │ b  │"));
-    try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "│ 1  │ c  │ d  │"));
+    try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "│  1 │ c  │ d  │"));
 }
 
 test "renderEmpty renders fallback table" {
@@ -447,7 +454,7 @@ test "render headers does not use placeholder for empty header cell" {
     try render.render();
 
     try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "│ a  │    │"));
-    try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "│ 1  │ 2  │"));
+    try std.testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "│  1 │  2 │"));
 }
 
 const ansi = @import("ansi.zig");

@@ -50,8 +50,16 @@ setup() {
   run "$TENNIS_BIN" --color=off --width 80 -n "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 0 ]
   [[ "$output" == *"│ #  │"* ]]
-  [[ "$output" == *"│ 1  │ 0.23"* ]]
-  [[ "$output" == *"│ 14 │ 0.31"* ]]
+  [[ "$output" == *"│  1 │ 0.2… │"* ]]
+  [[ "$output" == *"│ 14 │ 0.3… │"* ]]
+}
+
+@test "renders formatted floats and ints" {
+  run "$TENNIS_BIN" --color=off --width 120 -n "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"│  1 │ 0.230 │"* ]]
+  [[ "$output" == *"│  1 │ 0.230 │ Ideal"* ]]
+  [[ "$output" == *"│  1 │ 0.230 │ Ideal     │ E     │ SI2     │ 61.500 │    55 │   326 │"* ]]
 }
 
 @test "renders a title" {

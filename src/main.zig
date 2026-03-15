@@ -109,6 +109,7 @@ test {
     _ = @import("column.zig");
     _ = @import("color.zig");
     _ = @import("csv.zig");
+    _ = @import("float.zig");
     _ = @import("layout.zig");
     _ = @import("render.zig");
     _ = @import("style.zig");

@@ -17,6 +17,8 @@ pub const Column = struct {
         column.type = column.inferColumnType();
         if (column.type == .int) {
             try column.formatInts();
+        } else if (column.type == .float) {
+            try column.formatFloats();
         }
         column.width = column.measure();
         return column;
@@ -59,7 +61,7 @@ pub const Column = struct {
                 ints = true;
                 continue;
             }
-            if (util.isFloat(value)) {
+            if (float.isFloat(value)) {
                 floats = true;
                 continue;
             }
@@ -82,6 +84,19 @@ pub const Column = struct {
         var it = self.iterator();
         while (it.next()) |raw| : (ii += 1) {
             fields[ii] = try int.intFormat(alloc, raw);
+        }
+        self.formatted = fields;
+    }
+
+    fn formatFloats(self: *Column) !void {
+        const alloc = self.table.alloc;
+        const fields = try alloc.alloc(Field, self.table.nrows());
+        errdefer alloc.free(fields);
+
+        var ii: usize = 0;
+        var it = self.iterator();
+        while (it.next()) |raw| : (ii += 1) {
+            fields[ii] = try float.floatFormat(alloc, raw);
         }
         self.formatted = fields;
     }
@@ -145,6 +160,15 @@ test "column int width includes delimiters" {
     try std.testing.expectEqual(@as(usize, 5), table.column(0).width);
 }
 
+test "column float width includes delimiters and precision" {
+    var in = std.io.fixedBufferStream("a\n1234.0\n");
+    const table = try Table.init(std.testing.allocator, .{}, in.reader());
+    defer table.deinit();
+
+    try std.testing.expectEqual(@as(usize, 9), table.column(0).width);
+    try std.testing.expectEqualStrings("1,234.000", table.column(0).field(0));
+}
+
 test "column infers data types" {
     var in = std.io.fixedBufferStream("a,b,c\n1,12.5,foo\n22,3.0,barbaz\n");
     const table = try Table.init(std.testing.allocator, .{}, in.reader());
@@ -174,6 +198,7 @@ test "column inference ignores blanks and scans all rows" {
 }
 
 const Field = @import("types.zig").Field;
+const float = @import("float.zig");
 const int = @import("int.zig");
 const Rows = @import("types.zig").Rows;
 const std = @import("std");
