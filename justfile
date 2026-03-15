@@ -74,6 +74,9 @@ lint-imports:
   bash bin/lint-imports
   just banner "✓ lint-imports ✓"
 
+man-preview:
+  scdoc < tennis.1.scd | man -l -
+
 test:
   zig build test --summary all
   just banner "✓ test ✓"
