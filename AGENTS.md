@@ -39,3 +39,4 @@
 - Keep files and APIs small and direct.
 - Prefer straightforward Zig control flow (`switch`, `try`, explicit cleanup).
 - Keep imports sorted at the bottom of each file.
+- With `gh pr create`, never use unescaped backticks, prefer `--body-file` to avoid accidental command substitution
