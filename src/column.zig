@@ -55,7 +55,7 @@ pub const Column = struct {
             // ignore blanks
             if (value.len == 0) continue;
 
-            if (util.isInt(value)) {
+            if (int.isInt(value)) {
                 ints = true;
                 continue;
             }
@@ -81,7 +81,7 @@ pub const Column = struct {
         var ii: usize = 0;
         var it = self.iterator();
         while (it.next()) |raw| : (ii += 1) {
-            fields[ii] = try format.formatInt(alloc, raw);
+            fields[ii] = try int.intFormat(alloc, raw);
         }
         self.formatted = fields;
     }
@@ -174,7 +174,7 @@ test "column inference ignores blanks and scans all rows" {
 }
 
 const Field = @import("types.zig").Field;
-const format = @import("format.zig");
+const int = @import("int.zig");
 const Rows = @import("types.zig").Rows;
 const std = @import("std");
 const Table = @import("table.zig").Table;

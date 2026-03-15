@@ -35,7 +35,6 @@ pub const Render = struct {
     writer: *std.Io.Writer,
     layout: Layout,
     buf: std.Io.Writer.Allocating,
-    int_buf: std.ArrayList(u8),
 
     pub fn init(table: *Table, writer: *std.Io.Writer, layout: Layout) Render {
         return .{
@@ -43,13 +42,11 @@ pub const Render = struct {
             .writer = writer,
             .layout = layout,
             .buf = .init(table.alloc),
-            .int_buf = .empty,
         };
     }
 
     pub fn deinit(self: *Render) void {
         self.buf.deinit();
-        self.int_buf.deinit(self.table.alloc);
     }
 
     pub fn render(self: *Render) !void {
@@ -66,10 +63,8 @@ pub const Render = struct {
         }
         try self.renderHeaders();
         try self.renderSep(w, bar, e, c);
-        var row_no: usize = 1;
-        for (self.table.rows()) |row| {
-            try self.renderRow(row_no, row);
-            row_no += 1;
+        for (0..self.table.nrows()) |row_index| {
+            try self.renderRow(row_index);
         }
         try self.renderSep(sw, bar, se, s);
     }
@@ -142,13 +137,13 @@ pub const Render = struct {
     }
 
     // render data row
-    fn renderRow(self: *Render, row_no: usize, row: Row) !void {
+    fn renderRow(self: *Render, row_index: usize) !void {
         const out = &self.buf.writer;
         const style = self.table.style();
         try appendStyled(out, style.chrome, pipe);
 
+        const row_no = row_index + 1;
         var col: usize = 0;
-        var data_col: usize = 0;
         if (self.table.config.row_numbers) {
             var num_buf: [32]u8 = undefined;
             const label = try std.fmt.bufPrint(&num_buf, "{d}", .{row_no});
@@ -160,25 +155,20 @@ pub const Render = struct {
             col += 1;
         }
 
-        for (row) |field| {
-            const column = self.table.columns[data_col];
+        for (self.table.columns) |column| {
+            const field = column.field(row_index);
             const is_placeholder = field.len == 0;
             const cell_style = if (is_placeholder) style.chrome else style.field;
-            const text = if (column.type == .int and intFormatMode() == .JIT)
-                try self.formatInt(field)
-            else
-                field;
 
             try out.writeByte(' ');
             if (is_placeholder) {
                 try writeStyledExactly(out, cell_style, "—", self.layout.widths[col], .left);
             } else {
-                try writeStyledExactly(out, cell_style, text, self.layout.widths[col], .left);
+                try writeStyledExactly(out, cell_style, field, self.layout.widths[col], .left);
             }
             try out.writeByte(' ');
             try appendStyled(out, style.chrome, pipe);
             col += 1;
-            data_col += 1;
         }
 
         try out.writeByte('\n');
@@ -223,12 +213,6 @@ pub const Render = struct {
     fn eol(self: *Render) !void {
         try self.writer.writeAll(self.buf.written());
         self.buf.clearRetainingCapacity();
-    }
-
-    fn formatInt(self: *Render, text: []const u8) ![]const u8 {
-        self.int_buf.clearRetainingCapacity();
-        try writeIntDelimited(self.int_buf.writer(self.table.alloc), text);
-        return self.int_buf.items;
     }
 };
 
@@ -307,18 +291,6 @@ fn writeStyledExactly(writer: *std.Io.Writer, codes: []const u8, text: []const u
     try writeExactly(writer, text, width, al);
     if (codes.len > 0) {
         try writer.writeAll(ansi.reset);
-    }
-}
-
-fn writeIntDelimited(writer: anytype, text: []const u8) !void {
-    var start: usize = 0;
-    if (text.len > 0 and text[0] == '-') {
-        try writer.writeByte('-');
-        start = 1;
-    }
-    for (start..text.len) |i| {
-        if (i > start and (text.len - i) % 3 == 0) try writer.writeByte(',');
-        try writer.writeByte(text[i]);
     }
 }
 
@@ -475,9 +447,3 @@ const std = @import("std");
 const Table = @import("table.zig").Table;
 const test_support = @import("test_support.zig");
 const util = @import("util.zig");
-
-fn intFormatMode() enum { PRE, JIT } {
-    const mode = std.posix.getenv("FORMAT_INTS") orelse "PRE";
-    if (std.mem.eql(u8, mode, "JIT")) return .JIT;
-    return .PRE;
-}

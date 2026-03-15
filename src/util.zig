@@ -105,19 +105,6 @@ pub fn isFloat(slice: []const u8) bool {
     return false;
 }
 
-// Match -?\d+
-pub fn isInt(slice: []const u8) bool {
-    var scan = Scanner.init(slice);
-    var ch = scan.next() orelse return false;
-    if (ch == '-') ch = scan.next() orelse return false;
-    if (!std.ascii.isDigit(ch)) return false;
-
-    while (scan.next()) |next_ch| {
-        if (!std.ascii.isDigit(next_ch)) return false;
-    }
-    return true;
-}
-
 // trim whitespace from slice
 pub fn strip(comptime T: type, slice: []const T) []const T {
     const whitespace = [_]T{ ' ', '\t', '\r', '\n' };
@@ -199,16 +186,6 @@ test "inspect" {
 }
 
 test "isXXX" {
-    try std.testing.expect(isInt("0"));
-    try std.testing.expect(isInt("123"));
-    try std.testing.expect(isInt("-123"));
-    try std.testing.expect(!isInt(""));
-    try std.testing.expect(!isInt("-"));
-    try std.testing.expect(!isInt("1.0"));
-    try std.testing.expect(!isInt("+1"));
-    try std.testing.expect(!isInt("1e6"));
-    try std.testing.expect(!isInt("abc"));
-
     try std.testing.expect(isFloat("1.0"));
     try std.testing.expect(isFloat("-1.0"));
     try std.testing.expect(isFloat("12.34"));
