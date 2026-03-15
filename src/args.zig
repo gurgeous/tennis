@@ -102,20 +102,18 @@ pub const Args = struct {
         return try resolveInput(config, argv.len, res.positionals[0], std.posix.isatty(std.fs.File.stdin().handle));
     }
 
-    // REMIND: I think some of these are broken
-
     fn errorString(buf: *[512]u8, err: anyerror, diag: *clap.Diagnostic) []const u8 {
         return switch (err) {
-            error.DoesntTakeValue, error.MissingValue, error.InvalidArgument => blk: {
-                var writer = std.Io.Writer.fixed(buf);
-                diag.report(&writer, err) catch {};
-                break :blk util.strip(u8, writer.buffered());
-            },
             error.InvalidDigits => "Digits must be between 1 and 6",
             error.CouldNotReadStdin => "Could not read from stdin",
             error.TooManyArguments => "Too many file arguments",
             error.Windows => "Windows is not yet supported",
-            else => "Argument parsing failed",
+            else => blk: {
+                var writer = std.Io.Writer.fixed(buf);
+                diag.report(&writer, err) catch {};
+                const msg = util.strip(u8, writer.buffered());
+                break :blk if (msg.len > 0) msg else "Argument parsing failed";
+            },
         };
     }
 
@@ -235,7 +233,7 @@ test "errorString handles direct mapped errors" {
     try std.testing.expectEqualStrings("Digits must be between 1 and 6", Args.errorString(&buf, error.InvalidDigits, &diag));
     try std.testing.expectEqualStrings("Could not read from stdin", Args.errorString(&buf, error.CouldNotReadStdin, &diag));
     try std.testing.expectEqualStrings("Windows is not yet supported", Args.errorString(&buf, error.Windows, &diag));
-    try std.testing.expectEqualStrings("Argument parsing failed", Args.errorString(&buf, error.OutOfMemory, &diag));
+    try std.testing.expectEqualStrings("Error while parsing arguments: OutOfMemory", Args.errorString(&buf, error.OutOfMemory, &diag));
 }
 
 test "parse rejects invalid digits" {
@@ -264,6 +262,34 @@ test "errorString reports clap diagnostics" {
     return error.TestUnexpectedResult;
 }
 
+test "errorString reports enum diagnostics" {
+    var buf: [512]u8 = undefined;
+    var diag: clap.Diagnostic = .{};
+    _ = Args.parse(std.testing.allocator, &.{
+        "--color",
+        "bogus",
+    }, &diag) catch |err| {
+        const msg = Args.errorString(&buf, err, &diag);
+        try std.testing.expect(std.mem.indexOf(u8, msg, "NameNotPartOfEnum") != null);
+        return;
+    };
+    return error.TestUnexpectedResult;
+}
+
+test "errorString reports invalid int diagnostics" {
+    var buf: [512]u8 = undefined;
+    var diag: clap.Diagnostic = .{};
+    _ = Args.parse(std.testing.allocator, &.{
+        "--digits",
+        "bogus",
+    }, &diag) catch |err| {
+        const msg = Args.errorString(&buf, err, &diag);
+        try std.testing.expect(std.mem.indexOf(u8, msg, "InvalidCharacter") != null);
+        return;
+    };
+    return error.TestUnexpectedResult;
+}
+
 test "resolveInput handles stdin cases" {
     const config: types.Config = .{};
 
@@ -283,6 +309,14 @@ test "init sets fatal action for parse failures" {
     try std.testing.expectEqual(Action.fatal, out.action.?);
     try std.testing.expect(out.err_str != null);
     try std.testing.expect(std.mem.indexOf(u8, out.err_str.?, "--bogus") != null);
+}
+
+test "init keeps enum parse diagnostics" {
+    const out = try Args.init(std.testing.allocator, &.{ "--color", "bogus" });
+    defer out.deinit(std.testing.allocator);
+    try std.testing.expectEqual(Action.fatal, out.action.?);
+    try std.testing.expect(out.err_str != null);
+    try std.testing.expect(std.mem.indexOf(u8, out.err_str.?, "NameNotPartOfEnum") != null);
 }
 
 test "init sets fatal action for missing file" {

@@ -11,6 +11,12 @@ setup() {
   [[ "$output" == *"tennis: Invalid argument '--bogus'"* ]]
 }
 
+@test "rejects invalid enum values" {
+  run "$TENNIS_BIN" --color bogus
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"tennis: Error while parsing arguments: NameNotPartOfEnum"* ]]
+}
+
 @test "rejects extra file arguments" {
   run "$TENNIS_BIN" "$REPO_ROOT/testdata/test.csv" bogus
   [ "$status" -eq 1 ]
