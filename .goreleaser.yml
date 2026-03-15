@@ -8,6 +8,10 @@ builds:
 # what to put in the tgz files
 archives:
   - wrap_in_directory: true
+    files:
+      - README.md
+      - LICENSE*
+      - extra/tennis.1
 
 # turn stuff off
 announce: { skip: true }
@@ -19,5 +23,5 @@ brews:
     description: Stylish CSV tables in your terminal.
     homepage: https://github.com/gurgeous/tennis
     test: system "./tennis --version"
-    install: |
-      bin.install "tennis"
+    extra_install: |
+      man1.install "extra/tennis.1"
