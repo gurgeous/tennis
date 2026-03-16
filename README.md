@@ -79,11 +79,11 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 ### Changelog
 
-#### 0.0.3 (unreleased)
+#### 0.0.3 (Mar '26)
 
-- Custom `--delimiter` for tsv, semicolon, etc. [#5](https://github.com/gurgeous/tennis/pull/5)
-- Auto numeric formatting, including delims and rounding for int/float columns. Disable with --vanilla. [#6](https://github.com/gurgeous/tennis/pull/6)
-- man page for macOS [#7](https://github.com/gurgeous/tennis/pull/7)
+- Custom `--delimiter` for tsv, semicolon, etc. #5
+- Auto numeric formatting, including delims and rounding for int/float columns. Disable with --vanilla. #6
+- man page & shell completions #7 #10
 
 #### 0.0.2 (Mar '26)
 
