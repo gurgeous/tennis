@@ -34,16 +34,8 @@ benchmark: build-release
 # git push --delete origin v0.1.0 && git tag -d v0.1.0
 #
 
-goreleaser *ARGS: check
-  just banner "goreleaser release..."
-  goreleaser healthcheck
-  if [ -z "${GITHUB_TOKEN:-}" ]; then just fatal "GITHUB_TOKEN is required" ; fi
-  goreleaser release --clean {{ARGS}}
-  just banner "✓ goreleaser ✓"
-
-goreleaser-preview *ARGS:
-  goreleaser healthcheck
-  goreleaser release --clean --skip=publish {{ARGS}}
+release: check
+  bin/release
 
 goreleaser-snapshot: check
   goreleaser release --clean --snapshot

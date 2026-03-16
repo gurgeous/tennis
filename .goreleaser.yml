@@ -2,7 +2,6 @@
 version: 2
 builds:
   - builder: zig
-    flags: ["-Doptimize=ReleaseSmall"]
     targets: ["aarch64-linux", "aarch64-macos", "x86_64-linux"]
 
 # what to put in the tgz files

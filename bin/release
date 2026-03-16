@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+#
+# banner
+#
+
+banner() {
+  printf '\e[1m\e[38;5;231m\e[48;2;064;160;043m[%s] %-72s \e[0m\n' "$(date '+%H:%M:%S')" "$1"
+}
+warning() {
+  printf '\e[1m\e[38;5;231m\e[48;2;251;100;011m[%s] %-72s \e[0m\n' "$(date '+%H:%M:%S')" "$1"
+}
+fatal() {
+  printf '\e[1m\e[38;5;231m\e[48;2;210;015;057m[%s] %-72s \e[0m\n' "$(date '+%H:%M:%S')" "$1"
+  # exit 1 - commented out for testing
+}
+
+old_tag="$(svu current)"
+new_tag="$(svu minor)"
+
+# sanity checks
+# REMIND: use [] for this one just like the others
+git diff --quiet && git diff --cached --quiet || fatal "git worktree is dirty"
+[ -n "${GITHUB_TOKEN:-}" ] || fatal "GITHUB_TOKEN is required"
+[ -z "$(git tag -l "${new_tag}")" ] || fatal "tag already exists: ${new_tag}"
+
+# confirm
+gum confirm "Release ${old_tag} => ${new_tag}?"
+
+# tag
+banner "tagging..."
+echo git tag -a "${new_tag}" -m "release ${new_tag}"
+echo git push origin "${new_tag}"
+
+# goreleaseer
+banner "goreleaser..."
+echo goreleaser healthcheck
+echo "TENNIS_VERSION=${new_tag#v} goreleaser release --clean"
+
+# done
+banner "✓ release ✓"
