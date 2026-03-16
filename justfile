@@ -95,7 +95,7 @@ kcov:
   just banner "kcov..."
   rm -rf {{KCOV}}/
   zig build  -Doptimize=Debug kcov-tests
-  kcov --include-pattern=$PWD/src/ {{KCOV}} ./zig-out/bin/kcov-tests
+  kcov --include-pattern=$PWD/src/ --exclude-line=errdefer {{KCOV}} ./zig-out/bin/kcov-tests
   just banner "✓ kcov ✓"
 
 valgrind: build
