@@ -7,11 +7,11 @@ builds:
 
 # what to put in the tgz files
 archives:
-  - wrap_in_directory: true
-    files:
+  - files:
+      - extra/*
+      - LICENSE
       - README.md
-      - LICENSE*
-      - extra/tennis.1
+    wrap_in_directory: true
 
 # turn stuff off
 announce: { skip: true }
@@ -25,3 +25,5 @@ brews:
     test: system "./tennis --version"
     extra_install: |
       man1.install "extra/tennis.1"
+      bash_completion.install "extra/tennis.bash" => "tennis"
+      zsh_completion.install "extra/_tennis" => "_tennis"
