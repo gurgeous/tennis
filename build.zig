@@ -72,20 +72,17 @@ pub fn build(b: *std.Build) void {
 fn getVersion(b: *std.Build) []const u8 {
     const sha = getSha(b);
 
-    // 1. prefer TENNIS_VERSION w/ sha
+    // 1. TENNIS_VERSION
     if (b.graph.env_map.get("TENNIS_VERSION")) |v| {
         _ = std.SemanticVersion.parse(v) catch @panic("TENNIS_VERSION must be int.int.int");
-        if (sha) |s| {
-            return b.fmt("{s} ({s})", .{ v, s });
-        }
-        return v;
+        return b.fmt("{s} ({s})", .{ v, sha orelse @panic("TENNIS_VERSION requires git sha") });
     }
 
-    // 2. just sha
+    // 2. sha? use that
     if (sha) |s| return b.fmt("built from source ({s})", .{s});
 
-    // 3. fallback
-    return "built from source";
+    // 3. fallback, probably just a tarball
+    return "built from source (unknown sha)";
 }
 
 fn getSha(b: *std.Build) ?[]const u8 {
