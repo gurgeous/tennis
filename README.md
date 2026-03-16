@@ -38,6 +38,7 @@ $ zig build
 ```
  Usage: tennis [options...] <file.csv>
 
+  -d, --delimiter <char>  CSV delim (can be any char or "tab")
   -n, --row-numbers       Turn on row numbers
   -t, --title <string>    Add a title to the table
   -w, --width <int>       Set max table width in chars
@@ -80,7 +81,9 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 #### 0.0.3 (unreleased)
 
-- Added auto-numeric formatting, including delims and rounding for int/float columns. Disable with --vanilla.
+- Custom `--delimiter` for tsv, semicolon, etc. [#5](https://github.com/gurgeous/tennis/pull/5)
+- Auto numeric formatting, including delims and rounding for int/float columns. Disable with --vanilla. [#6](https://github.com/gurgeous/tennis/pull/6)
+- man page for macOS [#7](https://github.com/gurgeous/tennis/pull/7)
 
 #### 0.0.2 (Mar '26)
 

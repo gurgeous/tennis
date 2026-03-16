@@ -36,6 +36,10 @@ $ tennis diamonds.csv
 
 # OPTIONS
 
+*-d*, *--delimiter* <char>
+	Set the delimiter when reading input. Defaults to '*,*' naturally. It
+	accepts any char, or *tab* for tab-delimited input.
+
 *-n*, *--row-numbers*
 	Show row numbers.
 
@@ -74,6 +78,10 @@ Read from standard input:
 Disable colors and numeric formatting:
 
 	$ tennis --color off --vanilla diamonds.csv
+
+Render a tab-delimited file:
+
+	$ tennis --delimiter tab data.tsv
 
 # SIMILAR TOOLS
 

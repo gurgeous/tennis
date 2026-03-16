@@ -7,7 +7,7 @@ pub const Csv = struct {
     bufs: [][]u8,
 
     // Read a csv into memory with one owned buffer per row.
-    pub fn init(alloc: std.mem.Allocator, reader: anytype) !Csv {
+    pub fn init(alloc: std.mem.Allocator, reader: anytype, opts: struct { delimiter: u8 = ',' }) !Csv {
         var total_timer = try std.time.Timer.start();
         var rows = std.ArrayList(Row).empty;
         var bufs = std.ArrayList([]u8).empty;
@@ -18,7 +18,7 @@ pub const Csv = struct {
             bufs.deinit(alloc);
         }
 
-        var parser = zcsv.allocs.column.init(alloc, reader, .{});
+        var parser = zcsv.allocs.column.init(alloc, reader, .{ .column_delim = opts.delimiter });
         var width: ?usize = null;
 
         while (true) {
@@ -94,7 +94,7 @@ test "readCsv handles quoted comma and escaped quote" {
     const alloc = arena.allocator();
 
     var in = std.io.fixedBufferStream("a,b\n\"x,y\",\"say \"\"hi\"\"\"\n");
-    const csv = try Csv.init(alloc, in.reader());
+    const csv = try Csv.init(alloc, in.reader(), .{});
     try std.testing.expectEqual(2, csv.rows.len);
     try std.testing.expectEqualStrings("a", csv.rows[0][0]);
     try std.testing.expectEqualStrings("b", csv.rows[0][1]);
@@ -108,7 +108,7 @@ test "readCsv rejects jagged rows" {
     const alloc = arena.allocator();
 
     var in = std.io.fixedBufferStream("a,b\nc\n");
-    try std.testing.expectError(error.JaggedCsv, Csv.init(alloc, in.reader()));
+    try std.testing.expectError(error.JaggedCsv, Csv.init(alloc, in.reader(), .{}));
 }
 
 test "readCsv rejects malformed csv" {
@@ -117,13 +117,13 @@ test "readCsv rejects malformed csv" {
     const alloc = arena.allocator();
 
     var in = std.io.fixedBufferStream("a,b\n\"oops\n");
-    try std.testing.expectError(error.UnexpectedEndOfFile, Csv.init(alloc, in.reader()));
+    try std.testing.expectError(error.UnexpectedEndOfFile, Csv.init(alloc, in.reader(), .{}));
 }
 
 test "readCsv trims whitespace" {
     const alloc = std.testing.allocator;
     var in = std.io.fixedBufferStream(" a , b \n c , d \n");
-    const csv = try Csv.init(alloc, in.reader());
+    const csv = try Csv.init(alloc, in.reader(), .{});
     defer csv.deinit(alloc);
 
     try std.testing.expectEqualStrings("a", csv.rows[0][0]);
@@ -135,12 +135,48 @@ test "readCsv trims whitespace" {
 test "readCsv empty input yields empty header cell" {
     const alloc = std.testing.allocator;
     var in = std.io.fixedBufferStream("");
-    const csv = try Csv.init(alloc, in.reader());
+    const csv = try Csv.init(alloc, in.reader(), .{});
     defer csv.deinit(alloc);
 
     try std.testing.expectEqual(1, csv.rows.len);
     try std.testing.expectEqual(1, csv.rows[0].len);
     try std.testing.expectEqual(0, csv.rows[0][0].len);
+}
+
+test "readCsv with semicolon delimiter" {
+    const alloc = std.testing.allocator;
+    var in = std.io.fixedBufferStream("a;b\nc;d\n");
+    const csv = try Csv.init(alloc, in.reader(), .{ .delimiter = ';' });
+    defer csv.deinit(alloc);
+
+    try std.testing.expectEqual(2, csv.rows.len);
+    try std.testing.expectEqualStrings("a", csv.rows[0][0]);
+    try std.testing.expectEqualStrings("b", csv.rows[0][1]);
+    try std.testing.expectEqualStrings("c", csv.rows[1][0]);
+    try std.testing.expectEqualStrings("d", csv.rows[1][1]);
+}
+
+test "readCsv with tab delimiter" {
+    const alloc = std.testing.allocator;
+    var in = std.io.fixedBufferStream("a\tb\nc\td\n");
+    const csv = try Csv.init(alloc, in.reader(), .{ .delimiter = '\t' });
+    defer csv.deinit(alloc);
+
+    try std.testing.expectEqual(2, csv.rows.len);
+    try std.testing.expectEqualStrings("a", csv.rows[0][0]);
+    try std.testing.expectEqualStrings("b", csv.rows[0][1]);
+    try std.testing.expectEqualStrings("c", csv.rows[1][0]);
+    try std.testing.expectEqualStrings("d", csv.rows[1][1]);
+}
+
+test "readCsv semicolon delimiter preserves commas in fields" {
+    const alloc = std.testing.allocator;
+    var in = std.io.fixedBufferStream("a;b\nc,1;d\n");
+    const csv = try Csv.init(alloc, in.reader(), .{ .delimiter = ';' });
+    defer csv.deinit(alloc);
+
+    try std.testing.expectEqualStrings("c,1", csv.rows[1][0]);
+    try std.testing.expectEqualStrings("d", csv.rows[1][1]);
 }
 
 test "deinit releases owned rows" {

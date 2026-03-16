@@ -45,6 +45,16 @@ setup() {
   [[ "$output" == *"tennis: All csv rows must have same number of columns"* ]]
 }
 
+@test "renders semicolon-delimited csv" {
+  run bash -lc "printf 'name;score\nalice;1234\nbob;5678\n' | '$TENNIS_BIN' --color=off -d ';' --width 80"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"name"* ]]
+  [[ "$output" == *"score"* ]]
+  [[ "$output" == *"alice"* ]]
+  [[ "$output" == *"1,234"* ]]
+  [[ "$output" == *"5,678"* ]]
+}
+
 @test "renders csv from stdin" {
   run bash -lc "cat '$REPO_ROOT/testdata/test.csv' | '$TENNIS_BIN' --color=off --width 80"
   [ "$status" -eq 0 ]

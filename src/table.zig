@@ -17,7 +17,7 @@ pub const Table = struct {
         const table = try alloc.create(Table);
         errdefer alloc.destroy(table);
 
-        const csv = try Csv.init(alloc, reader);
+        const csv = try Csv.init(alloc, reader, .{ .delimiter = config.delimiter });
         errdefer csv.deinit(alloc);
 
         // A csv with zero data rows is intentionally rendered as "empty"
@@ -152,6 +152,19 @@ test "header only input is empty" {
     try std.testing.expectEqual(@as(usize, 0), table.headers().len);
     try std.testing.expectEqual(@as(usize, 0), table.nrows());
     try std.testing.expectEqual(@as(usize, 0), table.columns.len);
+}
+
+test "table with semicolon delimiter" {
+    var in = std.io.fixedBufferStream("a;b\nc;d\n");
+    const table = try Table.init(std.testing.allocator, .{ .delimiter = ';' }, in.reader());
+    defer table.deinit();
+
+    try std.testing.expectEqual(@as(usize, 2), table.headers().len);
+    try std.testing.expectEqualStrings("a", table.headers()[0]);
+    try std.testing.expectEqualStrings("b", table.headers()[1]);
+    try std.testing.expectEqual(@as(usize, 1), table.nrows());
+    try std.testing.expectEqualStrings("c", table.rows()[0][0]);
+    try std.testing.expectEqualStrings("d", table.rows()[0][1]);
 }
 
 test "rows returns data rows only" {
