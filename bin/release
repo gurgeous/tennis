@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
+
 set -euo pipefail
+
+# REMIND: this has never been run for real
 
 #
 # banner
@@ -25,18 +28,24 @@ new_tag="$(svu minor)"
 [ -n "${GITHUB_TOKEN:-}" ]          || fatal "GITHUB_TOKEN is required"
 [ -z "$(git tag -l "${new_tag}")" ] || fatal "tag already exists: ${new_tag}"
 
+# preview
+banner "changes since ${old_tag}"
+git --no-pager diff --stat "${old_tag}"...HEAD
+
 # confirm
+banner "are you sure?"
+echo
 gum confirm "Release ${old_tag} => ${new_tag}?"
 
 # tag
 banner "tagging..."
-echo git tag -a "${new_tag}" -m "release ${new_tag}"
-echo git push origin "${new_tag}"
+git tag -a "${new_tag}" -m "release ${new_tag}"
+git push origin "${new_tag}"
 
 # goreleaseer
 banner "goreleaser..."
-echo goreleaser healthcheck
-echo "TENNIS_VERSION=${new_tag#v} goreleaser release --clean"
+goreleaser healthcheck
+"TENNIS_VERSION=${new_tag#v} goreleaser release --clean"
 
 # done
 banner "✓ release ✓"

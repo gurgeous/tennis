@@ -1,6 +1,6 @@
 .{
     .name = .tennis,
-    .version = "0.0.3",
+    .version = "0.0.0", // build.zig provides the real app version
     .dependencies = .{
         .clap = .{
             .url = "https://github.com/Hejsil/zig-clap/archive/refs/tags/0.11.0.tar.gz",

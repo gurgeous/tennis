@@ -16,9 +16,7 @@ pub fn build(b: *std.Build) void {
     //
 
     const build_options = b.addOptions();
-    const appVersion = @import("build.zig.zon").version;
-    const version = if (appVersion.len > 0) appVersion else "unknown";
-    build_options.addOption([]const u8, "version", version);
+    build_options.addOption([]const u8, "version", getVersion(b));
 
     //
     // main
@@ -69,6 +67,32 @@ pub fn build(b: *std.Build) void {
     const cov_tests = b.addTest(.{ .name = "kcov-tests", .root_module = mod, .use_llvm = true });
     const install_cov_tests = b.addInstallArtifact(cov_tests, .{ .dest_sub_path = "kcov-tests" });
     kcov_step.dependOn(&install_cov_tests.step);
+}
+
+fn getVersion(b: *std.Build) []const u8 {
+    const sha = getSha(b);
+
+    // 1. prefer TENNIS_VERSION w/ sha
+    if (b.graph.env_map.get("TENNIS_VERSION")) |v| {
+        _ = std.SemanticVersion.parse(v) catch @panic("TENNIS_VERSION must be int.int.int");
+        if (sha) |s| {
+            return b.fmt("{s} ({s})", .{ v, s });
+        }
+        return v;
+    }
+
+    // 2. just sha
+    if (sha) |s| return b.fmt("built from source ({s})", .{s});
+
+    // 3. fallback
+    return "built from source";
+}
+
+fn getSha(b: *std.Build) ?[]const u8 {
+    var code: u8 = 0;
+    const sha_output = b.runAllowFail(&.{ "git", "rev-parse", "--short", "HEAD" }, &code, .Ignore) catch null;
+    if (sha_output) |out| return std.mem.trim(u8, out, "\r\n");
+    return null;
 }
 
 const std = @import("std");
