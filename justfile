@@ -29,25 +29,15 @@ benchmark: build-release
   just banner "✓ benchmark ✓"
 
 #
-# goreleaser
-# git tag -a v0.1.0 -m "First release" && git push origin v0.1.0
-# git push --delete origin v0.1.0 && git tag -d v0.1.0
+# release
 #
 
-goreleaser *ARGS: check
-  just banner "goreleaser release..."
-  goreleaser healthcheck
-  if [ -z "${GITHUB_TOKEN:-}" ]; then just fatal "GITHUB_TOKEN is required" ; fi
-  goreleaser release --clean {{ARGS}}
-  just banner "✓ goreleaser ✓"
+release: check valgrind
+  bin/release
 
-goreleaser-preview *ARGS:
-  goreleaser healthcheck
-  goreleaser release --clean --skip=publish {{ARGS}}
-
-goreleaser-snapshot: check
+goreleaser-preview: check
   goreleaser release --clean --snapshot
-  just banner "macOS tarball"
+  just banner "macOS tarball preview..."
   tar -tvzf "$(find dist -maxdepth 1 -name 'tennis_*_darwin_arm64.tar.gz' | head -n 1)"
 
 #
