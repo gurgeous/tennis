@@ -29,7 +29,7 @@ benchmark: build-release
   just banner "✓ benchmark ✓"
 
 #
-# releas
+# release
 #
 
 release: check valgrind
