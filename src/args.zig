@@ -160,7 +160,7 @@ pub const Args = struct {
             \\      --theme <theme>     Select color theme (auto|dark|light)
             \\      --vanilla           Disable numeric formatting entirely
             \\      --help              Get help
-            \\      --version           Show version number amd exit
+            \\      --version           Show version number and exit
             \\
         );
     }

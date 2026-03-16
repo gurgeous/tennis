@@ -30,7 +30,7 @@ setup() {
   [[ "$output" == *"--color <color>"* ]]
   [[ "$output" == *"--digits <int>"* ]]
   [[ "$output" == *"--vanilla"* ]]
-  [[ "$output" == *"--version           Show version number amd exit"* ]]
+  [[ "$output" == *"--version           Show version number and exit"* ]]
 }
 
 @test "fails on invalid csv input" {

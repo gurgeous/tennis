@@ -19,6 +19,7 @@ pub fn intFormat(alloc: std.mem.Allocator, str: []const u8) ![]u8 {
 
 // format an int (as string) with delimiters.
 pub fn formatInto(out: []u8, str: []const u8) void {
+    if (str.len == 0) return;
     const neg = str[0] == '-';
     if (neg) out[0] = '-';
     const digits = if (neg) str[1..] else str;
@@ -83,6 +84,11 @@ test "intFormat" {
         defer std.testing.allocator.free(act);
         try std.testing.expectEqualStrings(case.exp, act);
     }
+}
+
+test "formatInto handles empty input" {
+    var out: [0]u8 = undefined;
+    formatInto(&out, "");
 }
 
 test "isInt" {

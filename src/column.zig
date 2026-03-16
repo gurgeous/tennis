@@ -101,6 +101,9 @@ pub const Column = struct {
         errdefer alloc.free(fields);
 
         var ii: usize = 0;
+        errdefer {
+            for (fields[0..ii]) |formatted| alloc.free(formatted);
+        }
         var it = self.iterator();
         while (it.next()) |raw| : (ii += 1) {
             fields[ii] = try formatter(self, alloc, raw);
