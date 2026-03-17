@@ -18,11 +18,12 @@ $ brew install gurgeous/tap/tennis
 
 #### Linux tarball
 
-- https://github.com/gurgeous/tennis/releases
+Download from https://github.com/gurgeous/tennis/releases, then mv the bin into your $PATH
 
 #### Build from source
 
 ```sh
+# this will build zig-out/bin/tennis
 $ mise trust && mise install
 $ zig build
 ```
