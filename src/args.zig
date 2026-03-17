@@ -20,7 +20,7 @@ pub const Args = struct {
 
     // clap parsers
     const parsers = .{
-        .BORDER = clap.parsers.enumeration(types.Border),
+        .BORDER = clap.parsers.enumeration(border.BorderName),
         .CHAR = parseChar,
         .COLOR = clap.parsers.enumeration(types.Color),
         .FILE = clap.parsers.string,
@@ -206,7 +206,7 @@ test "parse parses options" {
     }, &diag);
 
     try std.testing.expectEqual(null, out.action);
-    try std.testing.expectEqual(types.Border.double, out.config.border);
+    try std.testing.expectEqual(border.BorderName.double, out.config.border);
     try std.testing.expectEqual(types.Color.off, out.config.color);
     try std.testing.expectEqual(@as(usize, 4), out.config.digits);
     try std.testing.expectEqual(types.Theme.light, out.config.theme);
@@ -234,7 +234,7 @@ test "parse parses border option" {
         "compact_double",
         "-",
     }, &diag);
-    try std.testing.expectEqual(types.Border.compact_double, out.config.border);
+    try std.testing.expectEqual(border.BorderName.compact_double, out.config.border);
 }
 
 test "parse parses short delimiter option" {
@@ -420,6 +420,7 @@ test "init sets fatal action for missing file" {
     try std.testing.expect(std.mem.indexOf(u8, out.err_str.?, "definitely-not-a-real-file.csv") != null);
 }
 
+const border = @import("border.zig");
 const builtin = @import("builtin");
 const clap = @import("clap");
 const std = @import("std");

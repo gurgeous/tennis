@@ -55,6 +55,14 @@ setup() {
   [[ "$output" == *"5,678"* ]]
 }
 
+@test "renders basic border" {
+  run "$TENNIS_BIN" --color=off --border basic --width 80 "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"+-------+---------+------+--------+"* ]]
+  [[ "$output" == *"| carat | cut     |"* ]]
+  [[ "$output" == *"| 0.230 | Ideal   |"* ]]
+}
+
 @test "renders csv from stdin" {
   run bash -lc "cat '$REPO_ROOT/testdata/test.csv' | '$TENNIS_BIN' --color=off --width 80"
   [ "$status" -eq 0 ]

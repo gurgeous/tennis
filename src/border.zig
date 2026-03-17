@@ -12,23 +12,8 @@
 // cells are width-1 (`A`..`I`) so the parser can infer separators directly
 // from the visible border sample instead of from a hand-built struct.
 
-pub const BorderLine = union(enum) {
-    none,
-    continuous: ContinuousLine,
-    segmented: SegmentedLine,
-};
-
-pub const BorderStyle = struct {
-    top: BorderLine,
-    header: BorderLine,
-    row: BorderLine,
-    bottom: BorderLine,
-    left: []const u8,
-    mid: []const u8,
-    right: []const u8,
-};
-
 const specimens = struct {
+    // Canonical border samples adapted from Nushell/tabled themes.
     const ascii_rounded =
         \\.-----.
         \\|A|B|C|
@@ -155,11 +140,50 @@ const specimens = struct {
     ;
 };
 
-pub fn style(border: types.Border) BorderStyle {
+// Public border names exposed through CLI/config.
+pub const BorderName = enum {
+    ascii_rounded,
+    basic,
+    basic_compact,
+    compact,
+    compact_double,
+    dots,
+    double,
+    heavy,
+    light,
+    markdown,
+    none,
+    psql,
+    reinforced,
+    restructured,
+    rounded,
+    single,
+    thin,
+};
+
+// Parsed horizontal separator line.
+pub const BorderLine = union(enum) {
+    none,
+    continuous: ContinuousLine,
+    segmented: SegmentedLine,
+};
+
+// Parsed border style consumed by render.
+pub const BorderStyle = struct {
+    top: BorderLine,
+    header: BorderLine,
+    row: BorderLine,
+    bottom: BorderLine,
+    left: []const u8,
+    mid: []const u8,
+    right: []const u8,
+};
+
+pub fn getBorder(border: BorderName) BorderStyle {
     return parseSpecimen(specimen(border));
 }
 
-fn specimen(border: types.Border) []const u8 {
+fn specimen(border: BorderName) []const u8 {
     return switch (border) {
         .ascii_rounded => specimens.ascii_rounded,
         .basic => specimens.basic,
@@ -339,22 +363,26 @@ fn append(buf: []u8, n: *usize, text: []const u8) void {
     n.* += text.len;
 }
 
+// Continuous horizontal rule like `────` or `.....`.
 const ContinuousLine = struct {
     left: []const u8,
     fill: []const u8,
     right: []const u8,
 };
 
+// UTF-8 glyph span within a specimen line.
 const Glyph = struct {
     start: usize,
     end: usize,
 };
 
+// Split specimen lines with a fixed small maximum.
 const Lines = struct {
     items: [7][]const u8,
     len: usize,
 };
 
+// Segmented horizontal rule like `├─┼─┤`.
 const SegmentedLine = struct {
     left: []const u8,
     fill: []const u8,
@@ -363,7 +391,7 @@ const SegmentedLine = struct {
 };
 
 test "all supported borders roundtrip through the specimen parser" {
-    const cases = [_]types.Border{
+    const cases = [_]BorderName{
         .ascii_rounded,
         .basic,
         .basic_compact,
@@ -385,7 +413,7 @@ test "all supported borders roundtrip through the specimen parser" {
 
     for (cases) |border| {
         const want = splitLines(specimen(border));
-        const got = style(border);
+        const got = getBorder(border);
 
         var bufs: [7][32]u8 = undefined;
         const lines = [_][]const u8{
@@ -407,18 +435,18 @@ test "all supported borders roundtrip through the specimen parser" {
 }
 
 test "thin has a row separator but rounded does not" {
-    try std.testing.expect(style(.thin).row != .none);
-    try std.testing.expect(style(.rounded).row == .none);
+    try std.testing.expect(getBorder(.thin).row != .none);
+    try std.testing.expect(getBorder(.rounded).row == .none);
 }
 
 test "psql omits outer borders" {
-    const psql = style(.psql);
+    const psql = getBorder(.psql);
     try std.testing.expectEqualStrings("", psql.left);
     try std.testing.expectEqualStrings("", psql.right);
 }
 
 test "reinforced has a bottom border but no header separator" {
-    const reinforced = style(.reinforced);
+    const reinforced = getBorder(.reinforced);
     try std.testing.expect(reinforced.header == .none);
     try std.testing.expect(reinforced.bottom != .none);
 }
@@ -435,4 +463,3 @@ fn compactLines(lines: [7][]const u8) Lines {
 }
 
 const std = @import("std");
-const types = @import("types.zig");
