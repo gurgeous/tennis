@@ -1,6 +1,5 @@
 # Required for codex shell sessions where mise PATH hooks may not be active.
 export PATH := env("HOME") + "/.local/share/mise/installs/zig/0.15.2/bin:" + env("PATH")
-KCOV := "kcov"
 
 default:
   just --list
@@ -12,7 +11,7 @@ build-release:
   zig build -Doptimize=ReleaseSmall
 
 clean:
-    rm -rf {{KCOV}} .zig-cache zig-out
+    rm -rf kcov .zig-cache zig-out
 
 run *ARGS:
   zig build run -- {{ARGS}}
@@ -44,8 +43,9 @@ goreleaser-preview: check
 # hygiene
 #
 
-check: lint lint-imports build test bats
+check: clean-weekly lint lint-imports build test bats
   just banner "✓ check ✓"
+
 
 bats: build
   bats testdata/smoke.bats
@@ -53,6 +53,12 @@ bats: build
 
 ci: check
   just banner "✓ ci ✓"
+
+clean-weekly:
+  if [ -d .zig-cache ] && [ "$(stat -c %Z .zig-cache)" -lt "$(date -d '7 days ago' +%s)" ]; then \
+    just clean ; \
+    just banner "✓ clean-weekly ✓" ; \
+  fi
 
 fmt:
   zig fmt .
@@ -83,9 +89,9 @@ test:
 
 kcov:
   just banner "kcov..."
-  rm -rf {{KCOV}}/
+  rm -rf kcov/
   zig build  -Doptimize=Debug kcov-tests
-  kcov --include-pattern=$PWD/src/ --exclude-line=errdefer {{KCOV}} ./zig-out/bin/kcov-tests
+  kcov --include-pattern=$PWD/src/ --exclude-line=errdefer kcov ./zig-out/bin/kcov-tests
   just banner "✓ kcov ✓"
 
 valgrind: build
