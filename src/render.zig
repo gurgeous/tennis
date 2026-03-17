@@ -28,23 +28,37 @@ pub const Render = struct {
             return self.renderEmpty();
         }
 
-        if (self.border.top != .none) try self.renderSep(self.border.top, self.layout.widths);
+        // top
+        if (self.border.top != .none) try self.renderRule(self.border.top);
+
+        // title
         if (self.table.config.title.len > 0) {
             try self.renderTitle();
-            if (self.border.header != .none) try self.renderSep(self.border.header, self.layout.widths);
+            if (self.border.header != .none) try self.renderRule(self.border.header);
         }
+
+        // headers
         try self.renderHeaders();
-        if (self.border.header != .none) try self.renderSep(self.border.header, self.layout.widths);
+        if (self.border.header != .none) try self.renderRule(self.border.header);
+
+        // rows
         for (0..self.table.nrows()) |row_index| {
             try self.renderRow(row_index);
             if (row_index + 1 < self.table.nrows() and self.border.row != .none) {
-                try self.renderSep(self.border.row, self.layout.widths);
+                try self.renderRule(self.border.row);
             }
         }
-        if (self.border.bottom != .none) try self.renderSep(self.border.bottom, self.layout.widths);
+
+        // bottom
+        if (self.border.bottom != .none) try self.renderRule(self.border.bottom);
     }
 
-    fn renderSep(self: *Render, rule: border.BorderRule, widths: []const usize) !void {
+    fn renderRule(self: *Render, rule: border.BorderRule) !void {
+        try self.renderRule0(rule, self.layout.widths);
+    }
+
+    // this is broken out because renderEmpty calls this
+    fn renderRule0(self: *Render, rule: border.BorderRule, widths: []const usize) !void {
         const out = &self.buf.writer;
         const style = self.table.style();
         if (style.chrome.len > 0) try out.writeAll(style.chrome);
@@ -70,44 +84,39 @@ pub const Render = struct {
 
     fn renderTitle(self: *Render) !void {
         const out = &self.buf.writer;
-        const style = self.table.style();
         const chrome = util.displayWidth(self.border.left) + util.displayWidth(self.border.right) + 2;
         const width = self.layout.tableWidth() - chrome;
 
-        try appendStyled(out, style.chrome, self.border.left);
+        try self.writeChrome(self.border.left);
         try out.writeByte(' ');
-        try writeStyledExactly(out, style.title, self.table.config.title, width, .center);
+        try fill(out, self.table.style().title, self.table.config.title, width, .center);
         try out.writeByte(' ');
-        try appendStyled(out, style.chrome, self.border.right);
+        try self.writeChrome(self.border.right);
         try self.newline();
     }
 
     fn renderHeaders(self: *Render) !void {
-        const out = &self.buf.writer;
-        const style = self.table.style();
-        try appendStyled(out, style.chrome, self.border.left);
+        try self.writeChrome(self.border.left);
 
         var col: usize = 0;
         if (self.table.config.row_numbers) {
-            try self.renderHeaderField(out, &col, "#");
+            try self.renderHeaderField(&col, "#");
         }
         for (self.table.columns) |column| {
-            try self.renderHeaderField(out, &col, column.name);
+            try self.renderHeaderField(&col, column.name);
         }
         try self.newline();
     }
 
-    fn renderHeaderField(self: *Render, out: *std.Io.Writer, col: *usize, text: []const u8) !void {
+    fn renderHeaderField(self: *Render, col: *usize, text: []const u8) !void {
         const style = self.table.style();
         const sep = if (col.* + 1 == self.layout.widths.len) self.border.right else self.border.mid;
-        try self.renderField(out, style.headers[col.* % style.headers.len], text, col.*, sep, .left);
+        try self.renderField(style.headers[col.* % style.headers.len], text, col.*, sep, .left);
         col.* += 1;
     }
 
     fn renderRow(self: *Render, row_index: usize) !void {
-        const out = &self.buf.writer;
-        const style = self.table.style();
-        try appendStyled(out, style.chrome, self.border.left);
+        try self.writeChrome(self.border.left);
 
         const row_no = row_index + 1;
         var col: usize = 0;
@@ -115,13 +124,14 @@ pub const Render = struct {
             var num_buf: [32]u8 = undefined;
             const label = try std.fmt.bufPrint(&num_buf, "{d}", .{row_no});
             const sep = if (col + 1 == self.layout.widths.len) self.border.right else self.border.mid;
-            try self.renderField(out, style.chrome, label, col, sep, .right);
+            try self.renderField(self.table.style().chrome, label, col, sep, .right);
             col += 1;
         }
 
         for (self.table.columns) |column| {
             const raw = column.field(row_index);
             const is_placeholder = raw.len == 0;
+            const style = self.table.style();
             const cell_style = if (is_placeholder) style.chrome else style.field;
             const field = if (is_placeholder) placeholder else raw;
             const sep = if (col + 1 == self.layout.widths.len) self.border.right else self.border.mid;
@@ -129,11 +139,15 @@ pub const Render = struct {
                 .int, .float => .right,
                 .string => .left,
             };
-            try self.renderField(out, cell_style, field, col, sep, al);
+            try self.renderField(cell_style, field, col, sep, al);
             col += 1;
         }
         try self.newline();
     }
+
+    //
+    // empty
+    //
 
     fn renderEmpty(self: *Render) !void {
         const style = self.table.style();
@@ -142,22 +156,45 @@ pub const Render = struct {
         const width = @max(util.displayWidth(title), util.displayWidth(body));
         const widths = [_]usize{width};
 
-        if (self.border.top != .none) try self.renderSep(self.border.top, &widths);
+        if (self.border.top != .none) try self.renderRule0(self.border.top, &widths);
         try self.renderEmptyRow(style.title, title, width);
-        if (self.border.header != .none) try self.renderSep(self.border.header, &widths);
+        if (self.border.header != .none) try self.renderRule0(self.border.header, &widths);
         try self.renderEmptyRow(style.field, body, width);
-        if (self.border.bottom != .none) try self.renderSep(self.border.bottom, &widths);
+        if (self.border.bottom != .none) try self.renderRule0(self.border.bottom, &widths);
     }
 
     fn renderEmptyRow(self: *Render, text_style: []const u8, text: []const u8, width: usize) !void {
         const out = &self.buf.writer;
-        const style = self.table.style();
-        try appendStyled(out, style.chrome, self.border.left);
+        try self.writeChrome(self.border.left);
         try out.writeByte(' ');
-        try writeStyledExactly(out, text_style, text, width, .center);
+        try fill(out, text_style, text, width, .center);
         try out.writeByte(' ');
-        try appendStyled(out, style.chrome, self.border.right);
+        try self.writeChrome(self.border.right);
         try self.newline();
+    }
+
+    //
+    // helpers
+    //
+
+    fn renderField(self: *Render, field_style: []const u8, text: []const u8, col: usize, sep: []const u8, al: Align) !void {
+        const out = &self.buf.writer;
+        try out.writeByte(' ');
+        try fill(out, field_style, text, self.layout.widths[col], al);
+        try out.writeByte(' ');
+        try self.writeChrome(sep);
+    }
+
+    fn writeChrome(self: *Render, value: []const u8) !void {
+        const out = &self.buf.writer;
+        const chrome = self.table.style().chrome;
+        if (chrome.len == 0) {
+            try out.writeAll(value);
+            return;
+        }
+        try out.writeAll(chrome);
+        try out.writeAll(value);
+        try out.writeAll(ansi.reset);
     }
 
     fn newline(self: *Render) !void {
@@ -165,17 +202,17 @@ pub const Render = struct {
         try self.writer.writeAll(self.buf.written());
         self.buf.clearRetainingCapacity();
     }
-
-    fn renderField(self: *Render, out: *std.Io.Writer, field_style: []const u8, text: []const u8, col: usize, sep: []const u8, al: Align) !void {
-        const style = self.table.style();
-        try out.writeByte(' ');
-        try writeStyledExactly(out, field_style, text, self.layout.widths[col], al);
-        try out.writeByte(' ');
-        try appendStyled(out, style.chrome, sep);
-    }
 };
 
-fn writeExactly(writer: *std.Io.Writer, text: []const u8, width: usize, al: Align) !void {
+//
+// standalone helpers
+//
+
+// fit text into width, using alignment. Use ansi codes if present.
+fn fill(writer: *std.Io.Writer, codes: []const u8, text: []const u8, width: usize, al: Align) !void {
+    if (codes.len > 0) try writer.writeAll(codes);
+    defer if (codes.len > 0) writer.writeAll(ansi.reset) catch {};
+
     const display_width = util.displayWidth(text);
     if (display_width == width) {
         try writer.writeAll(text);
@@ -200,61 +237,27 @@ fn writeExactly(writer: *std.Io.Writer, text: []const u8, width: usize, al: Alig
         return;
     }
 
-    if (width == 0) return;
-
-    var it = std.unicode.Utf8View.init(text) catch {
-        try writer.writeAll(text[0..@min(text.len, width)]);
-        return;
-    };
-    var iter = it.iterator();
-
-    var used: usize = 0;
-    while (iter.nextCodepointSlice()) |cp_slice| {
-        if (used + 1 >= width) break;
-        try writer.writeAll(cp_slice);
-        used += 1;
-    }
-    try writer.writeAll("…");
-}
-
-fn appendStyled(writer: *std.Io.Writer, codes: []const u8, value: []const u8) !void {
-    if (codes.len == 0) {
-        try writer.writeAll(value);
-        return;
-    }
-    try writer.writeAll(codes);
-    try writer.writeAll(value);
-    try writer.writeAll(ansi.reset);
-}
-
-fn writeStyledExactly(writer: *std.Io.Writer, codes: []const u8, text: []const u8, width: usize, al: Align) !void {
-    if (codes.len > 0) try writer.writeAll(codes);
-    try writeExactly(writer, text, width, al);
-    if (codes.len > 0) try writer.writeAll(ansi.reset);
+    try util.truncate(writer, text, width);
 }
 
 fn writeSpaces(writer: *std.Io.Writer, count: usize) !void {
     for (0..count) |_| try writer.writeByte(' ');
 }
 
-test "writeExactly padding and truncation" {
+test "fill padding and truncation" {
     var buf: [256]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
 
-    try writeExactly(&writer, "12", 2, .left);
+    try fill(&writer, "", "12", 2, .left);
     try std.testing.expectEqualStrings("12", writer.buffered());
 
     writer.end = 0;
-    try writeExactly(&writer, "hi", 6, .center);
+    try fill(&writer, "", "hi", 6, .center);
     try std.testing.expectEqualStrings("  hi  ", writer.buffered());
 
     writer.end = 0;
-    try writeExactly(&writer, "this is too long", 8, .left);
-    try std.testing.expectEqualStrings("this is…", writer.buffered());
-
-    writer.end = 0;
-    try writeExactly(&writer, "éééé", 3, .left);
-    try std.testing.expectEqualStrings("éé…", writer.buffered());
+    try fill(&writer, "", "hi", 6, .right);
+    try std.testing.expectEqualStrings("    hi", writer.buffered());
 }
 
 test "ascii render simple" {

@@ -8,7 +8,7 @@ https://github.com/gurgeous/tennis
 
 # SYNOPSIS
 
-*tennis* [_options..._] <file.csv>     # print file.csv
+*tennis* [_options..._] <file.csv>
 
 # DESCRIPTION
 
@@ -93,7 +93,7 @@ Disable colors and numeric formatting:
 
 Render with a different border:
 
-	$ tennis --border basic diamonds.csv
+	$ tennis --border dots diamonds.csv
 
 Render a tab-delimited file:
 
