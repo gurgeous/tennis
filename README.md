@@ -37,7 +37,8 @@ $ zig build
 ### Options
 
 ```
- Usage: tennis [options...] <file.csv>
+Usage: tennis [options...] <file.csv>     # print file.csv
+       tennis [options...]                # print csv from stdin
 
   -d, --delimiter <char>  CSV delim (can be any char or "tab")
   -n, --row-numbers       Turn on row numbers
