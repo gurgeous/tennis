@@ -3,7 +3,8 @@ compdef _tennis tennis
 
 _tennis() {
   # -s "Enable option stacking for single-letter options"
-  _arguments -s \'(-d --delimiter)'{-d,--delimiter}'[CSV delim (can be any char or "tab")]':char:(tab , \; \|) \
+  _arguments -s \
+    '(-d --delimiter)'{-d,--delimiter}'[CSV delim (can be any char or "tab")]':char:(tab , \; \|) \
     '(-n --row-numbers)'{-n,--row-numbers}'[Turn on row numbers]' \
     '(-t --title)'{-t,--title}'[Add a title to the table]':string: \
     '(-w --width)'{-w,--width}'[Set max table width in chars]':int: \
@@ -14,7 +15,8 @@ _tennis() {
     '--theme[Select color theme (auto|dark|light)]':theme:(auto dark light) \
     '--vanilla[Disable numeric formatting entirely]' \
     '--help[Get help]' \
-    '--version[Show version number and exit]' \'*:file:_files -g "*.csv(-.)" "*(-/)"'
+    '--version[Show version number and exit]' \
+    '*:file:_files -g "*.csv(-.)" "*(-/)"'
 }
 
 if [ "$funcstack[1]" = "_tennis" ]; then

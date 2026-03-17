@@ -21,7 +21,6 @@ const Options = struct {
 const body_marker = "<BODY>";
 
 const bash_template =
-    \\# bail without bash-completion
     \\declare -F _init_completion >/dev/null || return 2>/dev/null
     \\
     \\_tennis() {
@@ -29,7 +28,7 @@ const bash_template =
     \\  _init_completion || return
     \\
     \\  case "${prev}" in
-    \\<BODY>
+    \\    <BODY>
     \\}
     \\
     \\complete -F _tennis tennis
@@ -43,7 +42,7 @@ const zsh_template =
     \\_tennis() {
     \\  # -s "Enable option stacking for single-letter options"
     \\  _arguments -s \
-    \\  <BODY>
+    \\    <BODY>
     \\    '*:file:_files -g "*.csv(-.)" "*(-/)"'
     \\}
     \\
@@ -147,10 +146,9 @@ fn writeZsh(alloc: std.mem.Allocator, writer: anytype, options: Options) !void {
 
 fn writeWithMarker(writer: anytype, template: []const u8, body: []const u8) !void {
     const marker = std.mem.indexOf(u8, template, body_marker).?;
-    try writer.writeAll(util.strip(u8, template[0..marker]));
+    try writer.writeAll(template[0..marker]);
     try writer.writeAll(util.strip(u8, body));
-    try writer.writeAll(util.strip(u8, template[marker + body_marker.len ..]));
-    try writer.writeByte('\n');
+    try writer.writeAll(template[marker + body_marker.len ..]);
 }
 
 // Parse all option rows out of args.help into short/long/value/description pieces.
