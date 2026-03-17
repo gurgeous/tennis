@@ -106,6 +106,7 @@ fn printBannerTo(stdout_writer: *std.Io.Writer, stderr_writer: *std.Io.Writer, e
 
 test {
     _ = @import("args.zig");
+    _ = @import("border.zig");
     _ = @import("column.zig");
     _ = @import("color.zig");
     _ = @import("csv.zig");

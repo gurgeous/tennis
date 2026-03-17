@@ -27,6 +27,8 @@ setup() {
   run "$TENNIS_BIN" --help
   [ "$status" -eq 0 ]
   [[ "$output" == *"Usage: tennis [options...] <file.csv>"* ]]
+  [[ "$output" == *"--border <border>"* ]]
+  [[ "$output" == *"rounded|thin|double"* ]]
   [[ "$output" == *"--color <color>"* ]]
   [[ "$output" == *"--digits <int>"* ]]
   [[ "$output" == *"--vanilla"* ]]
@@ -53,6 +55,14 @@ setup() {
   [[ "$output" == *"alice"* ]]
   [[ "$output" == *"1,234"* ]]
   [[ "$output" == *"5,678"* ]]
+}
+
+@test "renders basic border" {
+  run "$TENNIS_BIN" --color=off --border basic --width 80 "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"+-------+---------+------+--------+"* ]]
+  [[ "$output" == *"| carat | cut     |"* ]]
+  [[ "$output" == *"| 0.230 | Ideal   |"* ]]
 }
 
 @test "renders csv from stdin" {

@@ -5,7 +5,7 @@
 .nh
 .ad l
 .\" Begin generated content:
-.TH "tennis" "1" "2026-03-16"
+.TH "tennis" "1" "2026-03-17"
 .P
 .SH NAME
 .P
@@ -67,6 +67,11 @@ Set the maximum table width in characters.\& By default, \fBtennis\fR uses the
 current terminal width or \fB80\fR if it can'\&t be detected.\&
 .P
 .RE
+\fB--border\fR <border>
+.RS 4
+Select the table border style.\& The default is \fBrounded\fR.\&
+.P
+.RE
 \fB--color\fR <color>
 .RS 4
 Control color output.\& Valid values: \fBon\fR, \fBoff\fR, \fBauto\fR.\& The default is
@@ -90,6 +95,15 @@ is \fBauto\fR.\&
 Disable type inference and numeric formatting.\&
 .P
 .RE
+.SH BORDERS
+.P
+Border names are adapted from Nushell table themes, which in turn build on the
+\fBtabled\fR crate:
+.P
+\fBascii_rounded\fR, \fBbasic\fR, \fBbasic_compact\fR, \fBcompact\fR, \fBcompact_double\fR,
+\fBdots\fR, \fBdouble\fR, \fBheavy\fR, \fBlight\fR, \fBmarkdown\fR, \fBnone\fR, \fBpsql\fR,
+\fBreinforced\fR, \fBrestructured\fR, \fBrounded\fR, \fBsingle\fR, \fBthin\fR, \fBwith_love\fR
+.P
 .SH EXAMPLES
 .P
 Render with row numbers and a title:
@@ -108,6 +122,12 @@ Disable colors and numeric formatting:
 .P
 .RS 4
 $ tennis --color off --vanilla diamonds.\&csv
+.P
+.RE
+Render with a different border:
+.P
+.RS 4
+$ tennis --border dots diamonds.\&csv
 .P
 .RE
 Render a tab-delimited file:

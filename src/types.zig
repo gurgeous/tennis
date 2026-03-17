@@ -1,5 +1,6 @@
 // table config, from cli args
 pub const Config = struct {
+    border: @import("border.zig").BorderName = .rounded,
     color: Color = .on,
     delimiter: u8 = ',',
     digits: usize = 3,

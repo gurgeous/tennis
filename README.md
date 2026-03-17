@@ -45,6 +45,7 @@ Usage: tennis [options...] <file.csv>     # print file.csv
   -t, --title <string>    Add a title to the table
   -w, --width <int>       Set max table width in chars
 
+      --border <border>   Table border style (rounded|thin|double|...)
       --color <color>     Turn color off and on (on|off|auto)
       --digits <int>      Digits after decimal for float columns (1-6)
       --theme <theme>     Select color theme (auto|dark|light)
@@ -81,11 +82,15 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 ### Changelog
 
+#### 0.0.4 (unreleased)
+
+- Configurable `--border` styles based on Nushell / `tabled` crate. (@gurgeous)
+
 #### 0.0.3 (Mar '26)
 
-- Custom `--delimiter` for tsv, semicolon, etc. #5
-- Auto numeric formatting, including delims and rounding for int/float columns. Disable with --vanilla. #6
-- man page & shell completions #7 #10
+- Custom `--delimiter` for tsv, semicolon, etc. #5 (@markhm)
+- Auto numeric formatting, including delims and rounding for int/float columns. Disable with --vanilla. #6 (@gurgeous)
+- man page & shell completions #7 #10 (@gurgeous)
 
 #### 0.0.2 (Mar '26)
 
@@ -95,3 +100,4 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 - [termbg](https://github.com/dalance/termbg) and [termenv](https://github.com/muesli/termenv) for showing how to safely detect the terminal background color. These libraries are widely used for Rust/Go, but as far as I know nothing similar exists for Zig.
 - I copied the header color themes from [tabiew](https://github.com/shshemi/tabiew). Great project!
+- Border styles pinched from [nushell](https://www.nushell.sh) and [tabled](https://github.com/zhiburt/tabled) crate. Thanks guys!

@@ -2,12 +2,20 @@
 compdef _tennis tennis
 
 _tennis() {
+  local -a borders
+  borders=(
+    ascii_rounded basic basic_compact compact compact_double dots double heavy
+    light markdown none psql reinforced restructured rounded single thin
+    with_love
+  )
+
   # -s "Enable option stacking for single-letter options"
   _arguments -s \
     '(-d --delimiter)'{-d,--delimiter}'[set field delimiter]:delimiter:(tab , \; \|)' \
     '(-n --row-numbers)'{-n,--row-numbers}'[turn on row numbers]' \
     '(-t --title)'{-t,--title}'[add a title to the table]:title:' \
     '(-w --width)'{-w,--width}'[set max table width in chars]:width:' \
+    "--border[select table border style]:border:(${(j: :)borders})" \
     '--color[turn color off and on]:color:(on off auto)' \
     '--digits[digits after decimal for float columns]:digits:(1 2 3 4 5 6)' \
     '--theme[select color theme]:theme:(auto dark light)' \

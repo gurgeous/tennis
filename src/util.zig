@@ -90,6 +90,25 @@ pub fn strip(comptime T: type, slice: []const T) []const T {
     return std.mem.trim(T, slice, &whitespace);
 }
 
+// write text truncated to width, using an ellipsis when needed
+pub fn truncate(writer: *std.Io.Writer, text: []const u8, stop: usize) !void {
+    if (stop == 0) return;
+
+    var it = std.unicode.Utf8View.init(text) catch {
+        try writer.writeAll(text[0..@min(text.len, stop)]);
+        return;
+    };
+    var iter = it.iterator();
+
+    var used: usize = 0;
+    while (iter.nextCodepointSlice()) |cp_slice| {
+        if (used + 1 >= stop) break;
+        try writer.writeAll(cp_slice);
+        used += 1;
+    }
+    try writer.writeAll("…");
+}
+
 //
 // misc
 //
@@ -175,6 +194,22 @@ test "readByte" {
 
 test "strip" {
     try std.testing.expectEqualStrings("abc", strip(u8, " \t abc\r\n"));
+}
+
+test "truncate" {
+    var buf: [256]u8 = undefined;
+    var writer = std.Io.Writer.fixed(&buf);
+
+    try truncate(&writer, "this is too long", 8);
+    try std.testing.expectEqualStrings("this is…", writer.buffered());
+    writer.end = 0;
+
+    try truncate(&writer, "éééé", 3);
+    try std.testing.expectEqualStrings("éé…", writer.buffered());
+    writer.end = 0;
+
+    try truncate(&writer, "abcdef", 0);
+    try std.testing.expectEqualStrings("", writer.buffered());
 }
 
 test "sum" {

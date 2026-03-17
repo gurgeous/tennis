@@ -50,6 +50,9 @@ $ tennis diamonds.csv
 	Set the maximum table width in characters. By default, *tennis* uses the
 	current terminal width or *80* if it can't be detected.
 
+*--border* <border>
+	Select the table border style. The default is *rounded*.
+
 *--color* <color>
 	Control color output. Valid values: *on*, *off*, *auto*. The default is
 	*on*. Also honors *NO_COLOR* and *FORCE_COLOR*.
@@ -65,6 +68,15 @@ $ tennis diamonds.csv
 *--vanilla*
 	Disable type inference and numeric formatting.
 
+# BORDERS
+
+Border names are adapted from Nushell table themes, which in turn build on the
+*tabled* crate:
+
+*ascii_rounded*, *basic*, *basic_compact*, *compact*, *compact_double*,
+*dots*, *double*, *heavy*, *light*, *markdown*, *none*, *psql*,
+*reinforced*, *restructured*, *rounded*, *single*, *thin*, *with_love*
+
 # EXAMPLES
 
 Render with row numbers and a title:
@@ -78,6 +90,10 @@ Read from standard input:
 Disable colors and numeric formatting:
 
 	$ tennis --color off --vanilla diamonds.csv
+
+Render with a different border:
+
+	$ tennis --border dots diamonds.csv
 
 Render a tab-delimited file:
 
