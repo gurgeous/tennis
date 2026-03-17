@@ -18,7 +18,7 @@ $ brew install gurgeous/tap/tennis
 
 #### Linux tarball
 
-Download from https://github.com/gurgeous/tennis/releases, then mv the bin into your $PATH
+Download a binary from https://github.com/gurgeous/tennis/releases. Copy into your path somewhere. I like to use ~/.local/bin personally. Also see the (optional) bash/zsh completions and man page in `extra/`.
 
 #### Build from source
 
