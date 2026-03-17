@@ -44,7 +44,7 @@ goreleaser-preview: check
 # hygiene
 #
 
-check: lint lint-imports build test bats scdoc
+check: lint lint-imports build test bats
   just banner "✓ check ✓"
 
 bats: build
@@ -66,16 +66,9 @@ lint-imports:
   bash bin/lint-imports
   just banner "✓ lint-imports ✓"
 
-man: scdoc
+man:
+  scdoc < extra/tennis.scd > extra/tennis.1
   man -l extra/tennis.1
-
-scdoc:
-  if command -v scdoc >/dev/null 2>&1 ; then \
-    scdoc < extra/tennis.scd > extra/tennis.1 && \
-    just banner "✓ scdoc ✓" ; \
-  else \
-    just warning "skipping scdoc (not installed)" ; \
-  fi
 
 readme:
   glow --pager README.md
