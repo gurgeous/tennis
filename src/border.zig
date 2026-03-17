@@ -135,13 +135,23 @@ const specimens = struct {
 
 // Main parsed border type consumed by render.
 //
-//   top
-// left A mid B mid C right
-//   header
-// left D mid E mid F right
-//   row
-// left G mid H mid I right
-//   bottom
+//                              ↙ top rule
+//   ┌────────┬────────┬───────┐
+//   │ fruit  │ color  │ qty   │
+//   ├────────┼────────┼───────┤  <- header rule
+//   │ apple  │ red    │ 12    │
+//   ├────────┼────────┼───────┤  <- row rule
+//   │ pear   │ green  │  3    │
+//   ├────────┼────────┼───────┤  <- row rule
+//   ↑        ↑        ↑       ↑
+// left      mid      mid    right
+//   ...........................
+//   ├────────┼────────┼───────┤  <- row rule
+//   │ plum   │ purple │ 27    │
+//   └────────┴────────┴───────┘
+//                               ↖ bottom rule
+//
+
 pub const Border = struct {
     top: BorderRule, // top rule above the title/header area
     header: BorderRule, // rule between title/header and data
