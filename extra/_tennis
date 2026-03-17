@@ -18,7 +18,7 @@ _tennis() {
     '--vanilla[Disable numeric formatting entirely]' \
     '--help[Get help]' \
     '--version[Show version number and exit]' \
-    '*:file:_files'
+    '*:file:_files -g "*.csv(-.)" "*(-/)"'
 }
 
 if [ "$funcstack[1]" = "_tennis" ]; then

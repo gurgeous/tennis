@@ -38,6 +38,7 @@ fn writeBash(alloc: std.mem.Allocator, writer: anytype, options: Options) !void 
         \\  _init_completion || return
         \\
         \\  case "${prev}" in
+        \\
     );
 
     for (options.items[0..options.len]) |opt| {
@@ -102,7 +103,7 @@ fn writeZsh(alloc: std.mem.Allocator, writer: anytype, options: Options) !void {
     }
 
     try writer.writeAll(
-        \\    '*:file:_files'
+        \\    '*:file:_files -g "*.csv(-.)" "*(-/)"'
         \\}
         \\
         \\if [ "$funcstack[1]" = "_tennis" ]; then

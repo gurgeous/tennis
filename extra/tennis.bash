@@ -4,7 +4,8 @@ _tennis() {
   local cur prev
   _init_completion || return
 
-  case "${prev}" in    -d|--delimiter) COMPREPLY=($(compgen -W ", ; | tab" -- "${cur}")) ; return ;;
+  case "${prev}" in
+    -d|--delimiter) COMPREPLY=($(compgen -W ", ; | tab" -- "${cur}")) ; return ;;
     -t|--title) COMPREPLY=() ; return ;;
     -w|--width) COMPREPLY=() ; return ;;
     --border) COMPREPLY=($(compgen -W "ascii_rounded basic basic_compact compact compact_double dots double heavy light markdown none psql reinforced restructured rounded single thin with_love" -- "${cur}")) ; return ;;

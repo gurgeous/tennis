@@ -61,8 +61,10 @@ clean-weekly:
   fi
 
 completions: build
-  ./zig-out/bin/tennis --completion bash > extra/tennis.bash
-  ./zig-out/bin/tennis --completion zsh > extra/_tennis
+  just run --completion bash > extra/tennis.bash
+  just run --completion zsh > extra/_tennis
+  just banner "completion diffs, if any..."
+  git --no-pager diff -- extra/tennis.bash extra/_tennis
   just banner "✓ completions ✓"
 
 fmt:
