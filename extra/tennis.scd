@@ -8,7 +8,7 @@ https://github.com/gurgeous/tennis
 
 # SYNOPSIS
 
-*tennis* [_options..._] <file.csv>
+*tennis* [_options..._] <file.csv>     # print file.csv
 
 # DESCRIPTION
 

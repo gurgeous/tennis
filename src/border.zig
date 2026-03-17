@@ -106,6 +106,8 @@ const specimens = struct {
         \\G H I
         \\= = =
     ;
+
+    // note: default
     const rounded =
         \\╭─┬─┬─╮
         \\│A│B│C│
