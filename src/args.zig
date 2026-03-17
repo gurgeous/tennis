@@ -2,23 +2,25 @@
 // parse cli args into an Args struct
 //
 
+pub const CompletionShell = enum { bash, zsh };
+
 pub const help =
     \\ Usage: tennis [options...] <file.csv>     # print file.csv
     \\        tennis [options...]                # print csv from stdin
     \\
-    \\  -d, --delimiter <char>   CSV delim (can be any char or "tab")
-    \\  -n, --row-numbers        Turn on row numbers
-    \\  -t, --title <string>     Add a title to the table
-    \\  -w, --width <int>        Set max table width in chars
+    \\  -d, --delimiter <char>    CSV delim (can be any char or "tab")
+    \\  -n, --row-numbers         Turn on row numbers
+    \\  -t, --title <string>      Add a title to the table
+    \\  -w, --width <int>         Set max table width in chars
     \\
-    \\      --border <border>    Table border style (rounded|thin|double|...)
-    \\      --color <color>      Turn color off and on (on|off|auto)
-    \\      --completion <shell> Print a shell completion script (bash|zsh)
-    \\      --digits <int>       Digits after decimal for float columns (1-6)
-    \\      --theme <theme>      Select color theme (auto|dark|light)
-    \\      --vanilla            Disable numeric formatting entirely
-    \\      --help               Get help
-    \\      --version            Show version number and exit
+    \\      --border <border>     Table border style (rounded|thin|double|...)
+    \\      --color <color>       Turn color off and on (on|off|auto)
+    \\      --completion <shell>  Print a shell completion script (bash|zsh)
+    \\      --digits <int>        Digits after decimal for float columns (1-6)
+    \\      --theme <theme>       Select color theme (auto|dark|light)
+    \\      --vanilla             Disable numeric formatting entirely
+    \\      --help                Get help
+    \\      --version             Show version number and exit
     \\
 ;
 
@@ -46,7 +48,7 @@ pub const Args = struct {
         .COLOR = clap.parsers.enumeration(types.Color),
         .FILE = clap.parsers.string,
         .INT = clap.parsers.int(usize, 10),
-        .SHELL = clap.parsers.enumeration(completion.Shell),
+        .SHELL = clap.parsers.enumeration(CompletionShell),
         .STRING = clap.parsers.string,
         .THEME = clap.parsers.enumeration(types.Theme),
     };
@@ -60,7 +62,7 @@ pub const Args = struct {
 
     // state
     action: ?Action = null,
-    completion: ?completion.Shell = null,
+    completion: ?CompletionShell = null,
     config: types.Config = .{},
     filename: ?[]const u8 = null,
     err_str: ?[]const u8 = null,
@@ -247,7 +249,7 @@ test "parse parses completion option" {
         "zsh",
     }, &diag);
     try std.testing.expectEqual(Action.completion, out.action.?);
-    try std.testing.expectEqual(completion.Shell.zsh, out.completion.?);
+    try std.testing.expectEqual(CompletionShell.zsh, out.completion.?);
 }
 
 test "parse parses short delimiter option" {
@@ -436,7 +438,6 @@ test "init sets fatal action for missing file" {
 const border = @import("border.zig");
 const builtin = @import("builtin");
 const clap = @import("clap");
-const completion = @import("completion.zig");
 const std = @import("std");
 const types = @import("types.zig");
 const util = @import("util.zig");
