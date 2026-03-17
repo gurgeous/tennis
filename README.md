@@ -85,13 +85,14 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 #### 0.0.4 (unreleased)
 
-- Configurable `--border` styles based on Nushell / `tabled` crate. (@gurgeous)
+- `--border` styles based on Nushell / `tabled` crate.
+- `--completion` for auto-generating bash/zsh completions
 
 #### 0.0.3 (Mar '26)
 
 - Custom `--delimiter` for tsv, semicolon, etc. #5 (@markhm)
-- Auto numeric formatting, including delims and rounding for int/float columns. Disable with --vanilla. #6 (@gurgeous)
-- man page & shell completions #7 #10 (@gurgeous)
+- Auto numeric formatting, including delims and rounding for int/float columns. Disable with --vanilla.
+- man page & shell completions
 
 #### 0.0.2 (Mar '26)
 
