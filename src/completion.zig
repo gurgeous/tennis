@@ -14,44 +14,6 @@ const Options = struct {
     len: usize,
 };
 
-//
-// templates
-//
-
-const body_marker = "<BODY>";
-
-const bash_template =
-    \\declare -F _init_completion >/dev/null || return 2>/dev/null
-    \\
-    \\_tennis() {
-    \\  local cur prev
-    \\  _init_completion || return
-    \\
-    \\  case "${prev}" in
-    \\    <BODY>
-    \\}
-    \\
-    \\complete -F _tennis tennis
-    \\
-;
-
-const zsh_template =
-    \\#compdef tennis
-    \\compdef _tennis tennis
-    \\
-    \\_tennis() {
-    \\  # -s "Enable option stacking for single-letter options"
-    \\  _arguments -s \
-    \\    <BODY>
-    \\    '*:file:_files -g "*.csv(-.)" "*(-/)"'
-    \\}
-    \\
-    \\if [ "$funcstack[1]" = "_tennis" ]; then
-    \\  _tennis
-    \\fi
-    \\
-;
-
 // main entry point
 pub fn write(alloc: std.mem.Allocator, shell: args.CompletionShell) !void {
     const options = parseOptions();
@@ -67,25 +29,32 @@ pub fn write(alloc: std.mem.Allocator, shell: args.CompletionShell) !void {
 }
 
 fn writeBash(alloc: std.mem.Allocator, writer: anytype, options: Options) !void {
-    var body: std.ArrayList(u8) = .empty;
-    defer body.deinit(alloc);
-    var body_writer = body.writer(alloc);
+    _ = alloc;
+    try writer.writeAll(
+        \\declare -F _init_completion >/dev/null || return 2>/dev/null
+        \\
+        \\_tennis() {
+        \\  local cur prev
+        \\  _init_completion || return
+        \\
+        \\  case "${prev}" in
+    );
 
     for (options.items[0..options.len]) |opt| {
         if (opt.value_name == null) continue;
         const values = valuesFor(.bash, opt.long);
 
-        try body_writer.writeAll("    ");
-        try writeBashPattern(&body_writer, opt);
+        try writer.writeAll("    ");
+        try writePattern(writer, opt);
 
         if (values) |v| {
-            try body_writer.print(") COMPREPLY=($(compgen -W \"{s}\" -- \"${{cur}}\")) ; return ;;\n", .{v});
+            try writer.print(") COMPREPLY=($(compgen -W \"{s}\" -- \"${{cur}}\")) ; return ;;\n", .{v});
         } else {
-            try body_writer.writeAll(") COMPREPLY=() ; return ;;\n");
+            try writer.writeAll(") COMPREPLY=() ; return ;;\n");
         }
     }
 
-    try body_writer.writeAll(
+    try writer.writeAll(
         \\  esac
         \\
         \\  if [[ "${cur}" == -* ]]; then
@@ -93,62 +62,75 @@ fn writeBash(alloc: std.mem.Allocator, writer: anytype, options: Options) !void 
     );
 
     for (options.items[0..options.len]) |opt| {
-        if (opt.short) |short| try body_writer.print("{s} ", .{short});
-        try body_writer.writeAll(opt.long);
-        try body_writer.writeByte(' ');
+        if (opt.short) |short| try writer.print("{s} ", .{short});
+        try writer.writeAll(opt.long);
+        try writer.writeByte(' ');
     }
 
-    try body_writer.writeAll(
-        \\\"-- "${cur}"))
+    try writer.writeAll(
+        \\" -- "${cur}"))
         \\  else
         \\    _filedir csv
         \\    [[ ${#COMPREPLY[@]} -eq 0 ]] && _filedir
         \\  fi
+        \\}
+        \\
+        \\complete -F _tennis tennis
+        \\
     );
-    try writeWithMarker(writer, bash_template, body.items);
 }
 
 fn writeZsh(alloc: std.mem.Allocator, writer: anytype, options: Options) !void {
-    var body: std.ArrayList(u8) = .empty;
-    defer body.deinit(alloc);
-    var body_writer = body.writer(alloc);
+    _ = alloc;
+    try writer.writeAll(
+        \\#compdef tennis
+        \\compdef _tennis tennis
+        \\
+        \\_tennis() {
+        \\  local cur prev
+        \\  cur="${words[CURRENT]}"
+        \\  prev="${words[CURRENT-1]}"
+        \\
+        \\  case "${prev}" in
+    );
 
     for (options.items[0..options.len]) |opt| {
         const values = valuesFor(.zsh, opt.long);
-        const value_label = if (opt.value_name) |str| std.mem.trim(u8, str, "<>") else null;
-
-        if (opt.short) |short| {
-            try body_writer.print("    '({s} {s})'{{{s},{s}}}'[{s}]'", .{
-                short,
-                opt.long,
-                short,
-                opt.long,
-                opt.desc,
-            });
-        } else {
-            try body_writer.print("    '{s}[{s}]'", .{ opt.long, opt.desc });
+        if (opt.value_name == null) continue;
+        try writer.writeAll("    ");
+        try writePattern(writer, opt);
+        try writer.writeAll(") compadd -- ");
+        if (values) |v| {
+            try writeZshValues(writer, v);
         }
-
-        if (value_label) |label| {
-            try body_writer.print(":{s}", .{label});
-            if (values) |v| {
-                try body_writer.print(":({s})", .{v});
-            } else {
-                try body_writer.writeByte(':');
-            }
-        }
-
-        try body_writer.writeAll(" \\\n");
+        try writer.writeAll(" ; return ;;\n");
     }
 
-    try writeWithMarker(writer, zsh_template, body.items);
-}
+    try writer.writeAll(
+        \\  esac
+        \\
+        \\  if [[ "${cur}" == -* ]]; then
+        \\    compadd -- 
+    );
 
-fn writeWithMarker(writer: anytype, template: []const u8, body: []const u8) !void {
-    const marker = std.mem.indexOf(u8, template, body_marker).?;
-    try writer.writeAll(template[0..marker]);
-    try writer.writeAll(util.strip(u8, body));
-    try writer.writeAll(template[marker + body_marker.len ..]);
+    for (options.items[0..options.len]) |opt| {
+        if (opt.short) |short| try writer.print("{s} ", .{short});
+        try writer.writeAll(opt.long);
+        try writer.writeByte(' ');
+    }
+
+    try writer.writeAll(
+        \\
+        \\  else
+        \\    _files -g "*.csv(-.)" "*(-/)"
+        \\  fi
+        \\}
+        \\
+        \\if [ "$funcstack[1]" = "_tennis" ]; then
+        \\  _tennis
+        \\fi
+        \\
+    );
 }
 
 // Parse all option rows out of args.help into short/long/value/description pieces.
@@ -203,11 +185,24 @@ fn valuesFor(shell: args.CompletionShell, long: []const u8) ?[]const u8 {
     return null;
 }
 
-fn writeBashPattern(writer: anytype, opt: Option) !void {
+fn writePattern(writer: anytype, opt: Option) !void {
     if (opt.short) |short| {
         try writer.print("{s}|{s}", .{ short, opt.long });
     } else {
         try writer.writeAll(opt.long);
+    }
+}
+
+fn writeZshValues(writer: anytype, values: []const u8) !void {
+    var it = std.mem.tokenizeScalar(u8, values, ' ');
+    while (it.next()) |value| {
+        if (std.mem.eql(u8, value, ";")) {
+            try writer.writeAll("';' ");
+        } else if (std.mem.eql(u8, value, "|")) {
+            try writer.writeAll("'|' ");
+        } else {
+            try writer.print("{s} ", .{value});
+        }
     }
 }
 
@@ -237,7 +232,7 @@ test "writes bash completion" {
 test "writes zsh completion" {
     const out = try renderForTest(std.testing.allocator, .zsh);
     defer std.testing.allocator.free(out);
-    try std.testing.expect(std.mem.indexOf(u8, out, "--completion[Print a shell completion script") != null);
+    try std.testing.expect(std.mem.indexOf(u8, out, "compadd -- bash zsh") != null);
 }
 
 fn renderForTest(alloc: std.mem.Allocator, shell: args.CompletionShell) ![]u8 {
@@ -257,4 +252,3 @@ const args = @import("args.zig");
 const border = @import("border.zig");
 const std = @import("std");
 const types = @import("types.zig");
-const util = @import("util.zig");

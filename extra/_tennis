@@ -2,21 +2,25 @@
 compdef _tennis tennis
 
 _tennis() {
-  # -s "Enable option stacking for single-letter options"
-  _arguments -s \
-    '(-d --delimiter)'{-d,--delimiter}'[CSV delim (can be any char or "tab")]':char:(tab , \; \|) \
-    '(-n --row-numbers)'{-n,--row-numbers}'[Turn on row numbers]' \
-    '(-t --title)'{-t,--title}'[Add a title to the table]':string: \
-    '(-w --width)'{-w,--width}'[Set max table width in chars]':int: \
-    '--border[Table border style (rounded|thin|double|...)]':border:(ascii_rounded basic basic_compact compact compact_double dots double heavy light markdown none psql reinforced restructured rounded single thin with_love) \
-    '--color[Turn color off and on (on|off|auto)]':color:(auto off on) \
-    '--completion[Print a shell completion script (bash|zsh)]':shell:(bash zsh) \
-    '--digits[Digits after decimal for float columns (1-6)]':int:(1 2 3 4 5 6) \
-    '--theme[Select color theme (auto|dark|light)]':theme:(auto dark light) \
-    '--vanilla[Disable numeric formatting entirely]' \
-    '--help[Get help]' \
-    '--version[Show version number and exit]' \
-    '*:file:_files -g "*.csv(-.)" "*(-/)"'
+  local cur prev
+  cur="${words[CURRENT]}"
+  prev="${words[CURRENT-1]}"
+
+  case "${prev}" in    -d|--delimiter) compadd -- tab , \; \|  ; return ;;
+    -t|--title) compadd --  ; return ;;
+    -w|--width) compadd --  ; return ;;
+    --border) compadd -- ascii_rounded basic basic_compact compact compact_double dots double heavy light markdown none psql reinforced restructured rounded single thin with_love  ; return ;;
+    --color) compadd -- auto off on  ; return ;;
+    --completion) compadd -- bash zsh  ; return ;;
+    --digits) compadd -- 1 2 3 4 5 6  ; return ;;
+    --theme) compadd -- auto dark light  ; return ;;
+  esac
+
+  if [[ "${cur}" == -* ]]; then
+    compadd -- -d --delimiter -n --row-numbers -t --title -w --width --border --color --completion --digits --theme --vanilla --help --version 
+  else
+    _files -g "*.csv(-.)" "*(-/)"
+  fi
 }
 
 if [ "$funcstack[1]" = "_tennis" ]; then
