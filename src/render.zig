@@ -3,7 +3,7 @@ const placeholder = "—";
 const Align = enum { left, center, right };
 
 pub const Render = struct {
-    border: border.BorderStyle,
+    border: border.Border,
     table: *Table,
     writer: *std.Io.Writer,
     layout: Layout,
@@ -44,24 +44,24 @@ pub const Render = struct {
         if (self.border.bottom != .none) try self.renderSep(self.border.bottom, self.layout.widths);
     }
 
-    fn renderSep(self: *Render, line: border.BorderLine, widths: []const usize) !void {
+    fn renderSep(self: *Render, rule: border.BorderRule, widths: []const usize) !void {
         const out = &self.buf.writer;
         const style = self.table.style();
         if (style.chrome.len > 0) try out.writeAll(style.chrome);
-        switch (line) {
+        switch (rule) {
             .none => {},
-            .continuous => |rule| {
-                try out.writeAll(rule.left);
+            .continuous => |r| {
+                try out.writeAll(r.left);
                 const total_width = util.sum(usize, widths) + 2 * widths.len + util.displayWidth(self.border.mid) * (widths.len -| 1);
-                for (0..total_width) |_| try out.writeAll(rule.fill);
-                try out.writeAll(rule.right);
+                for (0..total_width) |_| try out.writeAll(r.fill);
+                try out.writeAll(r.right);
             },
-            .segmented => |rule| {
+            .segmented => |r| {
                 for (widths, 0..) |width, ii| {
-                    try out.writeAll(if (ii == 0) rule.left else rule.mid);
-                    for (0..width + 2) |_| try out.writeAll(rule.fill);
+                    try out.writeAll(if (ii == 0) r.left else r.mid);
+                    for (0..width + 2) |_| try out.writeAll(r.fill);
                 }
-                try out.writeAll(rule.right);
+                try out.writeAll(r.right);
             },
         }
         if (style.chrome.len > 0) try out.writeAll(ansi.reset);

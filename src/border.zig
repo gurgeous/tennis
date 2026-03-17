@@ -1,19 +1,12 @@
-// Prototype border model.
-//
-// The specimen constants below are adapted from Nushell table themes, which in
-// turn are built on the `tabled` crate's style system. This file is only an
-// experiment: it does not plug into render.zig yet.
+// The borders below are adapted from Nushell table themes, which in turn are
+// built on the `tabled` crate's style system. THANKS GUYS
 //
 // Unsupported on purpose:
 // - with_love
-// - default as a separate name, since Nushell's current default is the same as rounded
 //
-// Each specimen is a tiny canonical table with 3 columns and 2 rows. The
-// cells are width-1 (`A`..`I`) so the parser can infer separators directly
-// from the visible border sample instead of from a hand-built struct.
 
+// Each "specimen" is a tiny canonical table, which we parse below
 const specimens = struct {
-    // Canonical border samples adapted from Nushell/tabled themes.
     const ascii_rounded =
         \\.-----.
         \\|A|B|C|
@@ -140,7 +133,26 @@ const specimens = struct {
     ;
 };
 
-// Public border names exposed through CLI/config.
+// Main parsed border type consumed by render.
+//
+//   top
+// left A mid B mid C right
+//   header
+// left D mid E mid F right
+//   row
+// left G mid H mid I right
+//   bottom
+pub const Border = struct {
+    top: BorderRule, // top rule above the title/header area
+    header: BorderRule, // rule between title/header and data
+    row: BorderRule, // optional rule between data rows
+    bottom: BorderRule, // bottom rule closing the table
+    left: []const u8, // left edge prefix for content rows
+    mid: []const u8, // separator between adjacent cells
+    right: []const u8, // right edge suffix for content rows
+};
+
+// Border names for CLI
 pub const BorderName = enum {
     ascii_rounded,
     basic,
@@ -162,29 +174,40 @@ pub const BorderName = enum {
 };
 
 // Parsed horizontal separator line.
-pub const BorderLine = union(enum) {
+pub const BorderRule = union(enum) {
     none,
-    continuous: ContinuousLine,
-    segmented: SegmentedLine,
+
+    // Continuous horizontal rule like `────` or `.....`.
+    continuous: struct {
+        left: []const u8,
+        fill: []const u8,
+        right: []const u8,
+    },
+
+    // Segmented horizontal rule like `├─┼─┤`.
+    segmented: struct {
+        left: []const u8,
+        fill: []const u8,
+        mid: []const u8,
+        right: []const u8,
+    },
 };
 
-// Parsed border style consumed by render.
-pub const BorderStyle = struct {
-    top: BorderLine,
-    header: BorderLine,
-    row: BorderLine,
-    bottom: BorderLine,
-    left: []const u8,
-    mid: []const u8,
-    right: []const u8,
+// UTF-8 glyph span within a specimen line.
+const Glyph = struct {
+    start: usize,
+    end: usize,
 };
 
-pub fn getBorder(border: BorderName) BorderStyle {
-    return parseSpecimen(specimen(border));
-}
+// Split specimen lines with a fixed small maximum.
+const Specimen = struct {
+    items: [7][]const u8,
+    len: usize,
+};
 
-fn specimen(border: BorderName) []const u8 {
-    return switch (border) {
+// Convert a named border into the parsed border representation used by render.
+pub fn getBorder(border: BorderName) Border {
+    const input = switch (border) {
         .ascii_rounded => specimens.ascii_rounded,
         .basic => specimens.basic,
         .basic_compact => specimens.basic_compact,
@@ -203,13 +226,15 @@ fn specimen(border: BorderName) []const u8 {
         .single => specimens.single,
         .thin => specimens.thin,
     };
+    return parseSpecimen(input);
 }
 
-fn parseSpecimen(input: []const u8) BorderStyle {
+// Parse a canonical specimen into the normalized border type.
+fn parseSpecimen(input: []const u8) Border {
     const lines = splitLines(input);
-    const header_index = findLine(lines, "A", "B", "C");
-    const first_row_index = findLine(lines, "D", "E", "F");
-    const second_row_index = findLine(lines, "G", "H", "I");
+    const header_index = findLine(lines, 'A');
+    const first_row_index = findLine(lines, 'D');
+    const second_row_index = findLine(lines, 'G');
     const row_style = parseRow(lines.items[header_index]);
 
     return .{
@@ -223,7 +248,8 @@ fn parseSpecimen(input: []const u8) BorderStyle {
     };
 }
 
-fn parseRow(line: []const u8) BorderStyle {
+// Parse the content row to infer the left, middle, and right separators.
+fn parseRow(line: []const u8) Border {
     const a = std.mem.indexOfScalar(u8, line, 'A').?;
     const b = std.mem.indexOfScalar(u8, line, 'B').?;
     const c = std.mem.indexOfScalar(u8, line, 'C').?;
@@ -245,7 +271,7 @@ fn parseRow(line: []const u8) BorderStyle {
 // Parse a horizontal rule by using the inferred row separators as the guide.
 // If the middle slots match the fill char, this is a continuous rule like
 // `─────` or `.-----.`; otherwise it is segmented like `├─┼─┼─┤`.
-fn parseRule(line: []const u8, row_style: BorderStyle) BorderLine {
+fn parseRule(line: []const u8, row_style: Border) BorderRule {
     const left_glyphs = glyphCount(row_style.left);
     const mid_glyphs = glyphCount(row_style.mid);
     const right_glyphs = glyphCount(row_style.right);
@@ -281,7 +307,8 @@ fn parseRule(line: []const u8, row_style: BorderStyle) BorderLine {
     } };
 }
 
-fn splitLines(input: []const u8) Lines {
+// Split the embedded specimen into physical lines.
+fn splitLines(input: []const u8) Specimen {
     var out: [7][]const u8 = undefined;
     var it = std.mem.splitScalar(u8, input, '\n');
     var n: usize = 0;
@@ -291,18 +318,15 @@ fn splitLines(input: []const u8) Lines {
     return .{ .items = out, .len = n };
 }
 
-fn findLine(lines: Lines, a: []const u8, b: []const u8, c: []const u8) usize {
+// Find the row containing the given specimen marker.
+fn findLine(lines: Specimen, marker: u8) usize {
     for (lines.items[0..lines.len], 0..) |line, ii| {
-        if (std.mem.indexOf(u8, line, a) != null and
-            std.mem.indexOf(u8, line, b) != null and
-            std.mem.indexOf(u8, line, c) != null)
-        {
-            return ii;
-        }
+        if (std.mem.indexOfScalar(u8, line, marker) != null) return ii;
     }
     unreachable;
 }
 
+// Split a UTF-8 string into glyph spans.
 fn splitGlyphs(line: []const u8, out: *[32]Glyph) usize {
     var n: usize = 0;
     var i: usize = 0;
@@ -314,81 +338,21 @@ fn splitGlyphs(line: []const u8, out: *[32]Glyph) usize {
     return n;
 }
 
+// Count UTF-8 glyphs in a line.
 fn glyphCount(line: []const u8) usize {
     var glyphs: [32]Glyph = undefined;
     return splitGlyphs(line, &glyphs);
 }
 
+// Slice a line by glyph positions instead of byte offsets.
 fn glyphRange(line: []const u8, glyphs: []const Glyph, start: usize, end: usize) []const u8 {
     if (start == end) return "";
     return line[glyphs[start].start..glyphs[end - 1].end];
 }
 
-fn renderRule(buf: []u8, style_: BorderStyle, line: BorderLine) []const u8 {
-    var n: usize = 0;
-    switch (line) {
-        .none => {},
-        .continuous => |rule| {
-            append(buf, &n, rule.left);
-            for (0..3 + 2 * glyphCount(style_.mid)) |_| append(buf, &n, rule.fill);
-            append(buf, &n, rule.right);
-        },
-        .segmented => |rule| {
-            append(buf, &n, rule.left);
-            append(buf, &n, rule.fill);
-            append(buf, &n, rule.mid);
-            append(buf, &n, rule.fill);
-            append(buf, &n, rule.mid);
-            append(buf, &n, rule.fill);
-            append(buf, &n, rule.right);
-        },
-    }
-    return buf[0..n];
-}
-
-fn renderRow(buf: []u8, style_: BorderStyle, a: []const u8, b: []const u8, c: []const u8) []const u8 {
-    var n: usize = 0;
-    append(buf, &n, style_.left);
-    append(buf, &n, a);
-    append(buf, &n, style_.mid);
-    append(buf, &n, b);
-    append(buf, &n, style_.mid);
-    append(buf, &n, c);
-    append(buf, &n, style_.right);
-    return buf[0..n];
-}
-
-fn append(buf: []u8, n: *usize, text: []const u8) void {
-    @memcpy(buf[n.* .. n.* + text.len], text);
-    n.* += text.len;
-}
-
-// Continuous horizontal rule like `────` or `.....`.
-const ContinuousLine = struct {
-    left: []const u8,
-    fill: []const u8,
-    right: []const u8,
-};
-
-// UTF-8 glyph span within a specimen line.
-const Glyph = struct {
-    start: usize,
-    end: usize,
-};
-
-// Split specimen lines with a fixed small maximum.
-const Lines = struct {
-    items: [7][]const u8,
-    len: usize,
-};
-
-// Segmented horizontal rule like `├─┼─┤`.
-const SegmentedLine = struct {
-    left: []const u8,
-    fill: []const u8,
-    mid: []const u8,
-    right: []const u8,
-};
+//
+// tests
+//
 
 test "all supported borders roundtrip through the specimen parser" {
     const cases = [_]BorderName{
@@ -412,7 +376,25 @@ test "all supported borders roundtrip through the specimen parser" {
     };
 
     for (cases) |border| {
-        const want = splitLines(specimen(border));
+        const want = splitLines(switch (border) {
+            .ascii_rounded => specimens.ascii_rounded,
+            .basic => specimens.basic,
+            .basic_compact => specimens.basic_compact,
+            .compact => specimens.compact,
+            .compact_double => specimens.compact_double,
+            .dots => specimens.dots,
+            .double => specimens.double,
+            .heavy => specimens.heavy,
+            .light => specimens.light,
+            .markdown => specimens.markdown,
+            .none => specimens.none,
+            .psql => specimens.psql,
+            .reinforced => specimens.reinforced,
+            .restructured => specimens.restructured,
+            .rounded => specimens.rounded,
+            .single => specimens.single,
+            .thin => specimens.thin,
+        });
         const got = getBorder(border);
 
         var bufs: [7][32]u8 = undefined;
@@ -451,7 +433,11 @@ test "reinforced has a bottom border but no header separator" {
     try std.testing.expect(reinforced.bottom != .none);
 }
 
-fn compactLines(lines: [7][]const u8) Lines {
+//
+// Test-only helpers for specimen roundtrip coverage.
+//
+
+fn compactLines(lines: [7][]const u8) Specimen {
     var out: [7][]const u8 = undefined;
     var n: usize = 0;
     for (lines) |line| {
@@ -460,6 +446,45 @@ fn compactLines(lines: [7][]const u8) Lines {
         n += 1;
     }
     return .{ .items = out, .len = n };
+}
+
+fn renderRule(buf: []u8, style_: Border, line: BorderRule) []const u8 {
+    var n: usize = 0;
+    switch (line) {
+        .none => {},
+        .continuous => |rule| {
+            append(buf, &n, rule.left);
+            for (0..3 + 2 * glyphCount(style_.mid)) |_| append(buf, &n, rule.fill);
+            append(buf, &n, rule.right);
+        },
+        .segmented => |rule| {
+            append(buf, &n, rule.left);
+            append(buf, &n, rule.fill);
+            append(buf, &n, rule.mid);
+            append(buf, &n, rule.fill);
+            append(buf, &n, rule.mid);
+            append(buf, &n, rule.fill);
+            append(buf, &n, rule.right);
+        },
+    }
+    return buf[0..n];
+}
+
+fn renderRow(buf: []u8, style_: Border, a: []const u8, b: []const u8, c: []const u8) []const u8 {
+    var n: usize = 0;
+    append(buf, &n, style_.left);
+    append(buf, &n, a);
+    append(buf, &n, style_.mid);
+    append(buf, &n, b);
+    append(buf, &n, style_.mid);
+    append(buf, &n, c);
+    append(buf, &n, style_.right);
+    return buf[0..n];
+}
+
+fn append(buf: []u8, n: *usize, text: []const u8) void {
+    @memcpy(buf[n.* .. n.* + text.len], text);
+    n.* += text.len;
 }
 
 const std = @import("std");
