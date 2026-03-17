@@ -1,35 +1,6 @@
-//
-// chrome constants
-//
-
-const box = [_][]const u8{
-    "╭─┬─╮", // 0
-    "│ │ │", // 1
-    "├─┼─┤", // 2
-    "╰─┴─╯", // 3
-};
-
-// grab each part of the box to get our cardinal chrome characters
-const nw = boxch(0, 0);
-const n = boxch(0, 2);
-const ne = boxch(0, 4);
-const w = boxch(2, 0);
-const c = boxch(2, 2);
-const e = boxch(2, 4);
-const sw = boxch(3, 0);
-const s = boxch(3, 2);
-const se = boxch(3, 4);
-
-// horizontal/vertical chrome
-const bar = boxch(0, 1);
-const pipe = boxch(1, 0);
 const placeholder = "—";
 
 const Align = enum { left, center, right };
-
-//
-// Render
-//
 
 pub const Render = struct {
     table: *Table,
@@ -50,115 +21,101 @@ pub const Render = struct {
         self.buf.deinit();
     }
 
-    //
-    // main entry point
-    //
-
     pub fn render(self: *Render) !void {
+        const border_style = self.borderStyle();
         if (self.table.isEmpty()) {
-            return self.renderEmpty();
+            return self.renderEmpty(border_style);
         }
 
+        if (border_style.top != .none) try self.renderSep(border_style.top, self.layout.widths);
         if (self.table.config.title.len > 0) {
-            try self.renderSep(nw, bar, ne, bar);
-            try self.renderTitle();
-            try self.renderSep(w, bar, e, n);
-        } else {
-            try self.renderSep(nw, bar, ne, n);
+            try self.renderTitle(border_style);
+            if (border_style.header != .none) try self.renderSep(border_style.header, self.layout.widths);
         }
-        try self.renderHeaders();
-        try self.renderSep(w, bar, e, c);
+        try self.renderHeaders(border_style);
+        if (border_style.header != .none) try self.renderSep(border_style.header, self.layout.widths);
         for (0..self.table.nrows()) |row_index| {
-            try self.renderRow(row_index);
+            try self.renderRow(border_style, row_index);
+            if (row_index + 1 < self.table.nrows() and border_style.row != .none) {
+                try self.renderSep(border_style.row, self.layout.widths);
+            }
         }
-        try self.renderSep(sw, bar, se, s);
+        if (border_style.bottom != .none) try self.renderSep(border_style.bottom, self.layout.widths);
     }
 
-    //
-    // render a separator line with these border chars
-    //
-
-    fn renderSep(self: *Render, left: []const u8, line: []const u8, right: []const u8, middle: []const u8) !void {
+    fn renderSep(self: *Render, line: borders.BorderLine, widths: []const usize) !void {
         const out = &self.buf.writer;
         const style = self.table.style();
-        if (style.chrome.len > 0) {
-            try out.writeAll(style.chrome);
+        const border_style = self.borderStyle();
+        if (style.chrome.len > 0) try out.writeAll(style.chrome);
+        switch (line) {
+            .none => {},
+            .continuous => |rule| {
+                try out.writeAll(rule.left);
+                const total_width = util.sum(usize, widths) + 2 * widths.len + util.displayWidth(border_style.mid) * (widths.len -| 1);
+                for (0..total_width) |_| try out.writeAll(rule.fill);
+                try out.writeAll(rule.right);
+            },
+            .segmented => |rule| {
+                for (widths, 0..) |width, ii| {
+                    try out.writeAll(if (ii == 0) rule.left else rule.mid);
+                    for (0..width + 2) |_| try out.writeAll(rule.fill);
+                }
+                try out.writeAll(rule.right);
+            },
         }
-        for (self.layout.widths, 0..) |width, ii| {
-            if (ii == 0) {
-                try out.writeAll(left);
-            } else {
-                try out.writeAll(middle);
-            }
-            for (0..width + 2) |_| try out.writeAll(line);
-        }
-        try out.writeAll(right);
-        if (style.chrome.len > 0) {
-            try out.writeAll(ansi.reset);
-        }
+        if (style.chrome.len > 0) try out.writeAll(ansi.reset);
         try self.newline();
     }
 
-    //
-    // render title line
-    //
-
-    fn renderTitle(self: *Render) !void {
+    fn renderTitle(self: *Render, border_style: borders.BorderStyle) !void {
         const out = &self.buf.writer;
         const style = self.table.style();
-
-        const chrome = 4; // <pipe><space>[...title...]<space><pipe>
+        const chrome = util.displayWidth(border_style.left) + util.displayWidth(border_style.right) + 2;
         const width = self.layout.tableWidth() - chrome;
 
-        try appendStyled(out, style.chrome, pipe);
+        try appendStyled(out, style.chrome, border_style.left);
         try out.writeByte(' ');
         try writeStyledExactly(out, style.title, self.table.config.title, width, .center);
         try out.writeByte(' ');
-        try appendStyled(out, style.chrome, pipe);
+        try appendStyled(out, style.chrome, border_style.right);
         try self.newline();
     }
 
-    //
-    // headers
-    //
-
-    fn renderHeaders(self: *Render) !void {
+    fn renderHeaders(self: *Render, border_style: borders.BorderStyle) !void {
         const out = &self.buf.writer;
         const style = self.table.style();
-        try appendStyled(out, style.chrome, pipe);
+        try appendStyled(out, style.chrome, border_style.left);
 
         var col: usize = 0;
         if (self.table.config.row_numbers) {
-            try self.renderHeaderField(out, &col, "#");
+            try self.renderHeaderField(out, border_style, &col, "#");
         }
         for (self.table.columns) |column| {
-            try self.renderHeaderField(out, &col, column.name);
+            try self.renderHeaderField(out, border_style, &col, column.name);
         }
-
         try self.newline();
     }
 
-    fn renderHeaderField(self: *Render, out: *std.Io.Writer, col: *usize, text: []const u8) !void {
+    fn renderHeaderField(self: *Render, out: *std.Io.Writer, border_style: borders.BorderStyle, col: *usize, text: []const u8) !void {
         const style = self.table.style();
-        try self.renderField(out, style.headers[col.* % style.headers.len], text, col.*, .left);
+        const sep = if (col.* + 1 == self.layout.widths.len) border_style.right else border_style.mid;
+        try self.renderField(out, style.headers[col.* % style.headers.len], text, col.*, sep, .left);
         col.* += 1;
     }
 
-    //
-    // rows
-    //
-
-    fn renderRow(self: *Render, row_index: usize) !void {
+    fn renderRow(self: *Render, border_style: borders.BorderStyle, row_index: usize) !void {
         const out = &self.buf.writer;
         const style = self.table.style();
-        try appendStyled(out, style.chrome, pipe);
+        try appendStyled(out, style.chrome, border_style.left);
 
         const row_no = row_index + 1;
         var col: usize = 0;
         if (self.table.config.row_numbers) {
             var num_buf: [32]u8 = undefined;
             const label = try std.fmt.bufPrint(&num_buf, "{d}", .{row_no});
-            try self.renderField(out, style.chrome, label, col, .right);
+            const sep = if (col + 1 == self.layout.widths.len) border_style.right else border_style.mid;
+            try self.renderField(out, style.chrome, label, col, sep, .right);
             col += 1;
         }
 
@@ -167,57 +124,41 @@ pub const Render = struct {
             const is_placeholder = raw.len == 0;
             const cell_style = if (is_placeholder) style.chrome else style.field;
             const field = if (is_placeholder) placeholder else raw;
+            const sep = if (col + 1 == self.layout.widths.len) border_style.right else border_style.mid;
             const al: Align = switch (column.type) {
                 .int, .float => .right,
                 .string => .left,
             };
-            try self.renderField(out, cell_style, field, col, al);
+            try self.renderField(out, cell_style, field, col, sep, al);
             col += 1;
         }
-
         try self.newline();
     }
 
-    //
-    // empty
-    //
-
-    fn renderEmpty(self: *Render) !void {
+    fn renderEmpty(self: *Render, border_style: borders.BorderStyle) !void {
         const style = self.table.style();
         const title = "empty table";
         const body = "no data";
         const width = @max(util.displayWidth(title), util.displayWidth(body));
+        const widths = [_]usize{width};
 
-        try self.renderEmptySep(nw, bar, ne, width);
-        try self.renderEmptyRow(style.title, title, width);
-        try self.renderEmptySep(w, bar, e, width);
-        try self.renderEmptyRow(style.field, body, width);
-        try self.renderEmptySep(sw, bar, se, width);
+        if (border_style.top != .none) try self.renderSep(border_style.top, &widths);
+        try self.renderEmptyRow(border_style, style.title, title, width);
+        if (border_style.header != .none) try self.renderSep(border_style.header, &widths);
+        try self.renderEmptyRow(border_style, style.field, body, width);
+        if (border_style.bottom != .none) try self.renderSep(border_style.bottom, &widths);
     }
 
-    fn renderEmptySep(self: *Render, left: []const u8, line: []const u8, right: []const u8, width: usize) !void {
+    fn renderEmptyRow(self: *Render, border_style: borders.BorderStyle, text_style: []const u8, text: []const u8, width: usize) !void {
         const out = &self.buf.writer;
         const style = self.table.style();
-        try appendStyled(out, style.chrome, left);
-        for (0..width + 2) |_| try appendStyled(out, style.chrome, line);
-        try appendStyled(out, style.chrome, right);
-        try self.newline();
-    }
-
-    fn renderEmptyRow(self: *Render, text_style: []const u8, text: []const u8, width: usize) !void {
-        const out = &self.buf.writer;
-        const style = self.table.style();
-        try appendStyled(out, style.chrome, pipe);
+        try appendStyled(out, style.chrome, border_style.left);
         try out.writeByte(' ');
         try writeStyledExactly(out, text_style, text, width, .center);
         try out.writeByte(' ');
-        try appendStyled(out, style.chrome, pipe);
+        try appendStyled(out, style.chrome, border_style.right);
         try self.newline();
     }
-
-    //
-    // internal
-    //
 
     fn newline(self: *Render) !void {
         try self.buf.writer.writeByte('\n');
@@ -225,32 +166,18 @@ pub const Render = struct {
         self.buf.clearRetainingCapacity();
     }
 
-    fn renderField(self: *Render, out: *std.Io.Writer, field_style: []const u8, text: []const u8, col: usize, al: Align) !void {
+    fn renderField(self: *Render, out: *std.Io.Writer, field_style: []const u8, text: []const u8, col: usize, sep: []const u8, al: Align) !void {
         const style = self.table.style();
         try out.writeByte(' ');
         try writeStyledExactly(out, field_style, text, self.layout.widths[col], al);
         try out.writeByte(' ');
-        try appendStyled(out, style.chrome, pipe);
+        try appendStyled(out, style.chrome, sep);
+    }
+
+    fn borderStyle(self: *Render) borders.BorderStyle {
+        return borders.style(self.table.config.border);
     }
 };
-
-//
-// helpers
-//
-
-fn boxch(comptime row: usize, comptime col: usize) []const u8 {
-    comptime {
-        const line = box[row];
-        var i: usize = 0;
-        var start: usize = 0;
-        while (start < line.len) : (i += 1) {
-            const len = std.unicode.utf8ByteSequenceLength(line[start]) catch @compileError("invalid BOX utf8");
-            if (i == col) return line[start .. start + len];
-            start += len;
-        }
-        @compileError("invalid BOX index");
-    }
-}
 
 fn writeExactly(writer: *std.Io.Writer, text: []const u8, width: usize, al: Align) !void {
     const display_width = util.displayWidth(text);
@@ -279,7 +206,6 @@ fn writeExactly(writer: *std.Io.Writer, text: []const u8, width: usize, al: Alig
 
     if (width == 0) return;
 
-    // gotta truncate. note we stop at "used + 1" to leave room for the ellipsis
     var it = std.unicode.Utf8View.init(text) catch {
         try writer.writeAll(text[0..@min(text.len, width)]);
         return;
@@ -306,22 +232,14 @@ fn appendStyled(writer: *std.Io.Writer, codes: []const u8, value: []const u8) !v
 }
 
 fn writeStyledExactly(writer: *std.Io.Writer, codes: []const u8, text: []const u8, width: usize, al: Align) !void {
-    if (codes.len > 0) {
-        try writer.writeAll(codes);
-    }
+    if (codes.len > 0) try writer.writeAll(codes);
     try writeExactly(writer, text, width, al);
-    if (codes.len > 0) {
-        try writer.writeAll(ansi.reset);
-    }
+    if (codes.len > 0) try writer.writeAll(ansi.reset);
 }
 
 fn writeSpaces(writer: *std.Io.Writer, count: usize) !void {
     for (0..count) |_| try writer.writeByte(' ');
 }
-
-//
-// tests
-//
 
 test "writeExactly padding and truncation" {
     var buf: [256]u8 = undefined;
@@ -364,6 +282,30 @@ test "ascii render simple" {
         \\├────┼────┤
         \\│ c  │ d  │
         \\╰────┴────╯
+        \\
+    ;
+    try std.testing.expectEqualStrings(exp, writer.buffered());
+}
+
+test "render basic border" {
+    var test_table: test_support.TestTable = undefined;
+    try test_table.init(std.testing.allocator, "a,b\nc,d\n");
+    defer test_table.deinit();
+    const l = try Layout.init(test_table.table);
+    defer l.deinit(test_table.table.alloc);
+    var buf: [4096]u8 = undefined;
+    var writer = std.Io.Writer.fixed(&buf);
+    test_table.table.config.border = .basic;
+    test_table.table.config.color = .off;
+    var render: Render = .init(test_table.table, &writer, l);
+    try render.render();
+
+    const exp =
+        \\+----+----+
+        \\| a  | b  |
+        \\+----+----+
+        \\| c  | d  |
+        \\+----+----+
         \\
     ;
     try std.testing.expectEqualStrings(exp, writer.buffered());
@@ -462,8 +404,8 @@ test "render headers does not use placeholder for empty header cell" {
 }
 
 const ansi = @import("ansi.zig");
+const borders = @import("borders.zig");
 const Layout = @import("layout.zig").Layout;
-const Row = @import("types.zig").Row;
 const std = @import("std");
 const Table = @import("table.zig").Table;
 const test_support = @import("test_support.zig");

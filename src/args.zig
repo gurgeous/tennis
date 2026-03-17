@@ -4,6 +4,7 @@
 
 pub const Args = struct {
     const params = clap.parseParamsComptime(
+        \\    --border <BORDER>
         \\    --color <COLOR>
         \\    --theme <THEME>
         \\-d, --delimiter <CHAR>
@@ -19,6 +20,7 @@ pub const Args = struct {
 
     // clap parsers
     const parsers = .{
+        .BORDER = clap.parsers.enumeration(types.Border),
         .CHAR = parseChar,
         .COLOR = clap.parsers.enumeration(types.Color),
         .FILE = clap.parsers.string,
@@ -93,6 +95,7 @@ pub const Args = struct {
         //
 
         var config: types.Config = .{};
+        if (res.args.border) |v| config.border = v;
         if (res.args.color) |v| config.color = v;
         if (res.args.delimiter) |v| config.delimiter = v;
         if (res.args.digits) |v| {
@@ -151,6 +154,7 @@ pub const Args = struct {
             \\ Usage: tennis [options...] <file.csv>     # print file.csv
             \\        tennis [options...]                # print csv from stdin
             \\
+            \\      --border <border>   Table border style (rounded|thin|double|...)
             \\  -d, --delimiter <char>  CSV delim (can be any char or "tab")
             \\  -n, --row-numbers       Turn on row numbers
             \\  -t, --title <string>    Add a title to the table
@@ -184,6 +188,8 @@ test "parse args accepts dash positional" {
 test "parse parses options" {
     var diag: clap.Diagnostic = .{};
     const out = try Args.parse(std.testing.allocator, &.{
+        "--border",
+        "double",
         "--color",
         "off",
         "--digits",
@@ -200,6 +206,7 @@ test "parse parses options" {
     }, &diag);
 
     try std.testing.expectEqual(null, out.action);
+    try std.testing.expectEqual(types.Border.double, out.config.border);
     try std.testing.expectEqual(types.Color.off, out.config.color);
     try std.testing.expectEqual(@as(usize, 4), out.config.digits);
     try std.testing.expectEqual(types.Theme.light, out.config.theme);
@@ -218,6 +225,16 @@ test "parse parses delimiter option" {
         "-",
     }, &diag);
     try std.testing.expectEqual(@as(u8, ';'), out.config.delimiter);
+}
+
+test "parse parses border option" {
+    var diag: clap.Diagnostic = .{};
+    const out = try Args.parse(std.testing.allocator, &.{
+        "--border",
+        "compact_double",
+        "-",
+    }, &diag);
+    try std.testing.expectEqual(types.Border.compact_double, out.config.border);
 }
 
 test "parse parses short delimiter option" {
@@ -279,6 +296,14 @@ test "parse rejects old color value never" {
     try std.testing.expectError(error.NameNotPartOfEnum, Args.parse(std.testing.allocator, &.{
         "--color",
         "never",
+    }, &diag));
+}
+
+test "parse rejects invalid border value" {
+    var diag: clap.Diagnostic = .{};
+    try std.testing.expectError(error.NameNotPartOfEnum, Args.parse(std.testing.allocator, &.{
+        "--border",
+        "bogus",
     }, &diag));
 }
 
