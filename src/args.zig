@@ -2,10 +2,33 @@
 // parse cli args into an Args struct
 //
 
+pub const CompletionShell = enum { bash, zsh };
+
 pub const Args = struct {
+    pub const help =
+        \\ Usage: tennis [options...] <file.csv>     # print file.csv
+        \\        tennis [options...]                # print csv from stdin
+        \\
+        \\  -d, --delimiter <char>    CSV delim (can be any char or "tab")
+        \\  -n, --row-numbers         Turn on row numbers
+        \\  -t, --title <string>      Add a title to the table
+        \\  -w, --width <int>         Set max table width in chars
+        \\
+        \\      --border <border>     Table border style (rounded|thin|double|...)
+        \\      --color <color>       Turn color off and on (on|off|auto)
+        \\      --completion <shell>  Print a shell completion script (bash|zsh)
+        \\      --digits <int>        Digits after decimal for float columns (1-6)
+        \\      --theme <theme>       Select color theme (auto|dark|light)
+        \\      --vanilla             Disable numeric formatting entirely
+        \\      --help                Get help
+        \\      --version             Show version number and exit
+        \\
+    ;
+
     const params = clap.parseParamsComptime(
         \\    --border <BORDER>
         \\    --color <COLOR>
+        \\    --completion <SHELL>
         \\    --theme <THEME>
         \\-d, --delimiter <CHAR>
         \\-n, --row-numbers
@@ -25,6 +48,7 @@ pub const Args = struct {
         .COLOR = clap.parsers.enumeration(types.Color),
         .FILE = clap.parsers.string,
         .INT = clap.parsers.int(usize, 10),
+        .SHELL = clap.parsers.enumeration(CompletionShell),
         .STRING = clap.parsers.string,
         .THEME = clap.parsers.enumeration(types.Theme),
     };
@@ -38,6 +62,7 @@ pub const Args = struct {
 
     // state
     action: ?Action = null,
+    completion: ?CompletionShell = null,
     config: types.Config = .{},
     filename: ?[]const u8 = null,
     err_str: ?[]const u8 = null,
@@ -88,6 +113,7 @@ pub const Args = struct {
         //
 
         if (res.args.help > 0) return .{ .action = .help };
+        if (res.args.completion) |shell| return .{ .action = .completion, .completion = shell };
         if (res.args.version > 0) return .{ .action = .version };
 
         //
@@ -148,31 +174,10 @@ pub const Args = struct {
             else => return error.TooManyArguments,
         }
     }
-
-    pub fn writeHelp(writer: *std.Io.Writer) !void {
-        try writer.writeAll(
-            \\ Usage: tennis [options...] <file.csv>     # print file.csv
-            \\        tennis [options...]                # print csv from stdin
-            \\
-            \\  -d, --delimiter <char>  CSV delim (can be any char or "tab")
-            \\  -n, --row-numbers       Turn on row numbers
-            \\  -t, --title <string>    Add a title to the table
-            \\  -w, --width <int>       Set max table width in chars
-            \\
-            \\      --border <border>   Table border style (rounded|thin|double|...)
-            \\      --color <color>     Turn color off and on (on|off|auto)
-            \\      --digits <int>      Digits after decimal for float columns (1-6)
-            \\      --theme <theme>     Select color theme (auto|dark|light)
-            \\      --vanilla           Disable numeric formatting entirely
-            \\      --help              Get help
-            \\      --version           Show version number and exit
-            \\
-        );
-    }
 };
 
 // these are early exits for main. some results in exit 0, some exit 1.
-pub const Action = enum { banner, fatal, help, version };
+pub const Action = enum { banner, completion, fatal, help, version };
 
 //
 // tests
@@ -235,6 +240,16 @@ test "parse parses border option" {
         "-",
     }, &diag);
     try std.testing.expectEqual(border.BorderName.compact_double, out.config.border);
+}
+
+test "parse parses completion option" {
+    var diag: clap.Diagnostic = .{};
+    const out = try Args.parse(std.testing.allocator, &.{
+        "--completion",
+        "zsh",
+    }, &diag);
+    try std.testing.expectEqual(Action.completion, out.action.?);
+    try std.testing.expectEqual(CompletionShell.zsh, out.completion.?);
 }
 
 test "parse parses short delimiter option" {

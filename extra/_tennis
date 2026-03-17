@@ -1,27 +1,23 @@
 #compdef tennis
 compdef _tennis tennis
-
 _tennis() {
-  local -a borders
-  borders=(
-    ascii_rounded basic basic_compact compact compact_double dots double heavy
-    light markdown none psql reinforced restructured rounded single thin
-    with_love
-  )
-
-  # -s "Enable option stacking for single-letter options"
   _arguments -s \
-    '(-d --delimiter)'{-d,--delimiter}'[set field delimiter]:delimiter:(tab , \; \|)' \
-    '(-n --row-numbers)'{-n,--row-numbers}'[turn on row numbers]' \
-    '(-t --title)'{-t,--title}'[add a title to the table]:title:' \
-    '(-w --width)'{-w,--width}'[set max table width in chars]:width:' \
-    "--border[select table border style]:border:(${(j: :)borders})" \
-    '--color[turn color off and on]:color:(on off auto)' \
-    '--digits[digits after decimal for float columns]:digits:(1 2 3 4 5 6)' \
-    '--theme[select color theme]:theme:(auto dark light)' \
-    '--vanilla[disable numeric formatting entirely]' \
-    '--help[get help]' \
-    '--version[show version number]' \
+    '-d[CSV delim (can be any char or "tab")]:char:(tab , \; \|)' \
+    '--delimiter[CSV delim (can be any char or "tab")]:char:(tab , \; \|)' \
+    '-n[Turn on row numbers]' \
+    '--row-numbers[Turn on row numbers]' \
+    '-t[Add a title to the table]:string:' \
+    '--title[Add a title to the table]:string:' \
+    '-w[Set max table width in chars]:int:' \
+    '--width[Set max table width in chars]:int:' \
+    '--border[Table border style (rounded|thin|double|...)]:border:(ascii_rounded basic basic_compact compact compact_double dots double heavy light markdown none psql reinforced restructured rounded single thin with_love)' \
+    '--color[Turn color off and on (on|off|auto)]:color:(auto off on)' \
+    '--completion[Print a shell completion script (bash|zsh)]:shell:(bash zsh)' \
+    '--digits[Digits after decimal for float columns (1-6)]:int:(1 2 3 4 5 6)' \
+    '--theme[Select color theme (auto|dark|light)]:theme:(auto dark light)' \
+    '--vanilla[Disable numeric formatting entirely]' \
+    '--help[Get help]' \
+    '--version[Show version number and exit]' \
     '*:file:_files -g "*.csv(-.)" "*(-/)"'
 }
 

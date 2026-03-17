@@ -28,11 +28,12 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"Usage: tennis [options...] <file.csv>"* ]]
   [[ "$output" == *"--border <border>"* ]]
+  [[ "$output" == *"--completion <shell>"* ]]
   [[ "$output" == *"rounded|thin|double"* ]]
   [[ "$output" == *"--color <color>"* ]]
   [[ "$output" == *"--digits <int>"* ]]
   [[ "$output" == *"--vanilla"* ]]
-  [[ "$output" == *"--version           Show version number and exit"* ]]
+  [[ "$output" == *"--version"* ]]
 }
 
 @test "fails on invalid csv input" {

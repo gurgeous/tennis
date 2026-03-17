@@ -43,7 +43,7 @@ goreleaser-preview: check
 # hygiene
 #
 
-check: clean-weekly lint lint-imports build test bats
+check: clean-weekly lint build test bats
   just banner "✓ check ✓"
 
 
@@ -60,17 +60,24 @@ clean-weekly:
     just banner "✓ clean-weekly ✓" ; \
   fi
 
+completions: build
+  just run --completion bash > extra/tennis.bash
+  just run --completion zsh > extra/_tennis
+  just banner "completion diffs, if any..."
+  git --no-pager diff -- extra/tennis.bash extra/_tennis
+  just banner "✓ completions ✓"
+
 fmt:
   zig fmt .
   just banner "✓ fmt ✓"
 
 lint:
   zig fmt --check .
+  bin/lint-args
+  bin/lint-imports
   just banner "✓ lint ✓"
 
 lint-imports:
-  bash bin/lint-imports
-  just banner "✓ lint-imports ✓"
 
 man:
   scdoc < extra/tennis.scd > extra/tennis.1

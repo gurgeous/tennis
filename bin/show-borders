@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+borders=(
+  ascii_rounded
+  basic
+  basic_compact
+  compact
+  compact_double
+  dots
+  double
+  heavy
+  light
+  markdown
+  none
+  psql
+  reinforced
+  restructured
+  rounded
+  single
+  thin
+  with_love
+)
+
+for border in "${borders[@]}"; do
+  printf '\n== %s ==\n' "${border}"
+  ./zig-out/bin/tennis --border "${border}" testdata/test.csv
+done
