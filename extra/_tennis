@@ -1,26 +1,24 @@
 #compdef tennis
 compdef _tennis tennis
-
 _tennis() {
-  local cur prev
-  cur="${words[CURRENT]}"
-  prev="${words[CURRENT-1]}"
-
-  case "${prev}" in    -d|--delimiter) compadd -- tab , \; \|  ; return ;;
-    -t|--title) compadd --  ; return ;;
-    -w|--width) compadd --  ; return ;;
-    --border) compadd -- ascii_rounded basic basic_compact compact compact_double dots double heavy light markdown none psql reinforced restructured rounded single thin with_love  ; return ;;
-    --color) compadd -- auto off on  ; return ;;
-    --completion) compadd -- bash zsh  ; return ;;
-    --digits) compadd -- 1 2 3 4 5 6  ; return ;;
-    --theme) compadd -- auto dark light  ; return ;;
-  esac
-
-  if [[ "${cur}" == -* ]]; then
-    compadd -- -d --delimiter -n --row-numbers -t --title -w --width --border --color --completion --digits --theme --vanilla --help --version 
-  else
-    _files -g "*.csv(-.)" "*(-/)"
-  fi
+  _arguments -s \
+    '-d[CSV delim (can be any char or "tab")]:char:(tab , \; \|)' \
+    '--delimiter[CSV delim (can be any char or "tab")]:char:(tab , \; \|)' \
+    '-n[Turn on row numbers]' \
+    '--row-numbers[Turn on row numbers]' \
+    '-t[Add a title to the table]:string:' \
+    '--title[Add a title to the table]:string:' \
+    '-w[Set max table width in chars]:int:' \
+    '--width[Set max table width in chars]:int:' \
+    '--border[Table border style (rounded|thin|double|...)]:border:(ascii_rounded basic basic_compact compact compact_double dots double heavy light markdown none psql reinforced restructured rounded single thin with_love)' \
+    '--color[Turn color off and on (on|off|auto)]:color:(auto off on)' \
+    '--completion[Print a shell completion script (bash|zsh)]:shell:(bash zsh)' \
+    '--digits[Digits after decimal for float columns (1-6)]:int:(1 2 3 4 5 6)' \
+    '--theme[Select color theme (auto|dark|light)]:theme:(auto dark light)' \
+    '--vanilla[Disable numeric formatting entirely]' \
+    '--help[Get help]' \
+    '--version[Show version number and exit]' \
+    '*:file:_files'
 }
 
 if [ "$funcstack[1]" = "_tennis" ]; then

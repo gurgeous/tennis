@@ -86,44 +86,23 @@ fn writeZsh(alloc: std.mem.Allocator, writer: anytype, options: Options) !void {
         \\#compdef tennis
         \\compdef _tennis tennis
         \\
-        \\_tennis() {
-        \\  local cur prev
-        \\  cur="${words[CURRENT]}"
-        \\  prev="${words[CURRENT-1]}"
-        \\
-        \\  case "${prev}" in
     );
+    try writer.writeAll("_tennis() {\n");
+    try writer.writeAll("  _arguments -s \\\n");
 
     for (options.items[0..options.len]) |opt| {
-        const values = valuesFor(.zsh, opt.long);
-        if (opt.value_name == null) continue;
-        try writer.writeAll("    ");
-        try writePattern(writer, opt);
-        try writer.writeAll(") compadd -- ");
-        if (values) |v| {
-            try writeZshValues(writer, v);
+        if (opt.short) |short| {
+            try writer.writeAll("    ");
+            try writeZshSpec(writer, short, opt.desc, opt.value_name, valuesFor(.zsh, opt.long));
+            try writer.writeAll(" \\\n");
         }
-        try writer.writeAll(" ; return ;;\n");
+        try writer.writeAll("    ");
+        try writeZshSpec(writer, opt.long, opt.desc, opt.value_name, valuesFor(.zsh, opt.long));
+        try writer.writeAll(" \\\n");
     }
 
     try writer.writeAll(
-        \\  esac
-        \\
-        \\  if [[ "${cur}" == -* ]]; then
-        \\    compadd -- 
-    );
-
-    for (options.items[0..options.len]) |opt| {
-        if (opt.short) |short| try writer.print("{s} ", .{short});
-        try writer.writeAll(opt.long);
-        try writer.writeByte(' ');
-    }
-
-    try writer.writeAll(
-        \\
-        \\  else
-        \\    _files -g "*.csv(-.)" "*(-/)"
-        \\  fi
+        \\    '*:file:_files'
         \\}
         \\
         \\if [ "$funcstack[1]" = "_tennis" ]; then
@@ -131,6 +110,26 @@ fn writeZsh(alloc: std.mem.Allocator, writer: anytype, options: Options) !void {
         \\fi
         \\
     );
+}
+
+fn writeZshSpec(
+    writer: anytype,
+    name: []const u8,
+    desc: []const u8,
+    value_name: ?[]const u8,
+    values: ?[]const u8,
+) !void {
+    try writer.print("'{s}[{s}]", .{ name, desc });
+    if (value_name) |value| {
+        try writer.print(":{s}", .{std.mem.trim(u8, value, "<>")});
+        if (values) |v| {
+            try writer.writeByte(':');
+            try writeZshValues(writer, v);
+        } else {
+            try writer.writeByte(':');
+        }
+    }
+    try writer.writeByte('\'');
 }
 
 // Parse all option rows out of args.help into short/long/value/description pieces.
@@ -194,16 +193,19 @@ fn writePattern(writer: anytype, opt: Option) !void {
 }
 
 fn writeZshValues(writer: anytype, values: []const u8) !void {
+    try writer.writeByte('(');
     var it = std.mem.tokenizeScalar(u8, values, ' ');
+    var first = true;
     while (it.next()) |value| {
-        if (std.mem.eql(u8, value, ";")) {
-            try writer.writeAll("';' ");
-        } else if (std.mem.eql(u8, value, "|")) {
-            try writer.writeAll("'|' ");
+        if (!first) try writer.writeByte(' ');
+        first = false;
+        if (std.mem.eql(u8, value, ";") or std.mem.eql(u8, value, "|")) {
+            try writer.print("\\{s}", .{value});
         } else {
-            try writer.print("{s} ", .{value});
+            try writer.writeAll(value);
         }
     }
+    try writer.writeByte(')');
 }
 
 fn enumValues(comptime T: type) []const u8 {
@@ -232,7 +234,8 @@ test "writes bash completion" {
 test "writes zsh completion" {
     const out = try renderForTest(std.testing.allocator, .zsh);
     defer std.testing.allocator.free(out);
-    try std.testing.expect(std.mem.indexOf(u8, out, "compadd -- bash zsh") != null);
+    try std.testing.expect(std.mem.indexOf(u8, out, "_arguments -s") != null);
+    try std.testing.expect(std.mem.indexOf(u8, out, "--completion[Print a shell completion script") != null);
 }
 
 fn renderForTest(alloc: std.mem.Allocator, shell: args.CompletionShell) ![]u8 {
