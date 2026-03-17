@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+zig build >/dev/null
+
+help_text="$(./zig-out/bin/tennis --help)"
+readme_help="$(
+  awk '
+    $0 == "### Options" { in_options = 1; next }
+    in_options && $0 == "```" && !in_code { in_code = 1; next }
+    in_code && $0 == "```" { exit }
+    in_code { print }
+  ' README.md
+)"
+
+status=0
+
+if [[ "$readme_help" != "$help_text" ]]; then
+  printf 'lint-args: README options block is out of date\n'
+  status=1
+fi
+
+docs="$(cat README.md extra/tennis.scd extra/tennis.1)"
+while IFS= read -r arg; do
+  [[ -z "$arg" ]] && continue
+  if ! grep -Fq -- "$arg" <<<"$docs"; then
+    printf 'lint-args: missing %s in extra/tennis.scd or extra/tennis.1\n' "$arg"
+    status=1
+  fi
+done < <(printf '%s\n' "$help_text" | grep -oE -- '--[a-z-]+|-[a-z]' | sort -u)
+
+exit "$status"

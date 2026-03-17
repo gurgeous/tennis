@@ -57,6 +57,9 @@ $ tennis diamonds.csv
 	Control color output. Valid values: *on*, *off*, *auto*. The default is
 	*on*. Also honors *NO_COLOR* and *FORCE_COLOR*.
 
+*--completion* <shell>
+	Print a shell completion script. Valid values: *bash*, *zsh*.
+
 *--digits* <int>
 	Set the number of digits after the decimal for float columns. Valid values:
 	*1* through *6*. The default is *3*.

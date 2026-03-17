@@ -42,7 +42,8 @@ fn main0() !u8 {
     if (args.action) |action| {
         switch (action) {
             .banner => try printBanner(null),
-            .help => try Args.writeHelp(util.stdout),
+            .completion => try completion.write(util.stdout, args.completion.?),
+            .help => try util.stdout.writeAll(args_help),
             .version => try util.stdout.print("tennis: {s}\n", .{version}),
             .fatal => {
                 try printBanner(args.err_str);
@@ -108,6 +109,7 @@ test {
     _ = @import("args.zig");
     _ = @import("border.zig");
     _ = @import("column.zig");
+    _ = @import("completion.zig");
     _ = @import("color.zig");
     _ = @import("csv.zig");
     _ = @import("float.zig");
@@ -149,7 +151,9 @@ test "printBanner writes errors to stderr" {
 }
 
 const Args = @import("args.zig").Args;
+const args_help = @import("args.zig").help;
 const builtin = @import("builtin");
+const completion = @import("completion.zig");
 const std = @import("std");
 const Table = @import("table.zig").Table;
 const util = @import("util.zig");

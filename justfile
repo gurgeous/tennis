@@ -66,6 +66,7 @@ fmt:
 
 lint:
   zig fmt --check .
+  bash bin/lint-args
   just banner "✓ lint ✓"
 
 lint-imports:
