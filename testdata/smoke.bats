@@ -27,6 +27,8 @@ setup() {
   run "$TENNIS_BIN" --help
   [ "$status" -eq 0 ]
   [[ "$output" == *"Usage: tennis [options...] <file.csv>"* ]]
+  [[ "$output" == *"--border <border>"* ]]
+  [[ "$output" == *"with_love"* ]]
   [[ "$output" == *"--color <color>"* ]]
   [[ "$output" == *"--digits <int>"* ]]
   [[ "$output" == *"--vanilla"* ]]

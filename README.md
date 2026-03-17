@@ -45,12 +45,18 @@ Usage: tennis [options...] <file.csv>     # print file.csv
   -t, --title <string>    Add a title to the table
   -w, --width <int>       Set max table width in chars
 
+      --border <border>   Table border style
       --color <color>     Turn color off and on (on|off|auto)
       --digits <int>      Digits after decimal for float columns (1-6)
       --theme <theme>     Select color theme (auto|dark|light)
       --vanilla           Disable numeric formatting entirely
       --help              Get help
       --version           Show version number and exit
+
+  Borders: ascii_rounded, basic, basic_compact, compact,
+           compact_double, dots, double, heavy, light, markdown,
+           none, psql, reinforced, restructured, rounded,
+           single, thin, with_love
 ```
 
 Note that color defaults to `on`. Tennis likes to be colorful.
@@ -80,6 +86,10 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 - [table_tennis](https://github.com/gurgeous/table_tennis) - my own project, the basis for this one
 
 ### Changelog
+
+#### 0.0.4 (unreleased)
+
+- Configurable `--border` styles inspired by Nushell and the `tabled` crate. (@gurgeous)
 
 #### 0.0.3 (Mar '26)
 

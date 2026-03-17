@@ -1,8 +1,8 @@
 // The borders below are adapted from Nushell table themes, which in turn are
 // built on the `tabled` crate's style system. THANKS GUYS
 //
-// Unsupported on purpose:
-// - with_love
+// Omitted on purpose:
+// - `default`, which is just another name for `rounded`
 //
 
 // Each "specimen" is a tiny canonical table, which we parse below
@@ -131,35 +131,49 @@ const specimens = struct {
         \\│G│H│I│
         \\└─┴─┴─┘
     ;
+    const with_love =
+        \\❤❤❤❤❤
+        \\A❤B❤C
+        \\D❤E❤F
+        \\G❤H❤I
+        \\❤❤❤❤❤
+    ;
 };
 
 // Main parsed border type consumed by render.
 //
-//                              ↙ top rule
-//   ┌────────┬────────┬───────┐
-//   │ fruit  │ color  │ qty   │
-//   ├────────┼────────┼───────┤  <- header rule
-//   │ apple  │ red    │ 12    │
-//   ├────────┼────────┼───────┤  <- row rule
-//   │ pear   │ green  │  3    │
-//   ├────────┼────────┼───────┤  <- row rule
-//   ↑        ↑        ↑       ↑
-// left      mid      mid    right
-//   ...........................
-//   ├────────┼────────┼───────┤  <- row rule
-//   │ plum   │ purple │ 27    │
-//   └────────┴────────┴───────┘
-//                               ↖ bottom rule
+//                              ↙ top
+//   ┌────────┬────────┬──────┐
+//   │ fruit  │ color  │  qt  │
+//   ├────────┼────────┼──────┤ <- header
+//   │ apple  │ red    │  12  │
+//   ├────────┼────────┼──────┤ <- content row
+//   │ pear   │ green  │  33  │
+//   ├────────┼────────┼──────┤ ...
+//   ↑        ↑        ↑      ↑
+// left      mid      mid   right
+//   ..........................
+//   ├────────┼────────┼──────┤ <- content row
+//   │ plum   │ purple │  27  │
+//   └────────┴────────┴──────┘
+//                              ↖ bottom
 //
 
 pub const Border = struct {
-    top: BorderRule, // top rule above the title/header area
-    header: BorderRule, // rule between title/header and data
-    row: BorderRule, // optional rule between data rows
-    bottom: BorderRule, // bottom rule closing the table
-    left: []const u8, // left edge prefix for content rows
-    mid: []const u8, // separator between adjacent cells
-    right: []const u8, // right edge suffix for content rows
+    top: BorderRule,
+    header: BorderRule,
+    row: BorderRule,
+    bottom: BorderRule,
+    left: []const u8,
+    mid: []const u8,
+    right: []const u8,
+};
+
+// Content-row separators inferred from the specimen body lines.
+const RowStyle = struct {
+    left: []const u8,
+    mid: []const u8,
+    right: []const u8,
 };
 
 // Border names for CLI
@@ -181,6 +195,29 @@ pub const BorderName = enum {
     rounded,
     single,
     thin,
+    with_love,
+};
+
+// Specimens indexed in `BorderName` declaration order.
+const specimen_table = [_][]const u8{
+    specimens.ascii_rounded,
+    specimens.basic,
+    specimens.basic_compact,
+    specimens.compact,
+    specimens.compact_double,
+    specimens.dots,
+    specimens.double,
+    specimens.heavy,
+    specimens.light,
+    specimens.markdown,
+    specimens.none,
+    specimens.psql,
+    specimens.reinforced,
+    specimens.restructured,
+    specimens.rounded,
+    specimens.single,
+    specimens.thin,
+    specimens.with_love,
 };
 
 // Parsed horizontal separator line.
@@ -217,26 +254,7 @@ const Specimen = struct {
 
 // Convert a named border into the parsed border representation used by render.
 pub fn getBorder(border: BorderName) Border {
-    const input = switch (border) {
-        .ascii_rounded => specimens.ascii_rounded,
-        .basic => specimens.basic,
-        .basic_compact => specimens.basic_compact,
-        .compact => specimens.compact,
-        .compact_double => specimens.compact_double,
-        .dots => specimens.dots,
-        .double => specimens.double,
-        .heavy => specimens.heavy,
-        .light => specimens.light,
-        .markdown => specimens.markdown,
-        .none => specimens.none,
-        .psql => specimens.psql,
-        .reinforced => specimens.reinforced,
-        .restructured => specimens.restructured,
-        .rounded => specimens.rounded,
-        .single => specimens.single,
-        .thin => specimens.thin,
-    };
-    return parseSpecimen(input);
+    return parseSpecimen(specimen_table[@intFromEnum(border)]);
 }
 
 // Parse a canonical specimen into the normalized border type.
@@ -259,7 +277,7 @@ fn parseSpecimen(input: []const u8) Border {
 }
 
 // Parse the content row to infer the left, middle, and right separators.
-fn parseRow(line: []const u8) Border {
+fn parseRow(line: []const u8) RowStyle {
     const a = std.mem.indexOfScalar(u8, line, 'A').?;
     const b = std.mem.indexOfScalar(u8, line, 'B').?;
     const c = std.mem.indexOfScalar(u8, line, 'C').?;
@@ -268,10 +286,6 @@ fn parseRow(line: []const u8) Border {
     std.debug.assert(std.mem.eql(u8, mid, line[b + 1 .. c]));
 
     return .{
-        .top = .none,
-        .header = .none,
-        .row = .none,
-        .bottom = .none,
         .left = line[0..a],
         .mid = mid,
         .right = line[c + 1 ..],
@@ -281,7 +295,7 @@ fn parseRow(line: []const u8) Border {
 // Parse a horizontal rule by using the inferred row separators as the guide.
 // If the middle slots match the fill char, this is a continuous rule like
 // `─────` or `.-----.`; otherwise it is segmented like `├─┼─┼─┤`.
-fn parseRule(line: []const u8, row_style: Border) BorderRule {
+fn parseRule(line: []const u8, row_style: RowStyle) BorderRule {
     const left_glyphs = glyphCount(row_style.left);
     const mid_glyphs = glyphCount(row_style.mid);
     const right_glyphs = glyphCount(row_style.right);
@@ -350,8 +364,12 @@ fn splitGlyphs(line: []const u8, out: *[32]Glyph) usize {
 
 // Count UTF-8 glyphs in a line.
 fn glyphCount(line: []const u8) usize {
-    var glyphs: [32]Glyph = undefined;
-    return splitGlyphs(line, &glyphs);
+    var n: usize = 0;
+    var i: usize = 0;
+    while (i < line.len) : (n += 1) {
+        i += std.unicode.utf8ByteSequenceLength(line[i]) catch unreachable;
+    }
+    return n;
 }
 
 // Slice a line by glyph positions instead of byte offsets.
@@ -383,28 +401,11 @@ test "all supported borders roundtrip through the specimen parser" {
         .rounded,
         .single,
         .thin,
+        .with_love,
     };
 
     for (cases) |border| {
-        const want = splitLines(switch (border) {
-            .ascii_rounded => specimens.ascii_rounded,
-            .basic => specimens.basic,
-            .basic_compact => specimens.basic_compact,
-            .compact => specimens.compact,
-            .compact_double => specimens.compact_double,
-            .dots => specimens.dots,
-            .double => specimens.double,
-            .heavy => specimens.heavy,
-            .light => specimens.light,
-            .markdown => specimens.markdown,
-            .none => specimens.none,
-            .psql => specimens.psql,
-            .reinforced => specimens.reinforced,
-            .restructured => specimens.restructured,
-            .rounded => specimens.rounded,
-            .single => specimens.single,
-            .thin => specimens.thin,
-        });
+        const want = splitLines(specimen_table[@intFromEnum(border)]);
         const got = getBorder(border);
 
         var bufs: [7][32]u8 = undefined;
