@@ -43,7 +43,7 @@ goreleaser-preview: check
 # hygiene
 #
 
-check: clean-weekly lint lint-imports build test bats
+check: clean-weekly lint build test bats
   just banner "✓ check ✓"
 
 
@@ -73,12 +73,11 @@ fmt:
 
 lint:
   zig fmt --check .
-  bash bin/lint-args
+  bin/lint-args
+  bin/lint-imports
   just banner "✓ lint ✓"
 
 lint-imports:
-  bash bin/lint-imports
-  just banner "✓ lint-imports ✓"
 
 man:
   scdoc < extra/tennis.scd > extra/tennis.1
