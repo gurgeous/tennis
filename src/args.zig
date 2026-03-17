@@ -159,18 +159,13 @@ pub const Args = struct {
             \\  -t, --title <string>    Add a title to the table
             \\  -w, --width <int>       Set max table width in chars
             \\
-            \\      --border <border>   Table border style
+            \\      --border <border>   Table border style (rounded|thin|double|...)
             \\      --color <color>     Turn color off and on (on|off|auto)
             \\      --digits <int>      Digits after decimal for float columns (1-6)
             \\      --theme <theme>     Select color theme (auto|dark|light)
             \\      --vanilla           Disable numeric formatting entirely
             \\      --help              Get help
             \\      --version           Show version number and exit
-            \\
-            \\  Borders: ascii_rounded, basic, basic_compact, compact,
-            \\           compact_double, dots, double, heavy, light, markdown,
-            \\           none, psql, reinforced, restructured, rounded,
-            \\           single, thin, with_love
             \\
         );
     }

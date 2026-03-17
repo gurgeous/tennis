@@ -3,10 +3,11 @@ declare -F _init_completion >/dev/null || return 2>/dev/null
 
 _tennis() {
   local cur prev
+  local borders="ascii_rounded basic basic_compact compact compact_double dots double heavy light markdown none psql reinforced restructured rounded single thin with_love"
   _init_completion || return
 
   case "${prev}" in
-    --border) COMPREPLY=($(compgen -W "ascii_rounded basic basic_compact compact compact_double dots double heavy light markdown none psql reinforced restructured rounded single thin with_love" -- "${cur}")) ; return ;;
+    --border) COMPREPLY=($(compgen -W "${borders}" -- "${cur}")) ; return ;;
     --color) COMPREPLY=($(compgen -W "on off auto" -- "${cur}")) ; return ;;
     --theme) COMPREPLY=($(compgen -W "auto dark light" -- "${cur}")) ; return ;;
     -d|--delimiter) COMPREPLY=($(compgen -W ", ; | tab" -- "${cur}")) ; return ;;

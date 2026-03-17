@@ -28,7 +28,7 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"Usage: tennis [options...] <file.csv>"* ]]
   [[ "$output" == *"--border <border>"* ]]
-  [[ "$output" == *"with_love"* ]]
+  [[ "$output" == *"rounded|thin|double"* ]]
   [[ "$output" == *"--color <color>"* ]]
   [[ "$output" == *"--digits <int>"* ]]
   [[ "$output" == *"--vanilla"* ]]
