@@ -60,6 +60,11 @@ clean-weekly:
     just banner "✓ clean-weekly ✓" ; \
   fi
 
+completion: build
+  just run --completion bash > extra/tennis.bash
+  just run --completion zsh > extra/_tennis
+  just banner "✓ completion ✓"
+
 fmt:
   zig fmt .
   just banner "✓ fmt ✓"

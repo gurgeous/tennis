@@ -3,11 +3,9 @@ compdef _tennis tennis
 
 _tennis() {
   # -s "Enable option stacking for single-letter options"
-  _arguments -s \
-
-    '(-d --delimiter)'{-d,--delimiter}'[CSV delim (can be any char or "tab")]':delimiter:(tab , \; \|) \
+  _arguments -s \'(-d --delimiter)'{-d,--delimiter}'[CSV delim (can be any char or "tab")]':char:(tab , \; \|) \
     '(-n --row-numbers)'{-n,--row-numbers}'[Turn on row numbers]' \
-    '(-t --title)'{-t,--title}'[Add a title to the table]':title: \
+    '(-t --title)'{-t,--title}'[Add a title to the table]':string: \
     '(-w --width)'{-w,--width}'[Set max table width in chars]':int: \
     '--border[Table border style (rounded|thin|double|...)]':border:(ascii_rounded basic basic_compact compact compact_double dots double heavy light markdown none psql reinforced restructured rounded single thin with_love) \
     '--color[Turn color off and on (on|off|auto)]':color:(auto off on) \
@@ -16,9 +14,7 @@ _tennis() {
     '--theme[Select color theme (auto|dark|light)]':theme:(auto dark light) \
     '--vanilla[Disable numeric formatting entirely]' \
     '--help[Get help]' \
-    '--version[Show version number and exit]' \
-
-    '*:file:_files -g "*.csv(-.)" "*(-/)"'
+    '--version[Show version number and exit]' \'*:file:_files -g "*.csv(-.)" "*(-/)"'
 }
 
 if [ "$funcstack[1]" = "_tennis" ]; then

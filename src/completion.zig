@@ -1,7 +1,5 @@
-// Generate shell completions from args.help plus a few value-completion tables.
-
 //
-// parse these from args.help
+// parse these from Args.help
 //
 
 const Option = struct {
@@ -16,6 +14,10 @@ const Options = struct {
     len: usize,
 };
 
+//
+// templates
+//
+
 const body_marker = "<BODY>";
 
 const bash_template =
@@ -27,7 +29,6 @@ const bash_template =
     \\  _init_completion || return
     \\
     \\  case "${prev}" in
-    \\
     \\<BODY>
     \\}
     \\
@@ -42,8 +43,7 @@ const zsh_template =
     \\_tennis() {
     \\  # -s "Enable option stacking for single-letter options"
     \\  _arguments -s \
-    \\
-    \\<BODY>
+    \\  <BODY>
     \\    '*:file:_files -g "*.csv(-.)" "*(-/)"'
     \\}
     \\
@@ -54,65 +54,72 @@ const zsh_template =
 ;
 
 // main entry point
-pub fn write(writer: *std.Io.Writer, shell: args.CompletionShell) !void {
+pub fn write(alloc: std.mem.Allocator, shell: args.CompletionShell) !void {
     const options = parseOptions();
+    var buf: std.ArrayList(u8) = .empty;
+    defer buf.deinit(alloc);
+    var buf_writer = buf.writer(alloc);
+
     switch (shell) {
-        .bash => try writeBash(writer, options.items[0..options.len]),
-        .zsh => try writeZsh(writer, options.items[0..options.len]),
+        .bash => try writeBash(alloc, &buf_writer, options),
+        .zsh => try writeZsh(alloc, &buf_writer, options),
     }
+    try std.fs.File.stdout().writeAll(buf.items);
 }
 
-fn writeBash(writer: *std.Io.Writer, options: []const Option) !void {
-    const marker = std.mem.indexOf(u8, bash_template, body_marker).?;
-    try writer.writeAll(bash_template[0..marker]);
+fn writeBash(alloc: std.mem.Allocator, writer: anytype, options: Options) !void {
+    var body: std.ArrayList(u8) = .empty;
+    defer body.deinit(alloc);
+    var body_writer = body.writer(alloc);
 
-    for (options) |opt| {
+    for (options.items[0..options.len]) |opt| {
         if (opt.value_name == null) continue;
         const values = valuesFor(.bash, opt.long);
+
+        try body_writer.writeAll("    ");
+        try writeBashPattern(&body_writer, opt);
+
         if (values) |v| {
-            try writer.writeAll("    ");
-            try writeBashPattern(writer, opt);
-            try writer.print(") COMPREPLY=($(compgen -W \"{s}\" -- \"${{cur}}\")) ; return ;;\n", .{v});
+            try body_writer.print(") COMPREPLY=($(compgen -W \"{s}\" -- \"${{cur}}\")) ; return ;;\n", .{v});
         } else {
-            try writer.writeAll("    ");
-            try writeBashPattern(writer, opt);
-            try writer.writeAll(") COMPREPLY=() ; return ;;\n");
+            try body_writer.writeAll(") COMPREPLY=() ; return ;;\n");
         }
     }
 
-    try writer.writeAll(
+    try body_writer.writeAll(
         \\  esac
         \\
         \\  if [[ "${cur}" == -* ]]; then
         \\    COMPREPLY=($(compgen -W "
     );
 
-    for (options) |opt| {
-        if (opt.short) |short| try writer.print("{s} ", .{short});
-        try writer.writeAll(opt.long);
-        try writer.writeByte(' ');
+    for (options.items[0..options.len]) |opt| {
+        if (opt.short) |short| try body_writer.print("{s} ", .{short});
+        try body_writer.writeAll(opt.long);
+        try body_writer.writeByte(' ');
     }
 
-    try writer.writeAll(
+    try body_writer.writeAll(
         \\\"-- "${cur}"))
         \\  else
         \\    _filedir csv
         \\    [[ ${#COMPREPLY[@]} -eq 0 ]] && _filedir
         \\  fi
     );
-    try writer.writeAll(bash_template[marker + body_marker.len ..]);
+    try writeWithMarker(writer, bash_template, body.items);
 }
 
-fn writeZsh(writer: *std.Io.Writer, options: []const Option) !void {
-    const marker = std.mem.indexOf(u8, zsh_template, body_marker).?;
-    try writer.writeAll(zsh_template[0..marker]);
+fn writeZsh(alloc: std.mem.Allocator, writer: anytype, options: Options) !void {
+    var body: std.ArrayList(u8) = .empty;
+    defer body.deinit(alloc);
+    var body_writer = body.writer(alloc);
 
-    for (options) |opt| {
+    for (options.items[0..options.len]) |opt| {
         const values = valuesFor(.zsh, opt.long);
-        const value_label = if (opt.value_name) |name| trimAngles(name) else null;
+        const value_label = if (opt.value_name) |str| std.mem.trim(u8, str, "<>") else null;
 
         if (opt.short) |short| {
-            try writer.print("    '({s} {s})'{{{s},{s}}}'[{s}]'", .{
+            try body_writer.print("    '({s} {s})'{{{s},{s}}}'[{s}]'", .{
                 short,
                 opt.long,
                 short,
@@ -120,28 +127,36 @@ fn writeZsh(writer: *std.Io.Writer, options: []const Option) !void {
                 opt.desc,
             });
         } else {
-            try writer.print("    '{s}[{s}]'", .{ opt.long, opt.desc });
+            try body_writer.print("    '{s}[{s}]'", .{ opt.long, opt.desc });
         }
 
         if (value_label) |label| {
-            try writer.print(":{s}", .{label});
+            try body_writer.print(":{s}", .{label});
             if (values) |v| {
-                try writer.print(":({s})", .{v});
+                try body_writer.print(":({s})", .{v});
             } else {
-                try writer.writeByte(':');
+                try body_writer.writeByte(':');
             }
         }
 
-        try writer.writeAll(" \\\n");
+        try body_writer.writeAll(" \\\n");
     }
 
-    try writer.writeAll(zsh_template[marker + body_marker.len ..]);
+    try writeWithMarker(writer, zsh_template, body.items);
+}
+
+fn writeWithMarker(writer: anytype, template: []const u8, body: []const u8) !void {
+    const marker = std.mem.indexOf(u8, template, body_marker).?;
+    try writer.writeAll(util.strip(u8, template[0..marker]));
+    try writer.writeAll(util.strip(u8, body));
+    try writer.writeAll(util.strip(u8, template[marker + body_marker.len ..]));
+    try writer.writeByte('\n');
 }
 
 // Parse all option rows out of args.help into short/long/value/description pieces.
 fn parseOptions() Options {
     var out: Options = .{ .items = undefined, .len = 0 };
-    var it = std.mem.splitScalar(u8, args.help, '\n');
+    var it = std.mem.splitScalar(u8, args.Args.help, '\n');
     while (it.next()) |line| {
         const opt = parseOption(line) orelse continue;
         out.items[out.len] = opt;
@@ -174,12 +189,7 @@ fn parseOption(line: []const u8) ?Option {
         value_name = long_and_value[space + 1 ..];
     }
 
-    return .{
-        .short = short,
-        .long = long,
-        .value_name = value_name,
-        .desc = desc,
-    };
+    return .{ .short = short, .long = long, .value_name = value_name, .desc = desc };
 }
 
 // Enum-backed options come from Zig enums; only digits and delimiter stay hardcoded.
@@ -195,11 +205,7 @@ fn valuesFor(shell: args.CompletionShell, long: []const u8) ?[]const u8 {
     return null;
 }
 
-fn trimAngles(value_name: []const u8) []const u8 {
-    return std.mem.trim(u8, value_name, "<>");
-}
-
-fn writeBashPattern(writer: *std.Io.Writer, opt: Option) !void {
+fn writeBashPattern(writer: anytype, opt: Option) !void {
     if (opt.short) |short| {
         try writer.print("{s}|{s}", .{ short, opt.long });
     } else {
@@ -224,21 +230,33 @@ fn enumValues(comptime T: type) []const u8 {
 //
 
 test "writes bash completion" {
-    var buf: [8192]u8 = undefined;
-    var writer = std.Io.Writer.fixed(&buf);
-    try write(&writer, .bash);
-    try std.testing.expect(std.mem.indexOf(u8, writer.buffered(), "--completion") != null);
-    try std.testing.expect(std.mem.indexOf(u8, writer.buffered(), "with_love") != null);
+    const out = try renderForTest(std.testing.allocator, .bash);
+    defer std.testing.allocator.free(out);
+    try std.testing.expect(std.mem.indexOf(u8, out, "--completion") != null);
+    try std.testing.expect(std.mem.indexOf(u8, out, "with_love") != null);
 }
 
 test "writes zsh completion" {
-    var buf: [8192]u8 = undefined;
-    var writer = std.Io.Writer.fixed(&buf);
-    try write(&writer, .zsh);
-    try std.testing.expect(std.mem.indexOf(u8, writer.buffered(), "--completion[Print a shell completion script") != null);
+    const out = try renderForTest(std.testing.allocator, .zsh);
+    defer std.testing.allocator.free(out);
+    try std.testing.expect(std.mem.indexOf(u8, out, "--completion[Print a shell completion script") != null);
+}
+
+fn renderForTest(alloc: std.mem.Allocator, shell: args.CompletionShell) ![]u8 {
+    const options = parseOptions();
+    var buf: std.ArrayList(u8) = .empty;
+    defer buf.deinit(alloc);
+    var writer = buf.writer(alloc);
+
+    switch (shell) {
+        .bash => try writeBash(alloc, &writer, options),
+        .zsh => try writeZsh(alloc, &writer, options),
+    }
+    return buf.toOwnedSlice(alloc);
 }
 
 const args = @import("args.zig");
 const border = @import("border.zig");
 const std = @import("std");
 const types = @import("types.zig");
+const util = @import("util.zig");
