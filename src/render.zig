@@ -37,7 +37,7 @@ pub const Render = struct {
         // title
         if (self.table.config.title.len > 0) {
             try self.renderTitle();
-            if (self.border.header != .none) try self.renderRule(spanRule(self.border.header));
+            if (self.border.header != .none) try self.renderRule(titleRule(self.border.top, self.border.header));
         }
 
         // headers
@@ -220,6 +220,22 @@ fn spanRule(rule: border.BorderRule) border.BorderRule {
             .fill = r.fill,
             .right = r.right,
         } },
+    };
+}
+
+fn titleRule(top: border.BorderRule, header: border.BorderRule) border.BorderRule {
+    return switch (header) {
+        .none => .none,
+        .continuous => header,
+        .segmented => |h| switch (top) {
+            .segmented => |t| .{ .segmented = .{
+                .left = h.left,
+                .fill = h.fill,
+                .mid = t.mid,
+                .right = h.right,
+            } },
+            else => header,
+        },
     };
 }
 
