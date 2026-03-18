@@ -1,0 +1,32 @@
+#!/bin/bash
+
+set -euo pipefail
+
+# build raw screenshot with vhs
+cp ../testdata/test.csv diamonds.csv
+rm -f screenshot.png
+vhs ../extra/screenshot.tape
+
+#
+# imagemagick
+#
+
+# crop
+W=1565
+H=730
+magick screenshot.png -crop ${W}x${H}+0+0 screenshot.png
+
+# extend down
+H=$(($H + 30))
+magick screenshot.png -background '#10191f' -gravity north -extent ${W}x${H} screenshot.png
+
+# rounded corners (mask)
+magick -size ${W}x${H} xc:none -draw "roundrectangle 0,0,${W},${H},16,16" mask.png
+magick screenshot.png -alpha Set mask.png -compose DstIn -composite screenshot.png
+
+#
+# pngquant
+#
+
+pngquant --strip --quality 85 --force screenshot.png
+mv screenshot-fs8.png screenshot.png
