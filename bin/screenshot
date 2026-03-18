@@ -30,5 +30,5 @@ magick vhs2.png \
   \) \
   -alpha off -compose CopyOpacity -composite vhs3.png
 
-banner "pngquant => vhs.png"
-pngquant --strip --quality 85 vhs3.png --output vhs.png
+banner "pngquant => vhs4.png"
+pngquant --strip --quality 85 vhs3.png --output vhs4.png

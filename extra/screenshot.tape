@@ -17,5 +17,5 @@ Hide
 Show
 
 # run
-Type `tennis diamonds.csv -n --title "Diamond Inventory"` Enter Sleep 0.2s
-Screenshot vhs0.png Sleep 0.2s
+Type `tennis diamonds.csv -n --title "Diamond Inventory"` Enter Sleep 0.3s
+Screenshot vhs0.png Sleep 0.3s
