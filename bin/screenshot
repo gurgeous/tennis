@@ -24,9 +24,12 @@ magick vhs1.png -background "$BG" \
 banner "rounded corners => vhs3.png"
 magick vhs2.png \
   \( +clone -alpha extract \
+     -resize 200% \
+     -antialias \
      -draw "fill black polygon 0,0 0,16 16,0 fill white circle 16,16 16,0" \
      \( +clone -flip \) -compose Multiply -composite \
      \( +clone -flop \) -compose Multiply -composite \
+     -resize 50% \
   \) \
   -alpha off -compose CopyOpacity -composite vhs3.png
 
