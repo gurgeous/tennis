@@ -1,5 +1,5 @@
 [env]
-_.path = ["{{config_root}}/zig-out/bin"]
+_.path = ["{{config_root}}/zig-out/bin", '{{config_root}}/bin']
 
 [tools]
 zig = "0.15.2"
