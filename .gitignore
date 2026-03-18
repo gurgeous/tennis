@@ -1,6 +1,3 @@
 .DS_Store
 zig-out/
 tmp/
-
-# legacy (maybe we can remove)
-.zig-cache/

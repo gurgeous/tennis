@@ -2,8 +2,6 @@
 
 set -euo pipefail
 
-zig build >/dev/null
-
 help_text="$(./zig-out/bin/tennis --help)"
 readme_help="$(
   awk '
