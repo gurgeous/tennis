@@ -1,0 +1,34 @@
+#!/bin/bash
+
+set -euo pipefail
+source "$(dirname "$0")/_banner"
+
+# build raw screenshot with vhs
+banner "running vhs => vhs0.png..."
+cp ../testdata/test.csv diamonds.csv
+rm -f vhs*.png
+vhs --quiet ../extra/screenshot.tape
+
+BG=$(magick vhs0.png -format "#%[hex:u.p{0,0}]" info:)
+banner "detected bg $BG"
+
+banner "crop => vhs1.png"
+magick vhs0.png -crop 1532x764+16+20 +repage vhs1.png
+
+banner "pad => vhs2.png"
+magick vhs1.png -background "$BG" \
+  -gravity North -splice 0x24 -gravity South -splice 0x28 \
+  -gravity West  -splice 20x0 -gravity East  -splice 20x0 \
+  vhs2.png
+
+banner "rounded corners => vhs3.png"
+magick vhs2.png \
+  \( +clone -alpha extract \
+     -draw "fill black polygon 0,0 0,16 16,0 fill white circle 16,16 16,0" \
+     \( +clone -flip \) -compose Multiply -composite \
+     \( +clone -flop \) -compose Multiply -composite \
+  \) \
+  -alpha off -compose CopyOpacity -composite vhs3.png
+
+banner "pngquant => vhs4.png"
+pngquant --strip --quality 85 vhs3.png --output vhs4.png
