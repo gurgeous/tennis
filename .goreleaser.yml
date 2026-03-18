@@ -1,5 +1,8 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 version: 2
+
+dist: tmp/dist
+
 builds:
   - builder: zig
     flags: ["-Doptimize=ReleaseSmall"]

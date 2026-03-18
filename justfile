@@ -11,7 +11,7 @@ build-release:
   zig build -Doptimize=ReleaseSmall
 
 clean:
-    rm -rf kcov .zig-cache zig-out
+    rm -rf tmp .zig-cache zig-out
 
 run *ARGS:
   zig build run -- {{ARGS}}
@@ -37,7 +37,7 @@ release: check valgrind
 goreleaser-preview: check
   goreleaser release --clean --snapshot
   just banner "macOS tarball preview..."
-  tar -tvzf "$(find dist -maxdepth 1 -name 'tennis_*_darwin_arm64.tar.gz' | head -n 1)"
+  tar -tvzf "$(find tmp/dist -maxdepth 1 -name 'tennis_*_darwin_arm64.tar.gz' | head -n 1)"
 
 #
 # hygiene
@@ -45,7 +45,6 @@ goreleaser-preview: check
 
 check: clean-weekly lint build test bats
   just banner "✓ check ✓"
-
 
 bats: build
   bats testdata/smoke.bats
@@ -96,9 +95,9 @@ test:
 
 kcov:
   just banner "kcov..."
-  rm -rf kcov/
+  rm -rf tmp/kcov
   zig build  -Doptimize=Debug kcov-tests
-  kcov --include-pattern=$PWD/src/ --exclude-line=errdefer kcov ./zig-out/bin/kcov-tests
+  kcov --include-pattern=$PWD/src/ --exclude-line=errdefer tmp/kcov ./zig-out/bin/kcov-tests
   just banner "✓ kcov ✓"
 
 valgrind: build
