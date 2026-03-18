@@ -100,6 +100,7 @@ const specimens = struct {
         \\┗─┴─┴─┛
     ;
     const restructured =
+        \\= = =
         \\A B C
         \\= = =
         \\D E F
@@ -136,6 +137,7 @@ const specimens = struct {
     const with_love =
         \\❤❤❤❤❤
         \\A❤B❤C
+        \\❤❤❤❤❤
         \\D❤E❤F
         \\G❤H❤I
         \\❤❤❤❤❤
