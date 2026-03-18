@@ -3,4 +3,4 @@ _.path = ["{{config_root}}/zig-out/bin", '{{config_root}}/bin']
 
 [tools]
 zig = "0.15.2"
-just = "1.38.0"
+just = "1.46.0"

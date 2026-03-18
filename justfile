@@ -88,6 +88,18 @@ man:
 readme:
   glow --pager README.md
 
+[working-directory: 'tmp']
+screenshot: build
+  cp ../testdata/test.csv diamonds.csv
+  vhs ../extra/screenshot.tape
+  # magick screenshot.png -crop 1570x735+0+0 +repage \
+  #   -background '#10191f' -gravity north -extent 1570x755 \
+  #   \( -size 1570x755 xc:none -fill white -draw "roundrectangle 0,0 1569,754 16,16" \) \
+  #   -alpha off -compose CopyOpacity -composite \
+  #   screenshot.png
+  [ "${OPEN:-0}" = "1" ] && open screenshot.png
+  just banner "✓ screenshot (tmp/screenshot.png) ✓"
+
 test:
   zig build test --summary all
   just banner "✓ test ✓"
