@@ -91,7 +91,7 @@ readme:
 [working-directory: 'tmp']
 screenshot: build
   ../bin/screenshot
-  just banner "✓ screenshot - tmp/screenshot.png ✓"
+  just banner "✓ screenshot - see tmp/vhs.png ✓"
 
 test:
   zig build test --summary all
