@@ -1,14 +1,12 @@
 # options
-# Set Shell "bash"
 Set FontFamily "Menlo"
 Set FontSize 28
 Set LetterSpacing 0
 Set LineHeight 1.1
- # this is overly tall/wide, we crop later
 Set Width 1600
 Set Height 1000
 Set Padding 20
-Set Theme "Catppuccin Frappe"
+Set Theme { "#foreground": "#c6d0f5", "background": "#0b2732" }
 Set TypingSpeed 0ms
 
 # get ready
