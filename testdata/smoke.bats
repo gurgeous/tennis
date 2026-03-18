@@ -98,3 +98,17 @@ setup() {
   [[ "$output" == *"carat"* ]]
   [[ "$output" == *"Premium"* ]]
 }
+
+@test "renders basic snapshot" {
+  run "$TENNIS_BIN" --color=off --width 80 --title foo "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 0 ]
+  expected="$(cat "$REPO_ROOT/testdata/basic.out")"
+  [ "$output" = "$expected" ]
+}
+
+@test "renders basic color snapshot" {
+  run "$TENNIS_BIN" --color=on --width 80 --title foo "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 0 ]
+  expected="$(printf '%b' "$(cat "$REPO_ROOT/testdata/basic-color.out")")"
+  [ "$output" = "$expected" ]
+}

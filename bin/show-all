@@ -5,6 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 borders=(
+  rounded
   ascii_rounded
   basic
   basic_compact
@@ -19,7 +20,6 @@ borders=(
   psql
   reinforced
   restructured
-  rounded
   single
   thin
   with_love
@@ -27,5 +27,5 @@ borders=(
 
 for border in "${borders[@]}"; do
   printf '\n== %s ==\n' "${border}"
-  ./zig-out/bin/tennis --border "${border}" testdata/test.csv
+  ./zig-out/bin/tennis --border "${border}" "$@" testdata/test.csv
 done

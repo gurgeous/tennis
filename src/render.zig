@@ -29,12 +29,15 @@ pub const Render = struct {
         }
 
         // top
-        if (self.border.top != .none) try self.renderRule(self.border.top);
+        if (self.border.top != .none) {
+            const top = if (self.table.config.title.len > 0) spanRule(self.border.top) else self.border.top;
+            try self.renderRule(top);
+        }
 
         // title
         if (self.table.config.title.len > 0) {
             try self.renderTitle();
-            if (self.border.header != .none) try self.renderRule(self.border.header);
+            if (self.border.header != .none) try self.renderRule(spanRule(self.border.header));
         }
 
         // headers
@@ -208,6 +211,18 @@ pub const Render = struct {
 // standalone helpers
 //
 
+fn spanRule(rule: border.BorderRule) border.BorderRule {
+    return switch (rule) {
+        .none => .none,
+        .continuous => rule,
+        .segmented => |r| .{ .continuous = .{
+            .left = r.left,
+            .fill = r.fill,
+            .right = r.right,
+        } },
+    };
+}
+
 // fit text into width, using alignment. Use ansi codes if present.
 fn fill(writer: *std.Io.Writer, codes: []const u8, text: []const u8, width: usize, al: Align) !void {
     if (codes.len > 0) try writer.writeAll(codes);
@@ -258,6 +273,20 @@ test "fill padding and truncation" {
     writer.end = 0;
     try fill(&writer, "", "hi", 6, .right);
     try std.testing.expectEqualStrings("    hi", writer.buffered());
+}
+
+test "spanRule removes interior separators" {
+    const rule: border.BorderRule = .{ .segmented = .{
+        .left = "├",
+        .fill = "─",
+        .mid = "┼",
+        .right = "┤",
+    } };
+    const out = spanRule(rule);
+    try std.testing.expect(out == .continuous);
+    try std.testing.expectEqualStrings("├", out.continuous.left);
+    try std.testing.expectEqualStrings("─", out.continuous.fill);
+    try std.testing.expectEqualStrings("┤", out.continuous.right);
 }
 
 test "ascii render simple" {
