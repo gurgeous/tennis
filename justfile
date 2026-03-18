@@ -55,7 +55,7 @@ ci: check
   just banner "✓ ci ✓"
 
 clean-weekly:
-  if [ -d .zig-cache ] && [ "$(stat -c %Z .zig-cache)" -lt "$(date -d '7 days ago' +%s)" ]; then \
+  if [ -d .zig-cache ] && [ "$(find .zig-cache -prune -mtime +7 | wc -l)" -gt 0 ]; then \
     just clean ; \
     just banner "✓ clean-weekly ✓" ; \
   fi
