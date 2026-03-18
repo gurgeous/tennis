@@ -3,11 +3,12 @@
 Set FontFamily "Menlo"
 Set FontSize 28
 Set LetterSpacing 0
+Set LineHeight 1.1
  # this is overly tall/wide, we crop later
 Set Width 1600
 Set Height 1000
 Set Padding 20
-Set Theme "Oceanic-Next"
+Set Theme "Catppuccin Frappe"
 Set TypingSpeed 0ms
 
 

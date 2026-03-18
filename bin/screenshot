@@ -12,13 +12,13 @@ vhs ../extra/screenshot.tape
 #
 
 # crop
-W=1565
-H=730
+W=1570
+H=782
 magick screenshot.png -crop ${W}x${H}+0+0 screenshot.png
 
 # extend down
 H=$(($H + 30))
-magick screenshot.png -background '#10191f' -gravity north -extent ${W}x${H} screenshot.png
+magick screenshot.png -background '#2f3145' -gravity north -extent ${W}x${H} screenshot.png
 
 # rounded corners (mask)
 magick -size ${W}x${H} xc:none -draw "roundrectangle 0,0,${W},${H},16,16" mask.png
