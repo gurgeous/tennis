@@ -1,5 +1,6 @@
 # Required for codex shell sessions where mise PATH hooks may not be active.
 export PATH := env("HOME") + "/.local/share/mise/installs/zig/0.15.2/bin:" + env("PATH")
+export ZIG_LOCAL_CACHE_DIR := "tmp/zig-cache"
 
 default:
   just --list
@@ -11,7 +12,7 @@ build-release:
   zig build -Doptimize=ReleaseSmall
 
 clean:
-    rm -rf tmp .zig-cache zig-out
+    rm -rf tmp zig-out
 
 run *ARGS:
   zig build run -- {{ARGS}}
@@ -23,8 +24,8 @@ run *ARGS:
 #
 
 benchmark: build-release
-  bin/gen-benchmark-csv > /tmp/tennis-benchmark.csv
-  BENCHMARK=1 ./zig-out/bin/tennis --color=on --width 80 /tmp/tennis-benchmark.csv > /dev/null
+  bin/gen-benchmark-csv > tmp/tennis-benchmark.csv
+  BENCHMARK=1 ./zig-out/bin/tennis --color=on --width 80 tmp/tennis-benchmark.csv > /dev/null
   just banner "✓ benchmark ✓"
 
 #
@@ -54,7 +55,7 @@ ci: check
   just banner "✓ ci ✓"
 
 clean-weekly:
-  if [ -d .zig-cache ] && [ "$(find .zig-cache -prune -mtime +7 | wc -l)" -gt 0 ]; then \
+  if [ -d tmp ] && [ "$(find tmp -type d -prune -mtime +7 | wc -l)" -gt 0 ]; then \
     just clean ; \
     just banner "✓ clean-weekly ✓" ; \
   fi
@@ -67,11 +68,11 @@ completions: build
   just banner "✓ completions ✓"
 
 fmt:
-  zig fmt .
+  zig fmt src build.zig
   just banner "✓ fmt ✓"
 
 lint:
-  zig fmt --check .
+  zig fmt --check src build.zig
   bin/lint-args
   bin/lint-imports
   just banner "✓ lint ✓"
