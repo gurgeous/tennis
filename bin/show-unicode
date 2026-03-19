@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-for width in $(seq 30 50); do
+for width in $(seq 20 50); do
   printf '\n== width %s ==\n' "$width"
   ./zig-out/bin/tennis --width "$width" testdata/unicode.csv
 done
