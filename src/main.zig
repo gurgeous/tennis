@@ -115,6 +115,7 @@ test {
     _ = @import("doomicode.zig");
     _ = @import("float.zig");
     _ = @import("layout.zig");
+    _ = @import("replay.zig");
     _ = @import("render.zig");
     _ = @import("sniffer.zig");
     _ = @import("style.zig");
