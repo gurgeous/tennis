@@ -33,6 +33,7 @@ $ zig build
 - auto-layout to fit your terminal window
 - auto-themes to pick light or dark based on your terminal background
 - auto-format numbers
+- auto-detect csv vs tsv (or semis, or pipes)
 - titles, row numbers, border styles...
 
 ### Options
@@ -89,6 +90,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 - `--border` styles based on Nushell / `tabled` crate.
 - `--completion` for auto-generating bash/zsh completions
 - `doomicode`, best-effort Unicode width for emojis, etc
+- auto-detect csv vs tsv (or semis, or pipes)
 
 #### 0.0.3 (Mar '26)
 
