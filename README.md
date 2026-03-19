@@ -88,6 +88,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 - `--border` styles based on Nushell / `tabled` crate.
 - `--completion` for auto-generating bash/zsh completions
+- `doomicode`: lightweight best-effort Unicode width/truncation for common terminal text
 
 #### 0.0.3 (Mar '26)
 
