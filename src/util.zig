@@ -59,11 +59,6 @@ pub fn sum(comptime T: type, slice: []const T) T {
 // string
 //
 
-// Return the terminal display width of a UTF-8 string.
-pub fn displayWidth(s: []const u8) usize {
-    return std.unicode.utf8CountCodepoints(s) catch s.len;
-}
-
 // quote a string, keeping printable ascii readable and hex-escaping the rest
 pub fn inspect(alloc: std.mem.Allocator, s: []const u8) ![]u8 {
     var out: std.ArrayList(u8) = .empty;
@@ -153,13 +148,6 @@ test "digits" {
     try std.testing.expectEqual(@as(usize, 1), digits(usize, 0));
     try std.testing.expectEqual(@as(usize, 1), digits(usize, 7));
     try std.testing.expectEqual(@as(usize, 3), digits(usize, 123));
-}
-
-test "displayWidth" {
-    try std.testing.expectEqual(@as(usize, 3), displayWidth("abc"));
-    try std.testing.expectEqual(@as(usize, 2), displayWidth("éé"));
-    try std.testing.expectEqual(@as(usize, 1), displayWidth("—"));
-    try std.testing.expectEqual(@as(usize, 2), displayWidth(&[_]u8{ 0xff, 0x61 }));
 }
 
 test "fileExists" {

@@ -112,6 +112,7 @@ test {
     _ = @import("completion.zig");
     _ = @import("color.zig");
     _ = @import("csv.zig");
+    _ = @import("doomicode.zig");
     _ = @import("float.zig");
     _ = @import("layout.zig");
     _ = @import("render.zig");

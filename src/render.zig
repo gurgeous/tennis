@@ -69,7 +69,7 @@ pub const Render = struct {
             .none => {},
             .continuous => |r| {
                 try out.writeAll(r.left);
-                const total_width = util.sum(usize, widths) + 2 * widths.len + util.displayWidth(self.border.mid) * (widths.len -| 1);
+                const total_width = util.sum(usize, widths) + 2 * widths.len + doomicode.displayWidth(self.border.mid) * (widths.len -| 1);
                 for (0..total_width) |_| try out.writeAll(r.fill);
                 try out.writeAll(r.right);
             },
@@ -87,7 +87,7 @@ pub const Render = struct {
 
     fn renderTitle(self: *Render) !void {
         const out = &self.buf.writer;
-        const chrome = util.displayWidth(self.border.left) + util.displayWidth(self.border.right) + 2;
+        const chrome = doomicode.displayWidth(self.border.left) + doomicode.displayWidth(self.border.right) + 2;
         const width = self.layout.tableWidth() - chrome;
 
         try self.writeChrome(self.border.left);
@@ -156,7 +156,7 @@ pub const Render = struct {
         const style = self.table.style();
         const title = "empty table";
         const body = "no data";
-        const width = @max(util.displayWidth(title), util.displayWidth(body));
+        const width = @max(doomicode.displayWidth(title), doomicode.displayWidth(body));
         const widths = [_]usize{width};
 
         if (self.border.top != .none) try self.renderRule0(self.border.top, &widths);
@@ -244,7 +244,7 @@ fn fill(writer: *std.Io.Writer, codes: []const u8, text: []const u8, width: usiz
     if (codes.len > 0) try writer.writeAll(codes);
     defer if (codes.len > 0) writer.writeAll(ansi.reset) catch {};
 
-    const display_width = util.displayWidth(text);
+    const display_width = doomicode.displayWidth(text);
     if (display_width == width) {
         try writer.writeAll(text);
         return;
@@ -268,7 +268,7 @@ fn fill(writer: *std.Io.Writer, codes: []const u8, text: []const u8, width: usiz
         return;
     }
 
-    try util.truncate(writer, text, width);
+    try doomicode.truncate(writer, text, width);
 }
 
 fn writeSpaces(writer: *std.Io.Writer, count: usize) !void {
@@ -449,6 +449,7 @@ test "render headers does not use placeholder for empty header cell" {
 
 const ansi = @import("ansi.zig");
 const border = @import("border.zig");
+const doomicode = @import("doomicode.zig");
 const Layout = @import("layout.zig").Layout;
 const std = @import("std");
 const Table = @import("table.zig").Table;

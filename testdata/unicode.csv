@@ -1,0 +1,8 @@
+label,text,notes
+ascii,plain ascii text,baseline
+accent,café noir,combining acute accent
+emoji,ok ✅ yes,emoji should feel double-width
+heart,I ❤️ Zig,variation selector sequence
+family,family 👨‍👩‍👧‍👦 test,ZWJ emoji sequence
+flag,go 🇺🇸 now,regional indicator flag pair
+mixed,naïve 🙂 café,latin-1 plus emoji
