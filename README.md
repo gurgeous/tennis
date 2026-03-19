@@ -32,7 +32,8 @@ $ zig build
 
 - auto-layout to fit your terminal window
 - auto-themes to pick light or dark based on your terminal background
-- titles, row numbers...
+- auto-format numbers
+- titles, row numbers, border styles...
 
 ### Options
 
