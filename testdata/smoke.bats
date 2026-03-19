@@ -58,6 +58,45 @@ setup() {
   [[ "$output" == *"5,678"* ]]
 }
 
+@test "auto-detects semicolon csv from file" {
+  run "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/semicolon.csv"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alice"* ]]
+  [[ "$output" == *"1,234"* ]]
+  [[ "$output" == *"denver"* ]]
+}
+
+@test "auto-detects semicolon csv from stdin" {
+  run bash -lc "cat '$REPO_ROOT/testdata/semicolon.csv' | '$TENNIS_BIN' --color=off --width 80"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alice"* ]]
+  [[ "$output" == *"1,234"* ]]
+  [[ "$output" == *"denver"* ]]
+}
+
+@test "auto-detects tab-delimited csv from file" {
+  run "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/test.tsv"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"carat"* ]]
+  [[ "$output" == *"Ideal"* ]]
+  [[ "$output" == *"344"* ]]
+}
+
+@test "auto-detects pipe-delimited csv from file" {
+  run "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/pipe.csv"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alice"* ]]
+  [[ "$output" == *"1,234"* ]]
+  [[ "$output" == *"denver"* ]]
+}
+
+@test "explicit delimiter overrides sniffing" {
+  run "$TENNIS_BIN" --color=off --width 80 -d ',' "$REPO_ROOT/testdata/semicolon.csv"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"name;score;city"* ]]
+  [[ "$output" == *"alice;1234;boston"* ]]
+}
+
 @test "renders basic border" {
   run "$TENNIS_BIN" --color=off --border basic --width 80 "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 0 ]
