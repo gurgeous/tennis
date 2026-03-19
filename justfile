@@ -1,9 +1,6 @@
 # Required for codex shell sessions where mise PATH hooks may not be active.
 export PATH := env("HOME") + "/.local/share/mise/installs/zig/0.15.2/bin:" + env("PATH")
 
-# move zig-cache into tmp. I'd love to move zig-out too, but goreleaser uses --prefix
-export ZIG_LOCAL_CACHE_DIR := "tmp/zig-cache"
-
 default:
   just --list
 
@@ -14,7 +11,7 @@ build-release:
   zig build -Doptimize=ReleaseSmall
 
 clean:
-    rm -rf tmp zig-out
+  rm -rf tmp zig-out
 
 run *ARGS:
   zig build run -- {{ARGS}}
@@ -49,8 +46,11 @@ goreleaser-preview: check
 check: clean-weekly build lint test bats
   just banner "✓ check ✓"
 
+llm:
+  LLM=1 just check
+
 bats: build
-  bats testdata/smoke.bats
+  if [ -n "${LLM:-}" ]; then bats testdata/smoke.bats > /dev/null ; else bats testdata/smoke.bats ; fi
   just banner "✓ bats ✓"
 
 ci: check
@@ -79,8 +79,6 @@ lint:
   bin/lint-imports
   just banner "✓ lint ✓"
 
-lint-imports:
-
 man:
   scdoc < extra/tennis.scd > extra/tennis.1
   man -l extra/tennis.1
@@ -94,7 +92,7 @@ screenshot: build
   just banner "✓ screenshot - see tmp/vhs.png ✓"
 
 test:
-  zig build test --summary all
+  if [ -n "${LLM:-}" ]; then zig build test --summary none ; else zig build test --summary all ; fi
   just banner "✓ test ✓"
 
 #
@@ -124,4 +122,6 @@ warning +ARGS: (_banner '\e[48;2;251;100;011m' ARGS)
 fatal +ARGS:   (_banner '\e[48;2;210;015;057m' ARGS)
   exit 1
 _banner BG +ARGS:
-  printf '\e[38;5;231m{{BOLD+BG}}[%s] %-72s {{NORMAL}}\n' "$(date +%H:%M:%S)" "{{ARGS}}"
+  if [ -z "${LLM:-}" ]; then \
+    printf '\e[38;5;231m{{BOLD+BG}}[%s] %-72s {{NORMAL}}\n' "$(date +%H:%M:%S)" "{{ARGS}}" ; \
+  fi
