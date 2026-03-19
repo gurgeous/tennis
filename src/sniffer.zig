@@ -6,133 +6,78 @@
 // - count fields for each candidate, ignoring delimiters inside double quotes
 // - prefer delimiters that produce the same multi-field row shape repeatedly
 //
-// This is intentionally much simpler than Python's csv.Sniffer. It only tries
-// to guess the delimiter, and only from a small set that makes sense for this
-// app: comma, semicolon, tab, and pipe.
-
-// Candidate delimiters we consider for sniffing.
-pub const default_delimiters = [_]u8{ ',', ';', '\t', '|' };
-
-// Result of delimiter sniffing.
-pub const Result = struct {
-    delimiter: u8,
-    fields: usize,
-    rows: usize,
-};
-
-// Up to ten complete sample rows kept on the stack.
-const Lines = struct {
-    items: [11][]const u8 = undefined,
-    len: usize = 0,
-
-    // Return the populated prefix of sampled rows.
-    fn slice(self: *const Lines) []const []const u8 {
-        return self.items[0..self.len];
-    }
-};
 
 // Guess a delimiter from a sample, or return null when there is no clear winner.
-pub fn sniff(sample: []const u8) ?Result {
+pub fn sniff(sample: []const u8) ?u8 {
+    // early exit if we don't have enough lines, or we see a blank line
     const lines = splitLines(sample);
     if (lines.len < 3) return null;
-
-    var best: ?Score = null;
-    for (default_delimiters) |delimiter| {
-        const score = scoreDelimiter(lines.slice(), delimiter);
-        if (score.rows == 0) continue;
-        if (best == null or better(score, best.?)) best = score;
+    for (lines.items[0..lines.len]) |line| {
+        if (line.len == 0) return null;
     }
-    if (best) |score| {
-        if (score.fields < 2) return null;
-        return .{
-            .delimiter = score.delimiter,
-            .fields = score.fields,
-            .rows = score.rows,
-        };
-    }
-    return null;
-}
 
-// Internal candidate score for one delimiter.
-const Score = struct {
-    // Candidate delimiter byte.
-    delimiter: u8,
-    // Expected field count for every non-empty row in the sample.
-    fields: usize,
-    // Number of rows that matched the expected field count.
-    rows: usize,
-};
+    // put the winner in here
+    var best_fields: usize = 0;
+    var best_delim: ?u8 = null;
 
-// Score one delimiter by enforcing the same row shape across prepared sample lines.
-fn scoreDelimiter(lines: []const []const u8, delimiter: u8) Score {
-    var expected_fields: ?usize = null;
-    var rows: usize = 0;
-
-    for (lines) |line| {
-        if (!processLine(line, delimiter, &expected_fields, &rows)) {
-            return .{ .delimiter = delimiter, .fields = 0, .rows = 0 };
+    // Candidate delimiters we consider for sniffing. These are in order, the
+    // latter ones can only win if they find more fields.
+    const candidates = [_]u8{ ',', '\t', ';', '|' };
+    for (candidates) |delimiter| {
+        const fields = countFieldsForLines(lines, delimiter);
+        if (fields > best_fields) {
+            best_fields = fields;
+            best_delim = delimiter;
         }
     }
 
-    return .{
-        .delimiter = delimiter,
-        .fields = expected_fields orelse 0,
-        .rows = rows,
-    };
+    return best_delim;
 }
 
-// Split a sample into at most ten complete logical rows.
+//
+// helpers
+//
+
+// Up to ten sample rows
+const Lines = struct {
+    items: [11][]const u8 = undefined,
+    len: usize = 0,
+};
+
+// Split a sample into Lines
 fn splitLines(sample: []const u8) Lines {
     const eol = if (std.mem.indexOf(u8, sample, "\r\n") != null) "\r\n" else "\n";
-    var out: Lines = .{};
 
+    // split
+    var out: Lines = .{};
     var lines = std.mem.splitSequence(u8, sample, eol);
     while (lines.next()) |line| {
-        if (out.len == out.items.len) break;
         out.items[out.len] = line;
         out.len += 1;
+        if (out.len == out.items.len) break;
     }
 
-    // Always drop the final split chunk because sampled input may end mid-line.
-    if (out.len == 0) return out;
-    out.len -= 1;
+    // sample almost always ends mid-line
+    if (out.len > 0) out.len -= 1;
+
     return out;
 }
 
-// Process one sampled row, failing on blank lines, too-few fields, or jaggedness.
-fn processLine(line: []const u8, delimiter: u8, expected_fields: *?usize, rows: *usize) bool {
-    if (line.len == 0) return false;
-
-    const fields = countFields(line, delimiter);
-    if (fields < 2) return false;
-
-    if (expected_fields.*) |expected| {
-        if (fields != expected) return false;
-    } else {
-        expected_fields.* = fields;
+// Count # of fields across these lines. Returns 0 if jagged, nothing found, etc.
+fn countFieldsForLines(lines: Lines, delimiter: u8) usize {
+    var exp: usize = 0;
+    for (lines.items[0..lines.len]) |line| {
+        const fields = countFields(line, delimiter);
+        if (exp == 0) exp = fields; // init
+        if (fields != exp) return 0; // mismatch?
     }
-    rows.* += 1;
-    return true;
+    if (exp < 2) return 0; // too small?
+    return exp;
 }
 
-// Return true when a score is better than the current best.
-fn better(a: Score, b: Score) bool {
-    if (a.rows != b.rows) return a.rows > b.rows;
-    if (a.fields != b.fields) return a.fields > b.fields;
-    return indexOfDelimiter(a.delimiter) < indexOfDelimiter(b.delimiter);
-}
-
-// Return the default priority index of a delimiter.
-fn indexOfDelimiter(delimiter: u8) usize {
-    for (default_delimiters, 0..) |candidate, ii| {
-        if (candidate == delimiter) return ii;
-    }
-    return default_delimiters.len;
-}
-
-// Count fields in one line, ignoring delimiters inside double quotes.
+// Count fields in one line
 fn countFields(line: []const u8, delimiter: u8) usize {
-    var fields: usize = 1;
+    var n: usize = 1;
     var in_quotes = false;
     var ii: usize = 0;
     while (ii < line.len) : (ii += 1) {
@@ -141,22 +86,24 @@ fn countFields(line: []const u8, delimiter: u8) usize {
             // Inside a quoted field, doubled quotes are an escaped literal quote.
             if (in_quotes and ii + 1 < line.len and line[ii + 1] == '"') {
                 ii += 1;
-                continue;
+            } else {
+                in_quotes = !in_quotes;
             }
-            in_quotes = !in_quotes;
             continue;
         }
-        if (!in_quotes and ch == delimiter) fields += 1;
+        if (!in_quotes and ch == delimiter) n += 1;
     }
-    return fields;
+    return n;
 }
+
+//
+// tests
+//
 
 test "sniff success cases" {
     const cases = [_]struct {
         sample: []const u8,
         delimiter: u8,
-        fields: usize = 3,
-        rows: usize = 3,
     }{
         .{ .sample = "a,b,c\n1,2,3\n4,5,6\n7,8", .delimiter = ',' },
         .{ .sample = "a;b;c\n1;2;3\n4;5;6\n7;8", .delimiter = ';' },
@@ -164,26 +111,32 @@ test "sniff success cases" {
         .{ .sample = "a|b|c\n1|2|3\n4|5|6\n7|8", .delimiter = '|' },
         .{ .sample = "a,b,c\n\"x,y\",2,3\n\"p,q\",5,6\n\"tail", .delimiter = ',' },
         .{ .sample = "a,b,c\r\n1,2,3\r\n4,5,6\r\n7,8", .delimiter = ',' },
+        .{ .sample = "a,b,c,d;|\n1,2,3,4;|\n5,6,7,8;|\n9,10,11,", .delimiter = ',' },
+        .{ .sample = "a;b;c;d,|\n1;2;3;4,|\n5;6;7;8,|\n9;10;11;", .delimiter = ';' },
+        .{ .sample = "a\tb\tc\td,|\n1\t2\t3\t4,|\n5\t6\t7\t8,|\n9\t10\t11\t", .delimiter = '\t' },
+        .{ .sample = "a|b|c|d,;\n1|2|3|4,;\n5|6|7|8,;\n9|10|11|", .delimiter = '|' },
     };
 
     for (cases) |tc| {
         const got = sniff(tc.sample).?;
-        try std.testing.expectEqual(tc.delimiter, got.delimiter);
-        try std.testing.expectEqual(tc.fields, got.fields);
-        try std.testing.expectEqual(tc.rows, got.rows);
+        try std.testing.expectEqual(tc.delimiter, got);
     }
 }
 
 test "sniff null cases" {
     const cases = [_][]const u8{
+        "",
         "a;b\n\n1;2\n",
         "a,b\n1,2\n",
         "hello\nworld\n",
         "a,b,c\n1,2\n",
+        "abcdef",
+        "a,b,c\n1,2,3",
+        "\"a,b,c\n1,2,3\n4,5,6\n",
     };
 
     for (cases) |sample| {
-        try std.testing.expectEqual(@as(?Result, null), sniff(sample));
+        try std.testing.expectEqual(@as(?u8, null), sniff(sample));
     }
 }
 
@@ -193,11 +146,55 @@ test "sniff uses delimiter priority to break ties" {
         "1;2|3\n" ++
         "4;5|6\n";
     const got = sniff(sample).?;
-    try std.testing.expectEqual(@as(u8, ';'), got.delimiter);
+    try std.testing.expectEqual(@as(u8, ';'), got);
 }
 
 test "sniff rejects jagged rows" {
-    try std.testing.expectEqual(@as(?Result, null), sniff("a,b,c\n1,2\n"));
+    try std.testing.expectEqual(@as(?u8, null), sniff("a,b,c\n1,2\n"));
+}
+
+test "splitLines cases" {
+    const cases = [_]struct {
+        sample: []const u8,
+        want: []const []const u8,
+    }{
+        .{ .sample = "", .want = &.{} },
+        .{ .sample = "a,b,c", .want = &.{} },
+        .{ .sample = "a,b,c\n1,2,3", .want = &.{"a,b,c"} },
+        .{ .sample = "a,b,c\n1,2,3\n4,5", .want = &.{ "a,b,c", "1,2,3" } },
+        .{ .sample = "a,b,c\r\n1,2,3\r\n4,5", .want = &.{ "a,b,c", "1,2,3" } },
+        .{
+            .sample = "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12",
+            .want = &.{ "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" },
+        },
+    };
+
+    for (cases) |tc| {
+        const got = splitLines(tc.sample);
+        try std.testing.expectEqual(tc.want.len, got.len);
+        for (tc.want, got.items[0..got.len]) |want, line| {
+            try std.testing.expectEqualStrings(want, line);
+        }
+    }
+}
+
+test "countFields cases" {
+    const cases = [_]struct {
+        line: []const u8,
+        delimiter: u8,
+        want: usize,
+    }{
+        .{ .line = "", .delimiter = ',', .want = 1 },
+        .{ .line = "a,b,c", .delimiter = ',', .want = 3 },
+        .{ .line = "\"a,b\",c", .delimiter = ',', .want = 2 },
+        .{ .line = "\"a\"\"b\",c", .delimiter = ',', .want = 2 },
+        .{ .line = "\"a,b,c", .delimiter = ',', .want = 1 },
+        .{ .line = "a|b|c", .delimiter = '|', .want = 3 },
+    };
+
+    for (cases) |tc| {
+        try std.testing.expectEqual(tc.want, countFields(tc.line, tc.delimiter));
+    }
 }
 
 const std = @import("std");
