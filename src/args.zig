@@ -123,7 +123,8 @@ pub const Args = struct {
         var config: types.Config = .{};
         if (res.args.border) |v| config.border = v;
         if (res.args.color) |v| config.color = v;
-        if (res.args.delimiter) |v| config.delimiter = v;
+        // note that 0 means "unset" and we try to sniff later before defaulting to comma
+        config.delimiter = if (res.args.delimiter) |v| v else 0;
         if (res.args.digits) |v| {
             if (v < 1 or v > 6) return error.InvalidDigits;
             config.digits = v;

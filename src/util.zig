@@ -66,13 +66,22 @@ pub fn inspect(alloc: std.mem.Allocator, s: []const u8) ![]u8 {
 
     try out.append(alloc, '"');
     for (s) |c| {
-        if (c == '"' or c == '\\') {
-            try out.append(alloc, '\\');
-            try out.append(alloc, c);
-        } else if (c >= 0x20 and c <= 0x7e) {
-            try out.append(alloc, c);
-        } else {
-            try out.writer(alloc).print("\\x{x:0>2}", .{c});
+        switch (c) {
+            '"', '\\' => {
+                try out.append(alloc, '\\');
+                try out.append(alloc, c);
+            },
+            '\t' => try out.appendSlice(alloc, "\\t"),
+            '\n' => try out.appendSlice(alloc, "\\n"),
+            '\r' => try out.appendSlice(alloc, "\\r"),
+            '\x1b' => try out.appendSlice(alloc, "\\e"),
+            else => {
+                if (c >= 0x20 and c <= 0x7e) {
+                    try out.append(alloc, c);
+                } else {
+                    try out.writer(alloc).print("\\x{x:0>2}", .{c});
+                }
+            },
         }
     }
     try out.append(alloc, '"');
@@ -166,9 +175,11 @@ test "inspect" {
     defer std.testing.allocator.free(s1);
     try std.testing.expectEqualStrings("\"abc 123\"", s1);
 
-    const s2 = try inspect(std.testing.allocator, &[_]u8{ '"', '\\', '\n', 0xff });
+    const s2 = try inspect(std.testing.allocator, &[_]u8{
+        '"', '\\', '\t', '\x1b', '\r', '\n', '\x08', '\x0c', '\x0b', 0xff,
+    });
     defer std.testing.allocator.free(s2);
-    try std.testing.expectEqualStrings("\"\\\"\\\\\\x0a\\xff\"", s2);
+    try std.testing.expectEqualStrings("\"\\\"\\\\\\t\\e\\r\\n\\x08\\x0c\\x0b\\xff\"", s2);
 }
 
 test "readByte" {

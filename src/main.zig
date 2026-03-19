@@ -75,7 +75,15 @@ fn main0() !u8 {
     //
 
     timer = try std.time.Timer.start();
-    const table = Table.init(alloc, args.config, input) catch |err| {
+
+    // try to sniff delim if necessary
+    var replay = try ReplayReader(std.fs.File).init(alloc, input, 4096);
+    defer replay.deinit();
+
+    var config = args.config;
+    if (config.delimiter == 0) config.delimiter = try sniff(alloc, replay.buffer());
+
+    const table = Table.init(alloc, config, replay.reader()) catch |err| {
         if (err == error.OutOfMemory) return err;
         const err_str = if (err == error.JaggedCsv)
             "All csv rows must have same number of columns"
@@ -91,6 +99,18 @@ fn main0() !u8 {
     try table.renderTable(util.stdout);
     util.benchmark("table.render", timer.read());
     return 0;
+}
+
+fn sniff(alloc: std.mem.Allocator, sample: []const u8) !u8 {
+    if (sniffer.sniff(sample)) |delimiter| {
+        const label = try util.inspect(alloc, &[_]u8{delimiter});
+        defer alloc.free(label);
+        util.tdebug("sniffed delimiter {s}", .{label});
+        return delimiter;
+    }
+
+    util.tdebug("could not sniff delimiter, falling back to comma", .{});
+    return ',';
 }
 
 fn printBanner(err_str: ?[]const u8) !void {
@@ -156,7 +176,10 @@ test "printBanner writes errors to stderr" {
 const Args = @import("args.zig").Args;
 const builtin = @import("builtin");
 const completion = @import("completion.zig");
+const ReplayReader = @import("replay.zig").ReplayReader;
+const sniffer = @import("sniffer.zig");
 const std = @import("std");
 const Table = @import("table.zig").Table;
+const types = @import("types.zig");
 const util = @import("util.zig");
 const version = @import("build_options").version;
