@@ -83,6 +83,15 @@ setup() {
   [[ "$output" == *"│ 14 │ 0.3… │"* ]]
 }
 
+@test "renders unicode csv" {
+  run "$TENNIS_BIN" --color=off --width 40 "$REPO_ROOT/testdata/unicode.csv"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"│ accent │ café noir"* ]]
+  [[ "$output" == *"│ heart  │ I ❤️ Zig"* ]]
+  [[ "$output" == *"│ family │ family 👨‍👩‍👧‍👦… │"* ]]
+  [[ "$output" == *"│ flag   │ go 🇺🇸 now"* ]]
+}
+
 @test "renders formatted floats and ints" {
   run "$TENNIS_BIN" --color=off --width 120 -n "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 0 ]
