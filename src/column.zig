@@ -54,9 +54,9 @@ pub const Column = struct {
     //
 
     fn measure(self: Column) usize {
-        var width = util.displayWidth(self.name);
+        var width = doomicode.displayWidth(self.name);
         for (0..self.table.nrows()) |row_index| {
-            width = @max(width, util.displayWidth(self.field(row_index)));
+            width = @max(width, doomicode.displayWidth(self.field(row_index)));
         }
         return width;
     }
@@ -252,10 +252,10 @@ test "column inference ignores blanks and scans all rows" {
     try std.testing.expectEqual(ColumnType.string, table.column(1).type);
 }
 
+const doomicode = @import("doomicode.zig");
 const Field = @import("types.zig").Field;
 const float = @import("float.zig");
 const int = @import("int.zig");
 const Rows = @import("types.zig").Rows;
 const std = @import("std");
 const Table = @import("table.zig").Table;
-const util = @import("util.zig");

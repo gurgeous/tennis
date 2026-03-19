@@ -119,14 +119,9 @@ valgrind: build
 
 set quiet
 
-TRUWHITE := '\e[38;5;231m'
-GREEN    := '\e[48;2;064;160;043m'
-ORANGE   := '\e[48;2;251;100;011m'
-RED      := '\e[48;2;210;015;057m'
-
-banner +ARGS: (_banner GREEN ARGS)
-warning +ARGS: (_banner ORANGE ARGS)
-fatal +ARGS: (_banner RED ARGS)
+banner +ARGS:  (_banner '\e[48;2;064;160;043m' ARGS)
+warning +ARGS: (_banner '\e[48;2;251;100;011m' ARGS)
+fatal +ARGS:   (_banner '\e[48;2;210;015;057m' ARGS)
   exit 1
 _banner BG +ARGS:
-  printf '{{BOLD+TRUWHITE+BG}}[%s] %-72s {{NORMAL}}\n' "$(date +%H:%M:%S)" "{{ARGS}}"
+  printf '\e[38;5;231m{{BOLD+BG}}[%s] %-72s {{NORMAL}}\n' "$(date +%H:%M:%S)" "{{ARGS}}"
