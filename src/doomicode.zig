@@ -50,6 +50,7 @@ pub fn truncate(writer: *std.Io.Writer, text: []const u8, stop: usize) !void {
             if (used + unit.width == stop and iter.next() == null) {
                 try writer.writeAll(unit.bytes);
             } else {
+                try writeSpaces(writer, stop - 1 - used);
                 try writer.writeAll("…");
             }
             return;
@@ -207,6 +208,11 @@ fn truncateBytes(writer: *std.Io.Writer, text: []const u8, stop: usize) !void {
     try writer.writeAll("…");
 }
 
+// Write count ASCII spaces.
+fn writeSpaces(writer: *std.Io.Writer, count: usize) !void {
+    for (0..count) |_| try writer.writeByte(' ');
+}
+
 //
 // tests
 //
@@ -257,9 +263,10 @@ test "truncate" {
         .{ .text = "👨‍👩‍👧‍👦", .stop = 26, .exp = "👨‍👩‍👧‍👦" },
         .{ .text = "👨‍👩‍👧‍👦", .stop = 27, .exp = "👨‍👩‍👧‍👦" },
         .{ .text = "ok ✅ yes", .stop = 6, .exp = "ok ✅…" },
-        .{ .text = "ok ✅ yes", .stop = 5, .exp = "ok …" },
+        .{ .text = "ok ✅ yes", .stop = 5, .exp = "ok  …" },
         .{ .text = "❤️ ok", .stop = 3, .exp = "❤️…" },
         .{ .text = "👍🏽 ok", .stop = 3, .exp = "👍🏽…" },
+        .{ .text = "thumbs 👍🏽 up", .stop = 9, .exp = "thumbs  …" },
         .{ .text = "go 🇺🇸 now", .stop = 6, .exp = "go 🇺🇸…" },
         .{ .text = "go 🇺🇸🇨 now", .stop = 6, .exp = "go 🇺🇸…" },
         .{ .text = "family 👨‍👩‍👧‍👦 test", .stop = 10, .exp = "family 👨‍👩‍👧‍👦…" },

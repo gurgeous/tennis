@@ -88,8 +88,8 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"│ accent    │ café noir"* ]]
   [[ "$output" == *"│ heart     │ I ❤️ Zig"* ]]
-  [[ "$output" == *"│ skin_tone │ thumbs …"* ]]
-  [[ "$output" == *"│ family    │ family …"* ]]
+  [[ "$output" == *"│ skin_tone │ thumbs  …"* ]]
+  [[ "$output" == *"│ family    │ family  …"* ]]
   [[ "$output" == *"│ flag      │ go 🇺🇸 now"* ]]
 }
 
