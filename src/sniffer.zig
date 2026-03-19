@@ -3,8 +3,8 @@
 // Overall approach:
 // - try a tiny fixed set of candidate delimiters
 // - scan the sample line by line
-// - count fields for each candidate, ignoring delimiters inside double quotes
-// - prefer delimiters that produce the same multi-field row shape repeatedly
+// - count cols for each delim, make sure the sample doesn't look jagged or weird
+// - the winner is the delim that works with the sample and has the most cols
 //
 
 // Guess a delimiter from a sample, or return null when there is no clear winner.
@@ -17,16 +17,16 @@ pub fn sniff(sample: []const u8) ?u8 {
     }
 
     // put the winner in here
-    var best_fields: usize = 0;
+    var best_count: usize = 0;
     var best_delim: ?u8 = null;
 
     // Candidate delimiters we consider for sniffing. These are in order, the
-    // latter ones can only win if they find more fields.
+    // latter ones can only win if they find more cols.
     const candidates = [_]u8{ ',', '\t', ';', '|' };
     for (candidates) |delimiter| {
-        const fields = countFieldsForLines(lines, delimiter);
-        if (fields > best_fields) {
-            best_fields = fields;
+        const n = countColumns(lines, delimiter);
+        if (n > best_count) {
+            best_count = n;
             best_delim = delimiter;
         }
     }
@@ -63,20 +63,20 @@ fn splitLines(sample: []const u8) Lines {
     return out;
 }
 
-// Count # of fields across these lines. Returns 0 if jagged, nothing found, etc.
-fn countFieldsForLines(lines: Lines, delimiter: u8) usize {
+// Count # of cols across these lines. Returns 0 if jagged, nothing found, etc.
+fn countColumns(lines: Lines, delimiter: u8) usize {
     var exp: usize = 0;
     for (lines.items[0..lines.len]) |line| {
-        const fields = countFields(line, delimiter);
-        if (exp == 0) exp = fields; // init
-        if (fields != exp) return 0; // mismatch?
+        const n = countColumnsForLine(line, delimiter);
+        if (exp == 0) exp = n; // init
+        if (n != exp) return 0; // mismatch?
     }
     if (exp < 2) return 0; // too small?
     return exp;
 }
 
-// Count fields in one line
-fn countFields(line: []const u8, delimiter: u8) usize {
+// Count cols in one line
+fn countColumnsForLine(line: []const u8, delimiter: u8) usize {
     var n: usize = 1;
     var in_quotes = false;
     var ii: usize = 0;
@@ -178,7 +178,7 @@ test "splitLines cases" {
     }
 }
 
-test "countFields cases" {
+test "countColumnsForLine cases" {
     const cases = [_]struct {
         line: []const u8,
         delimiter: u8,
@@ -193,7 +193,7 @@ test "countFields cases" {
     };
 
     for (cases) |tc| {
-        try std.testing.expectEqual(tc.want, countFields(tc.line, tc.delimiter));
+        try std.testing.expectEqual(tc.want, countColumnsForLine(tc.line, tc.delimiter));
     }
 }
 
