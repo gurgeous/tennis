@@ -27,8 +27,9 @@
 
 ## Testing
 
+- Prefer `just llm` during normal iteration; it is the default fast test path.
+- Use `just check` before each commit, after large refactors, and before other risky operations.
 - Keep `just check` green: lint, unit tests, snapshot smoke tests.
-- Run `just check` after every code change.
 - Use snapshot tests for CLI output and regressions in user-facing errors.
 - Keep tests deterministic by forcing `--width 80` where layout matters.
 - Use `just kcov` for coverage work.
@@ -39,4 +40,5 @@
 - Keep files and APIs small and direct.
 - Prefer straightforward Zig control flow (`switch`, `try`, explicit cleanup).
 - Keep imports sorted at the bottom of each file.
+- When the user says `commit`, commit all current changes by default, including unrelated local edits.
 - With `gh pr create`, never use unescaped backticks, prefer `--body-file` to avoid accidental command substitution

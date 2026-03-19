@@ -116,6 +116,7 @@ test {
     _ = @import("float.zig");
     _ = @import("layout.zig");
     _ = @import("render.zig");
+    _ = @import("sniffer.zig");
     _ = @import("style.zig");
     _ = @import("termbg.zig");
     _ = @import("util.zig");
