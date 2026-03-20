@@ -1,4 +1,4 @@
-// REMIND: add a nice comment here, not too ling
+// A column owns any formatted numeric cells and measures/inferes against visible rows only.
 
 pub const Column = struct {
     table: *const Table,

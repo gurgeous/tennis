@@ -36,25 +36,11 @@ $ tennis diamonds.csv
 
 # OPTIONS
 
-*-d*, *--delimiter* <char>
-	Set the delimiter when reading input. Defaults to '*,*' naturally. It
-	accepts any char, or *tab* for tab-delimited input.
-
 *-n*, *--row-numbers*
 	Show row numbers.
 
 *-t*, *--title* <string>
 	Add a title above the table.
-
-*-w*, *--width* <int>
-	Set the maximum table width in characters. By default, *tennis* uses the
-	current terminal width or *80* if it can't be detected.
-
-*--head* <int>
-	Show the first _N_ data rows.
-
-*--tail* <int>
-	Show the last _N_ data rows.
 
 *--border* <border>
 	Select the table border style. The default is *rounded*.
@@ -63,9 +49,19 @@ $ tennis diamonds.csv
 	Control color output. Valid values: *on*, *off*, *auto*. The default is
 	*on*. Also honors *NO_COLOR* and *FORCE_COLOR*.
 
+*--delimiter* <char>
+	Set the delimiter when reading input. Defaults to '*,*' naturally. It
+	accepts any char, or *tab* for tab-delimited input.
+
 *--digits* <int>
 	Set the number of digits after the decimal for float columns. Valid values:
 	*1* through *6*. The default is *3*.
+
+*--head* <int>
+	Show the first _N_ data rows.
+
+*--tail* <int>
+	Show the last _N_ data rows.
 
 *--theme* <theme>
 	Select the color theme. Valid values: *auto*, *dark*, *light*. The default
@@ -73,6 +69,10 @@ $ tennis diamonds.csv
 
 *--vanilla*
 	Disable type inference and numeric formatting.
+
+*--width* <int>
+	Set the maximum table width in characters. By default, *tennis* uses the
+	current terminal width or *80* if it can't be detected.
 
 # BORDERS
 

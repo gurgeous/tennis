@@ -94,7 +94,6 @@ pub const Table = struct {
 
     pub fn visibleRowCount(self: *const Table) usize {
         const n = self.nrows();
-        if (n == 0) return 0; // REMIND: is this line necessary?
         if (self.config.head > 0) return @min(self.config.head, n);
         if (self.config.tail > 0) return @min(self.config.tail, n);
         return n;

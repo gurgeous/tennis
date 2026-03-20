@@ -5,7 +5,7 @@
 .nh
 .ad l
 .\" Begin generated content:
-.TH "tennis" "1" "2026-03-17"
+.TH "tennis" "1" "2026-03-20"
 .P
 .SH NAME
 .P
@@ -45,12 +45,6 @@ $ tennis diamonds\&.csv
 .P
 .SH OPTIONS
 .P
-\fB-d\fR, \fB--delimiter\fR <char>
-.RS 4
-Set the delimiter when reading input.\& Defaults to '\&\fB,\fR'\& naturally.\& It
-accepts any char, or \fBtab\fR for tab-delimited input.\&
-.P
-.RE
 \fB-n\fR, \fB--row-numbers\fR
 .RS 4
 Show row numbers.\&
@@ -59,12 +53,6 @@ Show row numbers.\&
 \fB-t\fR, \fB--title\fR <string>
 .RS 4
 Add a title above the table.\&
-.P
-.RE
-\fB-w\fR, \fB--width\fR <int>
-.RS 4
-Set the maximum table width in characters.\& By default, \fBtennis\fR uses the
-current terminal width or \fB80\fR if it can'\&t be detected.\&
 .P
 .RE
 \fB--border\fR <border>
@@ -78,10 +66,26 @@ Control color output.\& Valid values: \fBon\fR, \fBoff\fR, \fBauto\fR.\& The def
 \fBon\fR.\& Also honors \fBNO_COLOR\fR and \fBFORCE_COLOR\fR.\&
 .P
 .RE
+\fB--delimiter\fR <char>
+.RS 4
+Set the delimiter when reading input.\& Defaults to '\&\fB,\fR'\& naturally.\& It
+accepts any char, or \fBtab\fR for tab-delimited input.\&
+.P
+.RE
 \fB--digits\fR <int>
 .RS 4
 Set the number of digits after the decimal for float columns.\& Valid values:
 \fB1\fR through \fB6\fR.\& The default is \fB3\fR.\&
+.P
+.RE
+\fB--head\fR <int>
+.RS 4
+Show the first \fIN\fR data rows.\&
+.P
+.RE
+\fB--tail\fR <int>
+.RS 4
+Show the last \fIN\fR data rows.\&
 .P
 .RE
 \fB--theme\fR <theme>
@@ -93,6 +97,12 @@ is \fBauto\fR.\&
 \fB--vanilla\fR
 .RS 4
 Disable type inference and numeric formatting.\&
+.P
+.RE
+\fB--width\fR <int>
+.RS 4
+Set the maximum table width in characters.\& By default, \fBtennis\fR uses the
+current terminal width or \fB80\fR if it can'\&t be detected.\&
 .P
 .RE
 .SH BORDERS
