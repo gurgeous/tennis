@@ -65,10 +65,15 @@ Note that color defaults to `on`. Tennis likes to be colorful.
 
 ### Future Work
 
-There are many features I can add if there is demand, including zebra striping, numeric formatting, color scales, more control over column layout, etc. Other areas to explore:
-
-- windows support
-- use `zg` for string measuring and truncation of graphemes (vs codepoints)
+- support for input.json (and maybe ndjson/jsonl)
+- show first/last rows - `--head`, `--tail`
+- sort rows - `--sort`
+- select cols - `--only` or `--col` or `--columns` or `--select`
+- pipe through less - `--pager`
+- add zebra stripes - `--zebra`
+- output markdown `--format markdown` or `--markdown`
+- watch a file, update display `--watch`
+- briefly summarize each col `--summary` or `--peek`
 
 ### Similar Tools
 
