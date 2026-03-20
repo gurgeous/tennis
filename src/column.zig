@@ -1,3 +1,5 @@
+// REMIND: add a nice comment here, not too ling
+
 pub const Column = struct {
     table: *const Table,
     name: []const u8,
@@ -143,6 +145,10 @@ pub const ColumnIterator = struct {
         return field;
     }
 };
+
+//
+// tests
+//
 
 test "column init stores table header and index" {
     var in = std.io.fixedBufferStream("a,b\nc,d\n");

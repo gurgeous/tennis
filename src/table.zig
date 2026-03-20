@@ -20,7 +20,7 @@ pub const Table = struct {
         const csv = try Csv.init(alloc, reader, .{
             .delimiter = config.delimiter,
             // Read just the header plus N rows for head-only mode.
-            .head = if (config.head > 0 and config.tail == 0) config.head else 0,
+            .head = config.head,
         });
         errdefer csv.deinit(alloc);
 
@@ -94,7 +94,7 @@ pub const Table = struct {
 
     pub fn visibleRowCount(self: *const Table) usize {
         const n = self.nrows();
-        if (n == 0) return 0;
+        if (n == 0) return 0; // REMIND: is this line necessary?
         if (self.config.head > 0) return @min(self.config.head, n);
         if (self.config.tail > 0) return @min(self.config.tail, n);
         return n;

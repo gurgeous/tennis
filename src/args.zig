@@ -9,19 +9,19 @@ pub const Args = struct {
         \\ Usage: tennis [options...] <file.csv>     # print file.csv
         \\        tennis [options...]                # print csv from stdin
         \\
-        \\  -d, --delimiter <char>    CSV delim (can be any char or "tab")
         \\  -n, --row-numbers         Turn on row numbers
         \\  -t, --title <string>      Add a title to the table
-        \\  -w, --width <int>         Set max table width in chars
-        \\      --head <int>          Show first N rows
-        \\      --tail <int>          Show last N rows
         \\
         \\      --border <border>     Table border style (rounded|thin|double|...)
         \\      --color <color>       Turn color off and on (on|off|auto)
         \\      --completion <shell>  Print a shell completion script (bash|zsh)
+        \\      --delimiter <char>    CSV delim (can be any char or "tab")
         \\      --digits <int>        Digits after decimal for float columns (1-6)
+        \\      --head <int>          Show first N rows
+        \\      --tail <int>          Show last N rows
         \\      --theme <theme>       Select color theme (auto|dark|light)
         \\      --vanilla             Disable numeric formatting entirely
+        \\      --width <int>         Set max table width in chars
         \\      --help                Get help
         \\      --version             Show version number and exit
         \\
@@ -140,8 +140,8 @@ pub const Args = struct {
         if (res.args.tail) |v| {
             if (v == 0) return error.InvalidTailValue;
             config.tail = v;
+            if (config.head > 0) return error.InvalidHeadTail;
         }
-        if (config.head > 0 and config.tail > 0) return error.InvalidHeadTail;
         if (res.args.theme) |v| config.theme = v;
         if (res.args.title) |v| config.title = v;
         if (res.args.width) |v| config.width = v;
@@ -157,11 +157,11 @@ pub const Args = struct {
 
     fn errorString(buf: *[512]u8, err: anyerror, diag: *clap.Diagnostic) []const u8 {
         return switch (err) {
-            error.InvalidDigits => "Digits must be between 1 and 6",
-            error.InvalidHeadValue => "Head must be greater than 0",
-            error.InvalidHeadTail => "Use --head or --tail, not both",
-            error.InvalidTailValue => "Tail must be greater than 0",
             error.CouldNotReadStdin => "Could not read from stdin",
+            error.InvalidDigits => "Digits must be between 1 and 6",
+            error.InvalidHeadTail => "Use --head or --tail, not both",
+            error.InvalidHeadValue => "Head must be greater than 0",
+            error.InvalidTailValue => "Tail must be greater than 0",
             error.TooManyArguments => "Too many file arguments",
             error.Windows => "Windows is not yet supported",
             else => blk: {

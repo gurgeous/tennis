@@ -63,6 +63,7 @@ pub const Csv = struct {
             errdefer _ = rows.pop();
             try bufs.append(alloc, bytes);
 
+            // REMIND: personally I find the >= confusing, it implies somethihg that is not true
             if (opts.head > 0 and rows.items.len >= opts.head + 1) break;
         }
         if (parser.err) |err| return err;
