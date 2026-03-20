@@ -32,8 +32,8 @@ pub const Args = struct {
         \\    --color <COLOR>
         \\    --completion <SHELL>
         \\    --head <INT>
-        \\    --theme <THEME>
         \\    --tail <INT>
+        \\    --theme <THEME>
         \\-d, --delimiter <CHAR>
         \\-n, --row-numbers
         \\-t, --title <STRING>
@@ -133,10 +133,14 @@ pub const Args = struct {
             if (v < 1 or v > 6) return error.InvalidDigits;
             config.digits = v;
         }
-        if (res.args.head) |v| config.head = v;
-        if (res.args.tail) |v| config.tail = v;
-        if (res.args.head != null and config.head == 0) return error.InvalidHeadValue;
-        if (res.args.tail != null and config.tail == 0) return error.InvalidTailValue;
+        if (res.args.head) |v| {
+            if (v == 0) return error.InvalidHeadValue;
+            config.head = v;
+        }
+        if (res.args.tail) |v| {
+            if (v == 0) return error.InvalidTailValue;
+            config.tail = v;
+        }
         if (config.head > 0 and config.tail > 0) return error.InvalidHeadTail;
         if (res.args.theme) |v| config.theme = v;
         if (res.args.title) |v| config.title = v;

@@ -19,7 +19,8 @@ pub const Table = struct {
 
         const csv = try Csv.init(alloc, reader, .{
             .delimiter = config.delimiter,
-            .max_rows = if (config.head > 0 and config.tail == 0) config.head + 1 else 0,
+            // Read just the header plus N rows for head-only mode.
+            .head = if (config.head > 0 and config.tail == 0) config.head else 0,
         });
         errdefer csv.deinit(alloc);
 
@@ -103,6 +104,12 @@ pub const Table = struct {
         const n = self.nrows();
         if (self.config.tail > 0) return n - self.visibleRowCount() + index;
         return index;
+    }
+
+    pub fn visibleLastRowNumber(self: *const Table) usize {
+        const count = self.visibleRowCount();
+        if (count == 0) return 0;
+        return self.visibleRow(count - 1) + 1;
     }
 
     pub fn column(self: *const Table, index: usize) Column {
@@ -226,6 +233,20 @@ test "visible rows supports tail" {
     try std.testing.expectEqual(@as(usize, 2), table.visibleRowCount());
     try std.testing.expectEqual(@as(usize, 1), table.visibleRow(0));
     try std.testing.expectEqual(@as(usize, 2), table.visibleRow(1));
+}
+
+test "visible rows clamp oversized head and tail" {
+    var head_in = std.io.fixedBufferStream("a,b\n1,2\n3,4\n");
+    const head = try Table.init(std.testing.allocator, .{ .head = 100 }, head_in.reader());
+    defer head.deinit();
+    try std.testing.expectEqual(@as(usize, 2), head.visibleRowCount());
+    try std.testing.expectEqual(@as(usize, 2), head.visibleLastRowNumber());
+
+    var tail_in = std.io.fixedBufferStream("a,b\n1,2\n3,4\n");
+    const tail = try Table.init(std.testing.allocator, .{ .tail = 100 }, tail_in.reader());
+    defer tail.deinit();
+    try std.testing.expectEqual(@as(usize, 2), tail.visibleRowCount());
+    try std.testing.expectEqual(@as(usize, 2), tail.visibleLastRowNumber());
 }
 
 test "table builds columns from headers" {

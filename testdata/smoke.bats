@@ -124,6 +124,14 @@ setup() {
   [[ "$output" != *"Very Good"* ]]
 }
 
+@test "renders head rows with row numbers" {
+  run "$TENNIS_BIN" --color=off --width 80 -n --head 2 "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"│  1 │"* ]]
+  [[ "$output" == *"│  2 │"* ]]
+  [[ "$output" != *"│  3 │"* ]]
+}
+
 @test "renders tail rows with original row numbers" {
   run "$TENNIS_BIN" --color=off --width 80 -n --tail 2 "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 0 ]
@@ -136,6 +144,16 @@ setup() {
   run "$TENNIS_BIN" --head 2 --tail 2 "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 1 ]
   [[ "$output" == *"tennis: Use --head or --tail, not both"* ]]
+}
+
+@test "rejects zero head and tail" {
+  run "$TENNIS_BIN" --head 0 "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"tennis: Head must be greater than 0"* ]]
+
+  run "$TENNIS_BIN" --tail 0 "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"tennis: Tail must be greater than 0"* ]]
 }
 
 @test "renders row numbers" {

@@ -10,7 +10,7 @@ pub const Csv = struct {
     pub fn init(
         alloc: std.mem.Allocator,
         reader: anytype,
-        opts: struct { delimiter: u8 = ',', max_rows: usize = 0 },
+        opts: struct { delimiter: u8 = ',', head: usize = 0 },
     ) !Csv {
         var total_timer = try std.time.Timer.start();
         var rows = std.ArrayList(Row).empty;
@@ -63,7 +63,7 @@ pub const Csv = struct {
             errdefer _ = rows.pop();
             try bufs.append(alloc, bytes);
 
-            if (opts.max_rows > 0 and rows.items.len >= opts.max_rows) break;
+            if (opts.head > 0 and rows.items.len >= opts.head + 1) break;
         }
         if (parser.err) |err| return err;
 
