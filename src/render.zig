@@ -45,9 +45,9 @@ pub const Render = struct {
         if (self.border.header != .none) try self.renderRule(self.border.header);
 
         // rows
-        for (0..self.table.nrows()) |row_index| {
-            try self.renderRow(row_index);
-            if (row_index + 1 < self.table.nrows() and self.border.row != .none) {
+        for (0..self.table.visibleRowCount()) |visible_index| {
+            try self.renderRow(visible_index);
+            if (visible_index + 1 < self.table.visibleRowCount() and self.border.row != .none) {
                 try self.renderRule(self.border.row);
             }
         }
@@ -118,10 +118,10 @@ pub const Render = struct {
         col.* += 1;
     }
 
-    fn renderRow(self: *Render, row_index: usize) !void {
+    fn renderRow(self: *Render, visible_index: usize) !void {
         try self.writeChrome(self.border.left);
 
-        const row_no = row_index + 1;
+        const row_no = self.table.visibleRow(visible_index) + 1;
         var col: usize = 0;
         if (self.table.config.row_numbers) {
             var num_buf: [32]u8 = undefined;
@@ -132,7 +132,7 @@ pub const Render = struct {
         }
 
         for (self.table.columns) |column| {
-            const raw = column.field(row_index);
+            const raw = column.field(visible_index);
             const is_placeholder = raw.len == 0;
             const style = self.table.style();
             const cell_style = if (is_placeholder) style.chrome else style.field;

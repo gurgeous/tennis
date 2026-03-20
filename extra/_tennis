@@ -2,20 +2,20 @@
 compdef _tennis tennis
 _tennis() {
   _arguments -s \
-    '-d[CSV delim (can be any char or "tab")]:char:(tab , \; \|)' \
-    '--delimiter[CSV delim (can be any char or "tab")]:char:(tab , \; \|)' \
     '-n[Turn on row numbers]' \
     '--row-numbers[Turn on row numbers]' \
     '-t[Add a title to the table]:string:' \
     '--title[Add a title to the table]:string:' \
-    '-w[Set max table width in chars]:int:' \
-    '--width[Set max table width in chars]:int:' \
     '--border[Table border style (rounded|thin|double|...)]:border:(ascii_rounded basic basic_compact compact compact_double dots double heavy light markdown none psql reinforced restructured rounded single thin with_love)' \
     '--color[Turn color off and on (on|off|auto)]:color:(auto off on)' \
     '--completion[Print a shell completion script (bash|zsh)]:shell:(bash zsh)' \
+    '--delimiter[CSV delim (can be any char or "tab")]:char:(tab , \; \|)' \
     '--digits[Digits after decimal for float columns (1-6)]:int:(1 2 3 4 5 6)' \
+    '--head[Show first N rows]:int:' \
+    '--tail[Show last N rows]:int:' \
     '--theme[Select color theme (auto|dark|light)]:theme:(auto dark light)' \
     '--vanilla[Disable numeric formatting entirely]' \
+    '--width[Set max table width in chars]:int:' \
     '--help[Get help]' \
     '--version[Show version number and exit]' \
     '*:file:_files -g "*.csv(-.)" "*(-/)"'

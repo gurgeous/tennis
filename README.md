@@ -42,17 +42,19 @@ $ zig build
  Usage: tennis [options...] <file.csv>     # print file.csv
         tennis [options...]                # print csv from stdin
 
-  -d, --delimiter <char>    CSV delim (can be any char or "tab")
   -n, --row-numbers         Turn on row numbers
   -t, --title <string>      Add a title to the table
-  -w, --width <int>         Set max table width in chars
 
       --border <border>     Table border style (rounded|thin|double|...)
       --color <color>       Turn color off and on (on|off|auto)
       --completion <shell>  Print a shell completion script (bash|zsh)
+      --delimiter <char>    CSV delim (can be any char or "tab")
       --digits <int>        Digits after decimal for float columns (1-6)
+      --head <int>          Show first N rows
+      --tail <int>          Show last N rows
       --theme <theme>       Select color theme (auto|dark|light)
       --vanilla             Disable numeric formatting entirely
+      --width <int>         Set max table width in chars
       --help                Get help
       --version             Show version number and exit
 ```
@@ -94,6 +96,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 - `--border` styles based on Nushell / `tabled` crate.
 - `--completion` for auto-generating bash/zsh completions
+- `--head` and `--tail` for clipping large tables
 - `doomicode`, best-effort Unicode width for emojis, etc
 - auto-detect csv vs tsv (or semis, or pipes)
 

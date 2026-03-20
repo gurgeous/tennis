@@ -17,7 +17,11 @@ pub const Table = struct {
         const table = try alloc.create(Table);
         errdefer alloc.destroy(table);
 
-        const csv = try Csv.init(alloc, reader, .{ .delimiter = config.delimiter });
+        const csv = try Csv.init(alloc, reader, .{
+            .delimiter = config.delimiter,
+            // Read just the header plus N rows for head-only mode.
+            .head = config.head,
+        });
         errdefer csv.deinit(alloc);
 
         // A csv with zero data rows is intentionally rendered as "empty"
@@ -86,6 +90,25 @@ pub const Table = struct {
     pub fn rows(self: *const Table) Rows {
         if (self.empty) return &.{};
         return self.csv.rows[1..];
+    }
+
+    pub fn visibleRowCount(self: *const Table) usize {
+        const n = self.nrows();
+        if (self.config.head > 0) return @min(self.config.head, n);
+        if (self.config.tail > 0) return @min(self.config.tail, n);
+        return n;
+    }
+
+    pub fn visibleRow(self: *const Table, index: usize) usize {
+        const n = self.nrows();
+        if (self.config.tail > 0) return n - self.visibleRowCount() + index;
+        return index;
+    }
+
+    pub fn visibleLastRowNumber(self: *const Table) usize {
+        const count = self.visibleRowCount();
+        if (count == 0) return 0;
+        return self.visibleRow(count - 1) + 1;
     }
 
     pub fn column(self: *const Table, index: usize) Column {
@@ -189,6 +212,40 @@ test "rows returns data rows only" {
     const row2 = rows[1];
     try std.testing.expectEqualStrings("e", row2[0]);
     try std.testing.expectEqualStrings("f", row2[1]);
+}
+
+test "visible rows supports head" {
+    var in = std.io.fixedBufferStream("a,b\n1,2\n3,4\n5,6\n");
+    const table = try Table.init(std.testing.allocator, .{ .head = 2 }, in.reader());
+    defer table.deinit();
+
+    try std.testing.expectEqual(@as(usize, 2), table.visibleRowCount());
+    try std.testing.expectEqual(@as(usize, 0), table.visibleRow(0));
+    try std.testing.expectEqual(@as(usize, 1), table.visibleRow(1));
+}
+
+test "visible rows supports tail" {
+    var in = std.io.fixedBufferStream("a,b\n1,2\n3,4\n5,6\n");
+    const table = try Table.init(std.testing.allocator, .{ .tail = 2 }, in.reader());
+    defer table.deinit();
+
+    try std.testing.expectEqual(@as(usize, 2), table.visibleRowCount());
+    try std.testing.expectEqual(@as(usize, 1), table.visibleRow(0));
+    try std.testing.expectEqual(@as(usize, 2), table.visibleRow(1));
+}
+
+test "visible rows clamp oversized head and tail" {
+    var head_in = std.io.fixedBufferStream("a,b\n1,2\n3,4\n");
+    const head = try Table.init(std.testing.allocator, .{ .head = 100 }, head_in.reader());
+    defer head.deinit();
+    try std.testing.expectEqual(@as(usize, 2), head.visibleRowCount());
+    try std.testing.expectEqual(@as(usize, 2), head.visibleLastRowNumber());
+
+    var tail_in = std.io.fixedBufferStream("a,b\n1,2\n3,4\n");
+    const tail = try Table.init(std.testing.allocator, .{ .tail = 100 }, tail_in.reader());
+    defer tail.deinit();
+    try std.testing.expectEqual(@as(usize, 2), tail.visibleRowCount());
+    try std.testing.expectEqual(@as(usize, 2), tail.visibleLastRowNumber());
 }
 
 test "table builds columns from headers" {

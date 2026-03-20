@@ -7,7 +7,11 @@ pub const Csv = struct {
     bufs: [][]u8,
 
     // Read a csv into memory with one owned buffer per row.
-    pub fn init(alloc: std.mem.Allocator, reader: anytype, opts: struct { delimiter: u8 = ',' }) !Csv {
+    pub fn init(
+        alloc: std.mem.Allocator,
+        reader: anytype,
+        opts: struct { delimiter: u8 = ',', head: usize = 0 },
+    ) !Csv {
         var total_timer = try std.time.Timer.start();
         var rows = std.ArrayList(Row).empty;
         var bufs = std.ArrayList([]u8).empty;
@@ -58,6 +62,8 @@ pub const Csv = struct {
             try rows.append(alloc, row);
             errdefer _ = rows.pop();
             try bufs.append(alloc, bytes);
+
+            if (opts.head > 0 and rows.items.len == opts.head + 1) break;
         }
         if (parser.err) |err| return err;
 

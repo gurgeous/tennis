@@ -1,3 +1,5 @@
+// A column owns any formatted numeric cells and measures/inferes against visible rows only.
+
 pub const Column = struct {
     table: *const Table,
     name: []const u8,
@@ -41,12 +43,12 @@ pub const Column = struct {
     //
 
     pub fn iterator(self: Column) ColumnIterator {
-        return .init(self.table.rows(), self.index);
+        return .init(self.table, self.index);
     }
 
-    pub fn field(self: Column, row_index: usize) Field {
-        if (self.formatted) |fields| return fields[row_index];
-        return self.table.rows()[row_index][self.index];
+    pub fn field(self: Column, visible_index: usize) Field {
+        if (self.formatted) |fields| return fields[visible_index];
+        return self.table.rows()[self.table.visibleRow(visible_index)][self.index];
     }
 
     //
@@ -55,8 +57,8 @@ pub const Column = struct {
 
     fn measure(self: Column) usize {
         var width = doomicode.displayWidth(self.name);
-        for (0..self.table.nrows()) |row_index| {
-            width = @max(width, doomicode.displayWidth(self.field(row_index)));
+        for (0..self.table.visibleRowCount()) |visible_index| {
+            width = @max(width, doomicode.displayWidth(self.field(visible_index)));
         }
         return width;
     }
@@ -97,7 +99,7 @@ pub const Column = struct {
         comptime formatter: fn (*Column, std.mem.Allocator, []const u8) anyerror![]u8,
     ) !void {
         const alloc = self.table.alloc;
-        const fields = try alloc.alloc(Field, self.table.nrows());
+        const fields = try alloc.alloc(Field, self.table.visibleRowCount());
         errdefer alloc.free(fields);
 
         var ii: usize = 0;
@@ -128,21 +130,25 @@ pub const ColumnType = enum { int, float, string };
 //
 
 pub const ColumnIterator = struct {
-    rows: Rows,
+    table: *const Table,
     col: usize,
-    row: usize = 0,
+    visible_row: usize = 0,
 
-    pub fn init(rows: Rows, col: usize) ColumnIterator {
-        return .{ .rows = rows, .col = col };
+    pub fn init(table: *const Table, col: usize) ColumnIterator {
+        return .{ .table = table, .col = col };
     }
 
     pub fn next(self: *ColumnIterator) ?Field {
-        if (self.row >= self.rows.len) return null;
-        const field = self.rows[self.row][self.col];
-        self.row += 1;
+        if (self.visible_row >= self.table.visibleRowCount()) return null;
+        const field = self.table.rows()[self.table.visibleRow(self.visible_row)][self.col];
+        self.visible_row += 1;
         return field;
     }
 };
+
+//
+// tests
+//
 
 test "column init stores table header and index" {
     var in = std.io.fixedBufferStream("a,b\nc,d\n");
@@ -176,6 +182,16 @@ test "column iterator walks data rows only" {
     try std.testing.expectEqualStrings("d", it.next().?);
     try std.testing.expectEqualStrings("f", it.next().?);
     try std.testing.expectEqual(@as(?Field, null), it.next());
+}
+
+test "column tail formatting and width use visible rows" {
+    var in = std.io.fixedBufferStream("a,b\nsuper-wide,1\nok,2\n");
+    const table = try Table.init(std.testing.allocator, .{ .tail = 1 }, in.reader());
+    defer table.deinit();
+
+    try std.testing.expectEqualStrings("ok", table.column(0).field(0));
+    try std.testing.expectEqual(@as(usize, 2), table.column(0).width);
+    try std.testing.expectEqualStrings("2", table.column(1).field(0));
 }
 
 test "column measures widest header or field" {
@@ -256,6 +272,5 @@ const doomicode = @import("doomicode.zig");
 const Field = @import("types.zig").Field;
 const float = @import("float.zig");
 const int = @import("int.zig");
-const Rows = @import("types.zig").Rows;
 const std = @import("std");
 const Table = @import("table.zig").Table;
