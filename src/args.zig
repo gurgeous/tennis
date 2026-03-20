@@ -13,6 +13,8 @@ pub const Args = struct {
         \\  -n, --row-numbers         Turn on row numbers
         \\  -t, --title <string>      Add a title to the table
         \\  -w, --width <int>         Set max table width in chars
+        \\      --head <int>          Show first N rows
+        \\      --tail <int>          Show last N rows
         \\
         \\      --border <border>     Table border style (rounded|thin|double|...)
         \\      --color <color>       Turn color off and on (on|off|auto)
@@ -29,7 +31,9 @@ pub const Args = struct {
         \\    --border <BORDER>
         \\    --color <COLOR>
         \\    --completion <SHELL>
+        \\    --head <INT>
         \\    --theme <THEME>
+        \\    --tail <INT>
         \\-d, --delimiter <CHAR>
         \\-n, --row-numbers
         \\-t, --title <STRING>
@@ -129,6 +133,11 @@ pub const Args = struct {
             if (v < 1 or v > 6) return error.InvalidDigits;
             config.digits = v;
         }
+        if (res.args.head) |v| config.head = v;
+        if (res.args.tail) |v| config.tail = v;
+        if (res.args.head != null and config.head == 0) return error.InvalidHeadValue;
+        if (res.args.tail != null and config.tail == 0) return error.InvalidTailValue;
+        if (config.head > 0 and config.tail > 0) return error.InvalidHeadTail;
         if (res.args.theme) |v| config.theme = v;
         if (res.args.title) |v| config.title = v;
         if (res.args.width) |v| config.width = v;
@@ -145,6 +154,9 @@ pub const Args = struct {
     fn errorString(buf: *[512]u8, err: anyerror, diag: *clap.Diagnostic) []const u8 {
         return switch (err) {
             error.InvalidDigits => "Digits must be between 1 and 6",
+            error.InvalidHeadValue => "Head must be greater than 0",
+            error.InvalidHeadTail => "Use --head or --tail, not both",
+            error.InvalidTailValue => "Tail must be greater than 0",
             error.CouldNotReadStdin => "Could not read from stdin",
             error.TooManyArguments => "Too many file arguments",
             error.Windows => "Windows is not yet supported",
@@ -200,6 +212,8 @@ test "parse parses options" {
         "off",
         "--digits",
         "4",
+        "--head",
+        "5",
         "--theme",
         "light",
         "--title",
@@ -215,6 +229,7 @@ test "parse parses options" {
     try std.testing.expectEqual(border.BorderName.double, out.config.border);
     try std.testing.expectEqual(types.Color.off, out.config.color);
     try std.testing.expectEqual(@as(usize, 4), out.config.digits);
+    try std.testing.expectEqual(@as(usize, 5), out.config.head);
     try std.testing.expectEqual(types.Theme.light, out.config.theme);
     try std.testing.expectEqualStrings("foo", out.config.title);
     try std.testing.expect(out.config.vanilla);
@@ -354,6 +369,28 @@ test "parse rejects invalid digits" {
     try std.testing.expectError(error.InvalidDigits, Args.parse(std.testing.allocator, &.{
         "--digits",
         "7",
+    }, &diag));
+}
+
+test "parse rejects head and tail together" {
+    var diag: clap.Diagnostic = .{};
+    try std.testing.expectError(error.InvalidHeadTail, Args.parse(std.testing.allocator, &.{
+        "--head",
+        "1",
+        "--tail",
+        "1",
+    }, &diag));
+}
+
+test "parse rejects zero head and tail" {
+    var diag: clap.Diagnostic = .{};
+    try std.testing.expectError(error.InvalidHeadValue, Args.parse(std.testing.allocator, &.{
+        "--head",
+        "0",
+    }, &diag));
+    try std.testing.expectError(error.InvalidTailValue, Args.parse(std.testing.allocator, &.{
+        "--tail",
+        "0",
     }, &diag));
 }
 

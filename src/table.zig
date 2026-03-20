@@ -17,7 +17,10 @@ pub const Table = struct {
         const table = try alloc.create(Table);
         errdefer alloc.destroy(table);
 
-        const csv = try Csv.init(alloc, reader, .{ .delimiter = config.delimiter });
+        const csv = try Csv.init(alloc, reader, .{
+            .delimiter = config.delimiter,
+            .max_rows = if (config.head > 0 and config.tail == 0) config.head + 1 else 0,
+        });
         errdefer csv.deinit(alloc);
 
         // A csv with zero data rows is intentionally rendered as "empty"
@@ -86,6 +89,20 @@ pub const Table = struct {
     pub fn rows(self: *const Table) Rows {
         if (self.empty) return &.{};
         return self.csv.rows[1..];
+    }
+
+    pub fn visibleRowCount(self: *const Table) usize {
+        const n = self.nrows();
+        if (n == 0) return 0;
+        if (self.config.head > 0) return @min(self.config.head, n);
+        if (self.config.tail > 0) return @min(self.config.tail, n);
+        return n;
+    }
+
+    pub fn visibleRow(self: *const Table, index: usize) usize {
+        const n = self.nrows();
+        if (self.config.tail > 0) return n - self.visibleRowCount() + index;
+        return index;
     }
 
     pub fn column(self: *const Table, index: usize) Column {
@@ -189,6 +206,26 @@ test "rows returns data rows only" {
     const row2 = rows[1];
     try std.testing.expectEqualStrings("e", row2[0]);
     try std.testing.expectEqualStrings("f", row2[1]);
+}
+
+test "visible rows supports head" {
+    var in = std.io.fixedBufferStream("a,b\n1,2\n3,4\n5,6\n");
+    const table = try Table.init(std.testing.allocator, .{ .head = 2 }, in.reader());
+    defer table.deinit();
+
+    try std.testing.expectEqual(@as(usize, 2), table.visibleRowCount());
+    try std.testing.expectEqual(@as(usize, 0), table.visibleRow(0));
+    try std.testing.expectEqual(@as(usize, 1), table.visibleRow(1));
+}
+
+test "visible rows supports tail" {
+    var in = std.io.fixedBufferStream("a,b\n1,2\n3,4\n5,6\n");
+    const table = try Table.init(std.testing.allocator, .{ .tail = 2 }, in.reader());
+    defer table.deinit();
+
+    try std.testing.expectEqual(@as(usize, 2), table.visibleRowCount());
+    try std.testing.expectEqual(@as(usize, 1), table.visibleRow(0));
+    try std.testing.expectEqual(@as(usize, 2), table.visibleRow(1));
 }
 
 test "table builds columns from headers" {

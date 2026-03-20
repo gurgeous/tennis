@@ -46,6 +46,8 @@ $ zig build
   -n, --row-numbers         Turn on row numbers
   -t, --title <string>      Add a title to the table
   -w, --width <int>         Set max table width in chars
+      --head <int>          Show first N rows
+      --tail <int>          Show last N rows
 
       --border <border>     Table border style (rounded|thin|double|...)
       --color <color>       Turn color off and on (on|off|auto)

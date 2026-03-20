@@ -50,6 +50,12 @@ $ tennis diamonds.csv
 	Set the maximum table width in characters. By default, *tennis* uses the
 	current terminal width or *80* if it can't be detected.
 
+*--head* <int>
+	Show the first _N_ data rows.
+
+*--tail* <int>
+	Show the last _N_ data rows.
+
 *--border* <border>
 	Select the table border style. The default is *rounded*.
 

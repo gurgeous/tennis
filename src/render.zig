@@ -45,9 +45,9 @@ pub const Render = struct {
         if (self.border.header != .none) try self.renderRule(self.border.header);
 
         // rows
-        for (0..self.table.nrows()) |row_index| {
-            try self.renderRow(row_index);
-            if (row_index + 1 < self.table.nrows() and self.border.row != .none) {
+        for (0..self.table.visibleRowCount()) |visible_index| {
+            try self.renderRow(self.table.visibleRow(visible_index));
+            if (visible_index + 1 < self.table.visibleRowCount() and self.border.row != .none) {
                 try self.renderRule(self.border.row);
             }
         }
