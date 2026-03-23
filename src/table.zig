@@ -38,7 +38,6 @@ pub const Table = struct {
             .config = config,
             .data = data,
             .empty = empty,
-            .row_count = row_view.len,
             .row_view = row_view,
         };
 
@@ -213,7 +212,7 @@ pub const Table = struct {
         if (self.config.reverse) std.mem.reverse(usize, self.row_view);
 
         // set visible_row_count
-        var n: usize = self.row_count;
+        var n: usize = self.row_view.len;
         if (self.config.head > 0) n = @min(self.config.head, n);
         if (self.config.tail > 0) n = @min(self.config.tail, n);
         self.visible_row_count = n;
@@ -221,18 +220,20 @@ pub const Table = struct {
 
     // Keep only rows where any field contains the case-insensitive filter text.
     fn filterRows(self: *Self) void {
-        var out: usize = 0;
+        var ii: usize = 0;
         for (self.row_view) |row_index| {
             const data_row = self.data.row(row_index + 1);
             for (data_row) |field| {
                 if (util.containsIgnoreCase(field, self.config.filter)) {
-                    self.row_view[out] = row_index;
-                    out += 1;
+                    self.row_view[ii] = row_index;
+                    ii += 1;
                     break;
                 }
             }
         }
-        self.row_count = out;
+        const old = self.row_view;
+        defer self.alloc.free(old);
+        self.row_view = self.alloc.dupe(usize, self.row_view[0..ii]) catch unreachable;
     }
 };
 
