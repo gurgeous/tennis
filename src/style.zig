@@ -27,7 +27,7 @@ pub const Style = struct {
     const dark: Style = .{
         .chrome = fg("#6b7280", false),
         .field = fg("#e5e7eb", false),
-        .zebra = fgbg("#ffffff", "#222222", false),
+        .zebra = fgbg("#ffffff", "#222222"),
         .title = fg("#60a5fa", true),
         .headers = &.{
             fg("#ff6188", true),
@@ -42,7 +42,7 @@ pub const Style = struct {
     const light: Style = .{
         .chrome = fg("#6b7280", false),
         .field = fg("#1f2937", false),
-        .zebra = fgbg("#000000", "#e5e7eb", false),
+        .zebra = fgbg("#000000", "#e5e7eb"),
         .title = fg("#2563eb", true),
         .headers = &.{
             fg("#ee4066", true),
@@ -72,13 +72,12 @@ fn fg(comptime hex: []const u8, comptime is_bold: bool) []const u8 {
 }
 
 // Build one ANSI foreground/background sequence at comptime.
-fn fgbg(comptime fg_hex: []const u8, comptime bg_hex: []const u8, comptime is_bold: bool) []const u8 {
+fn fgbg(comptime fg_hex: []const u8, comptime bg_hex: []const u8) []const u8 {
     const fg_color = comptime Color.initHex(fg_hex) catch @compileError("invalid fg hex color");
     const bg_color = comptime Color.initHex(bg_hex) catch @compileError("invalid bg hex color");
-    const bold_prefix = if (is_bold) "1;" else "";
     const csi = comptime std.fmt.comptimePrint(
-        "{s}38;2;{d};{d};{d};48;2;{d};{d};{d}m",
-        .{ bold_prefix, fg_color.r, fg_color.g, fg_color.b, bg_color.r, bg_color.g, bg_color.b },
+        "38;2;{d};{d};{d};48;2;{d};{d};{d}m",
+        .{ fg_color.r, fg_color.g, fg_color.b, bg_color.r, bg_color.g, bg_color.b },
     );
     return mibu.utils.comptimeCsi(csi, .{});
 }

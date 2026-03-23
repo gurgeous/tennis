@@ -179,8 +179,6 @@ pub const Render = struct {
             try self.renderField(cell_style, field, col, sep, al);
             col += 1;
         }
-
-        // done
         try self.newline();
     }
 
