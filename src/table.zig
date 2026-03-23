@@ -38,7 +38,7 @@ pub const Table = struct {
         if (!table.empty) {
             for (table.row_order, 0..) |*slot, ii| slot.* = ii;
             if (config.sort.len > 0) try table.sortRows();
-            if (config.reverse) reverseRows(table.row_order);
+            if (config.reverse) std.mem.reverse(usize, table.row_order);
 
             var n: usize = table.nrows();
             if (config.head > 0) n = @min(config.head, n);
@@ -179,14 +179,11 @@ pub const Table = struct {
     }
 
     fn sortRows(self: *Self) !void {
-        const sorter = try sort.Sort.init(self.alloc, self.headers(), self.config.sort);
-        defer sorter.deinit(self.alloc);
-        sorter.apply(self.data, self.row_order);
-    }
-
-    // Reverse the display order of the loaded data rows in place.
-    fn reverseRows(row_order: []usize) void {
-        std.mem.reverse(usize, row_order);
+        if (self.config.sort.len > 0) {
+            const sorter = try sort.Sort.init(self.alloc, self.headers(), self.config.sort);
+            defer sorter.deinit(self.alloc);
+            sorter.apply(self.data, self.row_order);
+        }
     }
 };
 
