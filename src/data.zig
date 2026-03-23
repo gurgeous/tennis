@@ -14,6 +14,10 @@ pub const Data = struct {
     pub fn row(self: Data, index: usize) Row {
         return self.rows[index].row;
     }
+
+    pub fn headers(self: Data) Row {
+        return if (self.rows.len > 0) self.row(0) else &.{};
+    }
 };
 
 // One row and the backing bytes referenced by its fields.
@@ -111,6 +115,24 @@ test "DataRow.init copies disjoint slices into one owned row" {
     try testing.expectEqualStrings("a", got.row[0]);
     try testing.expectEqualStrings("d", got.row[1]);
     try testing.expectEqualStrings("ad", got.buf);
+}
+
+test "Data.headers returns first row or empty" {
+    const alloc = testing.allocator;
+
+    const full = try alloc.alloc(DataRow, 1);
+    errdefer alloc.free(full);
+    full[0] = try DataRow.init(alloc, &.{ "a", "b" });
+    var data: Data = .{ .rows = full };
+    defer data.deinit(alloc);
+    try testing.expectEqual(@as(usize, 2), data.headers().len);
+    try testing.expectEqualStrings("a", data.headers()[0]);
+    try testing.expectEqualStrings("b", data.headers()[1]);
+
+    const empty_rows = try alloc.alloc(DataRow, 0);
+    var empty: Data = .{ .rows = empty_rows };
+    defer empty.deinit(alloc);
+    try testing.expectEqual(@as(usize, 0), empty.headers().len);
 }
 
 test "DataRow.init strips and escapes newlines" {

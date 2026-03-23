@@ -178,65 +178,11 @@ pub const Table = struct {
     }
 
     fn sortRows(self: *Self) !void {
-        // main validates sort specs before Table.init, so this path can trust header resolution.
-        const sort_cols = try parseSortColumns(self.alloc, self.headers(), self.config.sort);
-        defer self.alloc.free(sort_cols);
-
-        std.sort.block(usize, self.row_order, SortCtx{
-            .table = self,
-            .sort_cols = sort_cols,
-        }, SortCtx.lessThan);
-    }
-
-    pub fn firstInvalidSortColumn(row_headers: Row, spec: []const u8) ?[]const u8 {
-        var it = std.mem.splitScalar(u8, spec, ',');
-        while (it.next()) |raw| {
-            const name = util.strip(u8, raw);
-            if (name.len == 0) return raw;
-            for (row_headers) |header| {
-                if (std.ascii.eqlIgnoreCase(header, name)) break;
-            } else return name;
-        }
-        return null;
+        const sorter = try sort.Sort.init(self.alloc, self.headers(), self.config.sort);
+        defer sorter.deinit(self.alloc);
+        sorter.apply(self.data, self.row_order);
     }
 };
-
-const SortCtx = struct {
-    table: *const Table,
-    sort_cols: []const usize,
-
-    fn lessThan(ctx: @This(), lhs: usize, rhs: usize) bool {
-        const a = ctx.table.data.row(lhs + 1);
-        const b = ctx.table.data.row(rhs + 1);
-        for (ctx.sort_cols) |col| {
-            switch (std.mem.order(u8, a[col], b[col])) {
-                .lt => return true,
-                .gt => return false,
-                .eq => {},
-            }
-        }
-        return lhs < rhs;
-    }
-};
-
-fn parseSortColumns(alloc: std.mem.Allocator, headers: Row, spec: []const u8) ![]usize {
-    var cols: std.ArrayList(usize) = .empty;
-    defer cols.deinit(alloc);
-
-    var it = std.mem.splitScalar(u8, spec, ',');
-    while (it.next()) |raw| {
-        const name = util.strip(u8, raw);
-        if (name.len == 0) unreachable;
-        for (headers, 0..) |header, ii| {
-            if (std.ascii.eqlIgnoreCase(header, name)) {
-                try cols.append(alloc, ii);
-                break;
-            }
-        } else unreachable;
-    }
-
-    return try cols.toOwnedSlice(alloc);
-}
 
 //
 // testing
@@ -344,25 +290,6 @@ test "table sorts before head and tail" {
     try test_support.expectStrings(&.{ "cara", "3" }, tail.row(tail.visibleRow(1)));
 }
 
-test "firstInvalidSortColumn reports unknown header" {
-    try testing.expectEqualStrings("bogus", Table.firstInvalidSortColumn(&.{ "name", "score" }, "score,bogus").?);
-    try testing.expect(Table.firstInvalidSortColumn(&.{ "name", "score" }, "NAME,score") == null);
-}
-
-test "table sort preserves original order for equal values" {
-    const table = try Table.initCsv(testing.allocator, .{ .sort = "score" }, "name,score\nalice,1\nbob,1\ncara,2\n");
-    defer table.deinit();
-
-    try test_support.expectStrings(&.{ "alice", "1" }, table.row(0));
-    try test_support.expectStrings(&.{ "bob", "1" }, table.row(1));
-    try test_support.expectStrings(&.{ "cara", "2" }, table.row(2));
-}
-
-test "firstInvalidSortColumn handles whitespace and trailing commas" {
-    try testing.expect(Table.firstInvalidSortColumn(&.{ "name", "score" }, " name , score ") == null);
-    try testing.expect(Table.firstInvalidSortColumn(&.{ "name", "score" }, "name,") != null);
-}
-
 test "visible rows clamp oversized head and tail" {
     const head = try Table.initCsv(testing.allocator, .{ .head = 100 }, "a,b\n1,2\n3,4\n");
     defer head.deinit();
@@ -410,9 +337,10 @@ const Layout = @import("layout.zig").Layout;
 const Render = @import("render.zig").Render;
 const Row = @import("types.zig").Row;
 const Rows = @import("types.zig").Rows;
+const sort = @import("sort.zig");
 const std = @import("std");
-const testing = std.testing;
 const Style = @import("style.zig").Style;
+const testing = std.testing;
 const test_support = @import("test_support.zig");
 const types = @import("types.zig");
 const util = @import("util.zig");

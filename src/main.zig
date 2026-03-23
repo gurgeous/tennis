@@ -102,8 +102,8 @@ fn main0() !u8 {
     //
 
     if (args.config.sort.len > 0) {
-        validateSort(headersOf(data), args.config.sort) catch |err| {
-            const maybe_err_str = sortErrorString(alloc, headersOf(data), args.config.sort, err) catch null;
+        sort.validate(alloc, data.headers(), args.config.sort) catch {
+            const maybe_err_str = sort.errorString(alloc, data.headers()) catch null;
             defer if (maybe_err_str) |msg| alloc.free(msg);
             try printBanner(maybe_err_str orelse "That sort doesn't look right");
             return 1;
@@ -145,37 +145,6 @@ fn load(alloc: std.mem.Allocator, args: *Args, bytes_in: []const u8) !Data {
     return try csv.load(alloc, bytes, delimiter);
 }
 
-fn headersOf(data: Data) []const []const u8 {
-    return if (data.rows.len > 0) data.row(0) else &.{};
-}
-
-fn validateSort(headers: []const []const u8, spec: []const u8) !void {
-    if (Table.firstInvalidSortColumn(headers, spec)) |bad| {
-        if (util.strip(u8, bad).len == 0) {
-            return error.InvalidSortSpec;
-        }
-        return error.InvalidSortColumn;
-    }
-}
-
-fn sortErrorString(alloc: std.mem.Allocator, headers: []const []const u8, spec: []const u8, err: anyerror) ![]u8 {
-    var columns: std.ArrayList(u8) = .empty;
-    defer columns.deinit(alloc);
-    for (headers, 0..) |header, ii| {
-        if (ii > 0) try columns.appendSlice(alloc, ", ");
-        try columns.appendSlice(alloc, header);
-    }
-
-    return switch (err) {
-        error.InvalidSortSpec => std.fmt.allocPrint(alloc, "Invalid sort spec '{s}'. Empty sort columns are not allowed. Columns: {s}", .{ spec, columns.items }),
-        error.InvalidSortColumn => blk: {
-            const bad = Table.firstInvalidSortColumn(headers, spec) orelse unreachable;
-            break :blk std.fmt.allocPrint(alloc, "Unknown sort column '{s}'. Columns: {s}", .{ util.strip(u8, bad), columns.items });
-        },
-        else => unreachable,
-    };
-}
-
 // Print the startup banner to the shared app writers.
 fn printBanner(err_str: ?[]const u8) !void {
     const writer = if (err_str != null) util.stderr else util.stdout;
@@ -205,6 +174,7 @@ test {
     _ = @import("render.zig");
     _ = @import("data.zig");
     _ = @import("replay.zig");
+    _ = @import("sort.zig");
     _ = @import("sniffer.zig");
     _ = @import("style.zig");
     _ = @import("termbg.zig");
@@ -260,6 +230,7 @@ const Data = @import("data.zig").Data;
 const detect = @import("detect.zig");
 const json = @import("json.zig");
 const sniffer = @import("sniffer.zig");
+const sort = @import("sort.zig");
 const std = @import("std");
 const testing = std.testing;
 const Table = @import("table.zig").Table;
