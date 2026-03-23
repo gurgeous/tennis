@@ -40,8 +40,8 @@ $ zig build
 ### Options
 
 ```
- Usage: tennis [options...] <file.csv>     # print file.csv
-        tennis [options...]                # print csv from stdin
+ Usage: tennis [options...] <file.csv>
+        also supports stdin, json/jsonl files, etc.
 
  Popular options:
   -n, --row-numbers          Turn on row numbers
