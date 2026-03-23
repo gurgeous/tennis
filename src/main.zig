@@ -171,6 +171,7 @@ test {
     _ = @import("json.zig");
     _ = @import("json_to_string.zig");
     _ = @import("layout.zig");
+    _ = @import("natsort.zig");
     _ = @import("render.zig");
     _ = @import("data.zig");
     _ = @import("replay.zig");
