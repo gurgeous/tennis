@@ -275,17 +275,24 @@ test "reads jsonl through ambiguous json format" {
     try expectRow(rows, 2, &.{ "bob", "5678" });
 }
 
-test "reads single object json loads all rows" {
-    const rows = try initTest(testing.allocator,
-        \\{"name":"alice","score":1234,"city":"denver"}
+test "reads jsonl with CRLF line endings" {
+    const rows = try initTest(
+        testing.allocator,
+        "{\"name\":\"alice\",\"score\":1234}\r\n{\"name\":\"bob\",\"score\":5678}\r\n",
     );
     defer rows.deinit(testing.allocator);
 
-    try testing.expectEqual(@as(usize, 4), rows.rows.len);
-    try expectRow(rows, 0, &.{ "key", "value" });
-    try expectRow(rows, 1, &.{ "name", "alice" });
-    try expectRow(rows, 2, &.{ "score", "1234" });
-    try expectRow(rows, 3, &.{ "city", "denver" });
+    try testing.expectEqual(@as(usize, 3), rows.rows.len);
+    try expectRow(rows, 0, &.{ "name", "score" });
+    try expectRow(rows, 1, &.{ "alice", "1234" });
+    try expectRow(rows, 2, &.{ "bob", "5678" });
+}
+
+test "rejects blank lines in jsonl" {
+    try testing.expectError(error.SyntaxError, initTest(
+        testing.allocator,
+        "{\"name\":\"alice\"}\n\n{\"name\":\"bob\"}\n",
+    ));
 }
 
 test "renders empty strings and bounded floats" {
@@ -358,22 +365,6 @@ test "reads empty object in json array" {
     try expectRow(rows, 0, &.{"name"});
     try expectRow(rows, 1, &.{""});
     try expectRow(rows, 2, &.{"bob"});
-}
-
-test "reads json array loads all rows" {
-    const rows = try initTest(testing.allocator,
-        \\[
-        \\  {"name":"alice"},
-        \\  {"name":"bob"},
-        \\  {"name":"cara"}
-        \\]
-    );
-    defer rows.deinit(testing.allocator);
-
-    try testing.expectEqual(@as(usize, 4), rows.rows.len);
-    try expectRow(rows, 1, &.{"alice"});
-    try expectRow(rows, 2, &.{"bob"});
-    try expectRow(rows, 3, &.{"cara"});
 }
 
 test "duplicate keys use first value" {

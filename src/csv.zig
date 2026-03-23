@@ -184,6 +184,16 @@ test "readCsv supports final row without trailing newline" {
     try testing.expectEqualStrings("d", data.row(1)[1]);
 }
 
+test "readCsv supports quoted final row without trailing newline" {
+    const alloc = testing.allocator;
+    const data = try load(alloc, "a,b\n\"x,y\",z", ',');
+    defer data.deinit(alloc);
+
+    try testing.expectEqual(@as(usize, 2), data.rows.len);
+    try testing.expectEqualStrings("x,y", data.row(1)[0]);
+    try testing.expectEqualStrings("z", data.row(1)[1]);
+}
+
 test "readCsv supports embedded newlines in quoted fields" {
     const alloc = testing.allocator;
     const data = try load(alloc, "a,b\n\"x\ny\",z\n", ',');

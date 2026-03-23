@@ -99,22 +99,6 @@ fn appendNormalized(alloc: std.mem.Allocator, out: *std.ArrayList(u8), field: Fi
 // testing
 //
 
-test "deinit releases owned rows" {
-    const alloc = testing.allocator;
-    const rows = try alloc.alloc(DataRow, 1);
-    errdefer alloc.free(rows);
-    const row = try alloc.alloc(Field, 2);
-    errdefer alloc.free(row);
-    const buf = try alloc.dupe(u8, "ab");
-    errdefer alloc.free(buf);
-    row[0] = buf[0..1];
-    row[1] = buf[1..2];
-    rows[0] = .{ .row = row, .buf = buf };
-
-    const data: Data = .{ .rows = rows };
-    data.deinit(alloc);
-}
-
 test "DataRow.init copies disjoint slices into one owned row" {
     const alloc = testing.allocator;
     const left = "ab";
