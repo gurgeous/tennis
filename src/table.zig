@@ -31,13 +31,16 @@ pub const Table = struct {
         };
         errdefer table.deinit();
 
+        // rows
         var timer = try std.time.Timer.start();
-        if (!table.empty) try table.transforms();
-        util.benchmark(" table.transforms", timer.read());
+        if (!table.empty) table.rows = try table.buildRows();
+        util.benchmark(" table.rows", timer.read());
 
+        // cols
         timer = try std.time.Timer.start();
         table.columns = try table.buildColumns();
-        util.benchmark(" table.columns", timer.read());
+        util.benchmark(" table.cols", timer.read());
+
         return table;
     }
 
@@ -108,13 +111,13 @@ pub const Table = struct {
     }
 
     // Return one visible data row.
-    pub fn row(self: *const Self, visible_index: usize) Row {
-        return self.rows[visible_index].row;
+    pub fn row(self: *const Self, index: usize) Row {
+        return self.rows[index].row;
     }
 
     // Return one built column view.
-    pub fn column(self: *const Self, visible_index: usize) Column {
-        return self.columns[visible_index];
+    pub fn column(self: *const Self, index: usize) Column {
+        return self.columns[index];
     }
 
     // Return the cached style, building it on first use.
@@ -133,6 +136,57 @@ pub const Table = struct {
         return self._term_width.?;
     }
 
+    //
+    // build final rows/cols, which are a view into data
+    //
+
+    // Apply all row/col transforms and return the final visible rows.
+    fn buildRows(self: *Self) ![]DataRow {
+        // row_order and --filter
+        const row_order = try if (self.config.filter.len > 0)
+            self.filterRows()
+        else
+            util.range(self.alloc, self.data.rows.len - 1);
+        defer self.alloc.free(row_order);
+
+        // col_order and --select
+        const col_order = try if (self.config.select_cols.len > 0)
+            self.alloc.dupe(usize, self.config.select_cols)
+        else
+            util.range(self.alloc, self.data.headers().len);
+        defer self.alloc.free(col_order);
+
+        // --sort / --shuffle / --reverse
+        if (self.config.sort_cols.len > 0) {
+            const sorter: sort.Sort = .{ .cols = self.config.sort_cols };
+            sorter.apply(self.data, row_order);
+        }
+        if (self.config.shuffle) {
+            const seed = if (self.config.srand != 0) self.config.srand else std.crypto.random.int(u64);
+            var prng = std.Random.DefaultPrng.init(seed);
+            prng.random().shuffle(usize, row_order);
+        }
+        if (self.config.reverse) std.mem.reverse(usize, row_order);
+
+        // --head/--tail
+        var n = row_order.len;
+        if (self.config.head > 0) n = @min(self.config.head, n);
+        if (self.config.tail > 0) n = @min(self.config.tail, n);
+        const start = if (self.config.tail > 0) row_order.len - n else 0;
+        const clipped = row_order[start .. start + n];
+        self.header = try projectRow(self.alloc, self.data.headers(), col_order);
+
+        // col_order & row_order => our rows
+        var rows: std.ArrayList(DataRow) = .empty;
+        defer {
+            for (rows.items) |data_row| data_row.deinit(self.alloc);
+            rows.deinit(self.alloc);
+        }
+        try rows.ensureTotalCapacity(self.alloc, clipped.len);
+        for (clipped) |ii| try rows.append(self.alloc, try projectRow(self.alloc, self.data.row(ii + 1), col_order));
+        return try rows.toOwnedSlice(self.alloc);
+    }
+
     // Build every column for this table.
     fn buildColumns(self: *Self) ![]Column {
         const columns = try self.alloc.alloc(Column, self.ncols());
@@ -149,75 +203,20 @@ pub const Table = struct {
         return columns;
     }
 
-    // Apply all transforms through local row/column orders, then materialize final rows.
-    fn transforms(self: *Self) !void {
-        // col order
-        const col_order = try self.initColOrder(self.data.headers().len);
-        defer self.alloc.free(col_order);
+    // Return row indexes where any field contains the case-insensitive filter text.
+    fn filterRows(self: *const Self) ![]usize {
+        var out: std.ArrayList(usize) = .empty;
+        defer out.deinit(self.alloc);
 
-        // tmp/row_order stores row order
-        const tmp = try self.alloc.alloc(usize, self.data.rows.len - 1);
-        defer self.alloc.free(tmp);
-        for (tmp, 0..) |*slot, ii| slot.* = ii;
-
-        // --filter / --sort / --shuffle / --reverse
-        const row_order = if (self.config.filter.len > 0) self.filterRows(tmp) else tmp;
-        if (self.config.sort_cols.len > 0) {
-            const sorter: sort.Sort = .{ .cols = self.config.sort_cols };
-            sorter.apply(self.data, row_order);
-        }
-        if (self.config.shuffle) {
-            const seed = if (self.config.srand != 0) self.config.srand else std.crypto.random.int(u64);
-            var prng = std.Random.DefaultPrng.init(seed);
-            prng.random().shuffle(usize, row_order);
-        }
-        if (self.config.reverse) std.mem.reverse(usize, row_order);
-
-        // --head/--tail
-        const clipped = self.clipRowOrder(row_order);
-        self.header = try projectRow(self.alloc, self.data.headers(), col_order);
-
-        // now apply row_order and store.rows
-        var rows: std.ArrayList(DataRow) = .empty;
-        defer {
-            for (rows.items) |data_row| data_row.deinit(self.alloc);
-            rows.deinit(self.alloc);
-        }
-        try rows.ensureTotalCapacity(self.alloc, clipped.len);
-        for (clipped) |ii| try rows.append(self.alloc, try projectRow(self.alloc, self.data.row(ii + 1), col_order));
-        self.rows = try rows.toOwnedSlice(self.alloc);
-    }
-
-    // Build the final visible column order from the bound select config.
-    fn initColOrder(self: *const Self, count: usize) ![]usize {
-        if (self.config.select_cols.len > 0) return try self.alloc.dupe(usize, self.config.select_cols);
-        const cols = try self.alloc.alloc(usize, count);
-        for (cols, 0..) |*slot, ii| slot.* = ii;
-        return cols;
-    }
-
-    // Keep only row indexes where any field contains the case-insensitive filter text.
-    fn filterRows(self: *const Self, row_order: []usize) []usize {
-        var out: usize = 0;
-        for (row_order) |row_index| {
-            for (self.data.row(row_index + 1)) |field| {
+        for (self.data.rows[1..], 0..) |r, ii| {
+            for (r.row) |field| {
                 if (util.containsIgnoreCase(field, self.config.filter)) {
-                    row_order[out] = row_index;
-                    out += 1;
+                    try out.append(self.alloc, ii);
                     break;
                 }
             }
         }
-        return row_order[0..out];
-    }
-
-    // --head/--tail
-    fn clipRowOrder(self: *const Self, row_order: []usize) []usize {
-        var n = row_order.len;
-        if (self.config.head > 0) n = @min(self.config.head, n);
-        if (self.config.tail > 0) n = @min(self.config.tail, n);
-        const start = if (self.config.tail > 0) row_order.len - n else 0;
-        return row_order[start .. start + n];
+        return out.toOwnedSlice(self.alloc);
     }
 };
 

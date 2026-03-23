@@ -66,6 +66,13 @@ pub fn filter(comptime T: type, alloc: std.mem.Allocator, input: []const T, comp
     return out.toOwnedSlice(alloc);
 }
 
+// Return an owned slice filled with ascending indexes from 0 to len - 1.
+pub fn range(alloc: std.mem.Allocator, len: usize) ![]usize {
+    const out = try alloc.alloc(usize, len);
+    for (out, 0..) |*slot, ii| slot.* = ii;
+    return out;
+}
+
 //
 // string
 //
