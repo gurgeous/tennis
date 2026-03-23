@@ -40,32 +40,36 @@ $ zig build
 ### Options
 
 ```
- Usage: tennis [options...] <file.csv>     # print file.csv
-        tennis [options...]                # print csv from stdin
+ Usage: tennis [options...] <file.csv>
+        also supports stdin, json/jsonl files, etc.
 
-  -n, --row-numbers         Turn on row numbers
-  -t, --title <string>      Add a title to the table
-  -r, --reverse             Reverse row order (helpful when sorting)
-      --zebra               Turn on zebra stripes
-      --shuffle, --shuf     Shuffle row order before head or tail
+ Popular options:
+  -n, --row-numbers          Turn on row numbers
+  -t, --title <string>       Add a title to the table
+      --border <border>      Table border style (rounded|thin|double|...)
+      --peek                 Show csv shape, sample, and handy stats
+      --zebra                Turn on zebra stripes
 
-      --border <border>     Table border style (rounded|thin|double|...)
-      --color <color>       Turn color off and on (on|off|auto)
-      --delimiter <char>    CSV delim (can be any char or "tab")
-      --digits <int>        Digits after decimal for float columns (1-6)
-      --filter <string>     Keep rows where any field contains this text
-      --theme <theme>       Select color theme (auto|dark|light)
-      --vanilla             Disable numeric formatting entirely
-      --width <int>         Set max table width in chars
+ Sort, filter, etc:
+      --select <headers>     Only show these comma-separated headers
+      --sort <headers>       Sort rows by one or more comma-separated headers
+  -r, --reverse              Reverse rows (helpful for sorting)
+      --shuffle, --shuf      Shuffle rows into random order
+      --head <int>           Show first or last rows
+      --tail <int>           Show first or last rows
+      --filter <string>      Only show rows that contain this text
 
-      --select <headers>    Show one or more comma-separated headers
-      --sort <headers>      Sort by one or more comma-separated headers
-      --head <int>          Show first N rows
-      --tail <int>          Show last N rows
+ Other options:
+      --color <color>        Turn color off and on (on|off|auto)
+      --delimiter <char>     Set CSV delim (can be any char or "tab")
+      --digits <int>         Digits after decimal for float columns
+      --theme <theme>        Select color theme (auto|dark|light)
+      --vanilla              Disable numeric formatting
+      --width <int>          Set max table width in chars
 
-      --completion <shell>  Print a shell completion script (bash|zsh)
-      --help                Get help
-      --version             Show version number and exit
+      --completion <shell>   Print shell completion (bash|zsh)
+      --help                 Get help
+      --version              Show version number and exit
 ```
 
 Note that color defaults to `on`. Tennis likes to be colorful.
@@ -73,10 +77,6 @@ Note that color defaults to `on`. Tennis likes to be colorful.
 ### An Aside: Term Background
 
 `tennis` uses a `termbg.zig` module to detect the terminal background color so it can choose the correct theme (dark or light). Detection is complicated, and I'm calling it out here because I don't think anyone has implemented this in Zig yet.
-
-### Future Work
-
-- briefly summarize each col `--summary` or `--peek`
 
 ### Similar Tools
 
@@ -99,6 +99,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 - JSON! Works with json array, jsonl, or even just a single json object
 - auto-detect csv vs tsv delims (or semis, or pipes)
 - `--filter`, `--sort`, `--reverse`, `--shuffle`, `--zebra`, `--head` and `--tail`
+- `--peek` for shape, a few sample rows, and compact column stats
 - `--select` for selecting columns
 - `doomicode`, best-effort Unicode width for emojis, etc
 

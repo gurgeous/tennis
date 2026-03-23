@@ -152,6 +152,11 @@ pub fn strip(comptime T: type, slice: []const T) []const T {
     return std.mem.trim(T, slice, &std.ascii.whitespace);
 }
 
+// Return the singular or plural form for `n`.
+pub fn plural(n: usize, singular: []const u8, plural_form: []const u8) []const u8 {
+    return if (n == 1) singular else plural_form;
+}
+
 // Borrow the bytes associated with a scalar JSON token.
 pub fn tokenBytes(token: std.json.Token) []const u8 {
     return switch (token) {
@@ -256,6 +261,11 @@ test "filter handles empty result" {
     defer testing.allocator.free(got);
 
     try testing.expectEqual(@as(usize, 0), got.len);
+}
+
+test "plural returns the right form" {
+    try testing.expectEqualStrings("row", plural(1, "row", "rows"));
+    try testing.expectEqualStrings("rows", plural(2, "row", "rows"));
 }
 
 test "fileExists" {

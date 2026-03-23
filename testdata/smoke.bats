@@ -32,6 +32,7 @@ setup() {
   [[ "$output" == *"rounded|thin|double"* ]]
   [[ "$output" == *"--color <color>"* ]]
   [[ "$output" == *"--digits <int>"* ]]
+  [[ "$output" == *"--peek"* ]]
   [[ "$output" == *"--head <int>"* ]]
   [[ "$output" == *"--tail <int>"* ]]
   [[ "$output" == *"--zebra"* ]]
@@ -222,6 +223,32 @@ setup() {
   [[ "$output" == *"alice"* ]]
   [[ "$output" != *"bob"* ]]
   [[ "$output" != *"cara"* ]]
+}
+
+@test "renders peek sample and stats" {
+  run "$TENNIS_BIN" --color=off --width 80 --peek "$REPO_ROOT/testdata/test.json"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"3 rows × 5 cols"* ]]
+  [[ "$output" == *"alice"* ]]
+  [[ "$output" == *"bob"* ]]
+  [[ "$output" == *"cara"* ]]
+  [[ "$output" == *"│ column │ type"* ]]
+  [[ "$output" == *"│ min"* ]]
+  [[ "$output" == *"│ max"* ]]
+  [[ "$output" == *"│ score  │ int"* ]]
+  [[ "$output" == *"│ city   │ string"* ]]
+  [[ "$output" == *"│ score  │ int    │ 100% │    3 │ 90"* ]]
+  [[ "$output" == *"│ score  │ int    │ 100% │    3 │ 90       │ 5678"* ]]
+  [[ "$output" == *"│ tags   │ string │ 33%  │    1 │ 9 chars  │ 9 chars"* ]]
+  [[ "$output" == *"│ meta   │ string │ 33%  │    1 │ 11 chars │ 11 chars"* ]]
+}
+
+@test "renders peek footer when sample omits rows" {
+  run "$TENNIS_BIN" --color=off --width 80 --peek "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"14 rows × 10 cols"* ]]
+  [[ "$output" == *"… 9 more rows …"* ]]
+  [[ "$output" == *"stats"* ]]
 }
 
 @test "reverses rows before head" {

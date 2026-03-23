@@ -6,24 +6,25 @@ _tennis() {
     '--row-numbers[Turn on row numbers]' \
     '-t[Add a title to the table]:string:' \
     '--title[Add a title to the table]:string:' \
-    '-r[Reverse row order (helpful when sorting)]' \
-    '--reverse[Reverse row order (helpful when sorting)]' \
-    '--zebra[Turn on zebra stripes]' \
-    '--shuffle[Shuffle row order before head or tail]' \
-    '--shuf[Shuffle row order before head or tail]' \
     '--border[Table border style (rounded|thin|double|...)]:border:(ascii_rounded basic basic_compact compact compact_double dots double heavy light markdown none psql reinforced restructured rounded single thin with_love)' \
+    '--peek[Show csv shape, sample, and handy stats]' \
+    '--zebra[Turn on zebra stripes]' \
+    '--select[Only show these comma-separated headers]:headers:' \
+    '--sort[Sort rows by one or more comma-separated headers]:headers:' \
+    '-r[Reverse rows (helpful for sorting)]' \
+    '--reverse[Reverse rows (helpful for sorting)]' \
+    '--shuffle[Shuffle rows into random order]' \
+    '--shuf[Shuffle rows into random order]' \
+    '--head[Show first or last rows]:int:' \
+    '--tail[Show first or last rows]:int:' \
+    '--filter[Only show rows that contain this text]:string:' \
     '--color[Turn color off and on (on|off|auto)]:color:(auto off on)' \
-    '--delimiter[CSV delim (can be any char or "tab")]:char:(tab , \; \|)' \
-    '--digits[Digits after decimal for float columns (1-6)]:int:(1 2 3 4 5 6)' \
-    '--filter[Keep rows where any field contains this text]:string:' \
+    '--delimiter[Set CSV delim (can be any char or "tab")]:char:(tab , \; \|)' \
+    '--digits[Digits after decimal for float columns]:int:(1 2 3 4 5 6)' \
     '--theme[Select color theme (auto|dark|light)]:theme:(auto dark light)' \
-    '--vanilla[Disable numeric formatting entirely]' \
+    '--vanilla[Disable numeric formatting]' \
     '--width[Set max table width in chars]:int:' \
-    '--select[Show one or more comma-separated headers]:headers:' \
-    '--sort[Sort by one or more comma-separated headers]:headers:' \
-    '--head[Show first N rows]:int:' \
-    '--tail[Show last N rows]:int:' \
-    '--completion[Print a shell completion script (bash|zsh)]:shell:(bash zsh)' \
+    '--completion[Print shell completion (bash|zsh)]:shell:(bash zsh)' \
     '--help[Get help]' \
     '--version[Show version number and exit]' \
     '*:file:_files -g "*.csv(-.)" "*(-/)"'

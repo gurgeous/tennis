@@ -122,7 +122,11 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
     //
 
     timer = try std.time.Timer.start();
-    try table.renderTable(util.stdout);
+    if (config.peek) {
+        try peek.render(alloc, table, util.stdout);
+    } else {
+        try table.renderTable(util.stdout);
+    }
     util.benchmark("table.render", timer.read());
     return null;
 }
@@ -161,6 +165,7 @@ test {
     _ = @import("json_to_string.zig");
     _ = @import("layout.zig");
     _ = @import("natsort.zig");
+    _ = @import("peek.zig");
     _ = @import("render.zig");
     _ = @import("data.zig");
     _ = @import("replay.zig");
@@ -219,6 +224,7 @@ const Data = @import("data.zig").Data;
 const detect = @import("detect.zig");
 const failure = @import("failure.zig");
 const json = @import("json.zig");
+const peek = @import("peek.zig");
 const sniffer = @import("sniffer.zig");
 const std = @import("std");
 const testing = std.testing;

@@ -5,32 +5,36 @@
 // CLI parsing and help text for the app entry point.
 pub const Args = struct {
     pub const help =
-        \\ Usage: tennis [options...] <file.csv>     # print file.csv
-        \\        tennis [options...]                # print csv from stdin
+        \\ Usage: tennis [options...] <file.csv>
+        \\        also supports stdin, json/jsonl files, etc.
         \\
-        \\  -n, --row-numbers         Turn on row numbers
-        \\  -t, --title <string>      Add a title to the table
-        \\  -r, --reverse             Reverse row order (helpful when sorting)
-        \\      --zebra               Turn on zebra stripes
-        \\      --shuffle, --shuf     Shuffle row order before head or tail
+        \\ Popular options:
+        \\  -n, --row-numbers          Turn on row numbers
+        \\  -t, --title <string>       Add a title to the table
+        \\      --border <border>      Table border style (rounded|thin|double|...)
+        \\      --peek                 Show csv shape, sample, and handy stats
+        \\      --zebra                Turn on zebra stripes
         \\
-        \\      --border <border>     Table border style (rounded|thin|double|...)
-        \\      --color <color>       Turn color off and on (on|off|auto)
-        \\      --delimiter <char>    CSV delim (can be any char or "tab")
-        \\      --digits <int>        Digits after decimal for float columns (1-6)
-        \\      --filter <string>     Keep rows where any field contains this text
-        \\      --theme <theme>       Select color theme (auto|dark|light)
-        \\      --vanilla             Disable numeric formatting entirely
-        \\      --width <int>         Set max table width in chars
+        \\ Sort, filter, etc:
+        \\      --select <headers>     Only show these comma-separated headers
+        \\      --sort <headers>       Sort rows by one or more comma-separated headers
+        \\  -r, --reverse              Reverse rows (helpful for sorting)
+        \\      --shuffle, --shuf      Shuffle rows into random order
+        \\      --head <int>           Show first or last rows
+        \\      --tail <int>           Show first or last rows
+        \\      --filter <string>      Only show rows that contain this text
         \\
-        \\      --select <headers>    Show one or more comma-separated headers
-        \\      --sort <headers>      Sort by one or more comma-separated headers
-        \\      --head <int>          Show first N rows
-        \\      --tail <int>          Show last N rows
+        \\ Other options:
+        \\      --color <color>        Turn color off and on (on|off|auto)
+        \\      --delimiter <char>     Set CSV delim (can be any char or "tab")
+        \\      --digits <int>         Digits after decimal for float columns
+        \\      --theme <theme>        Select color theme (auto|dark|light)
+        \\      --vanilla              Disable numeric formatting
+        \\      --width <int>          Set max table width in chars
         \\
-        \\      --completion <shell>  Print a shell completion script (bash|zsh)
-        \\      --help                Get help
-        \\      --version             Show version number and exit
+        \\      --completion <shell>   Print shell completion (bash|zsh)
+        \\      --help                 Get help
+        \\      --version              Show version number and exit
         \\
     ;
 
@@ -40,6 +44,7 @@ pub const Args = struct {
         \\    --completion <SHELL>
         \\    --filter <STRING>
         \\    --head <INT>
+        \\    --peek
         \\    --shuffle
         \\    --shuf
         \\    --sort <STRING>
@@ -139,6 +144,7 @@ pub const Args = struct {
             if (v == 0) return error.InvalidHeadValue;
             config.head = v;
         }
+        config.peek = res.args.peek > 0;
         config.reverse = res.args.reverse > 0;
         if (res.args.select) |v| config.select = v;
         config.shuffle = res.args.shuffle > 0 or res.args.shuf > 0;
@@ -209,6 +215,7 @@ test "parse option config case" {
         "ali",
         "--head",
         "5",
+        "--peek",
         "--reverse",
         "--zebra",
         "--shuffle",
@@ -233,6 +240,7 @@ test "parse option config case" {
     try testing.expectEqual(@as(usize, 4), out.run.digits);
     try testing.expectEqualStrings("ali", out.run.filter);
     try testing.expectEqual(@as(usize, 5), out.run.head);
+    try testing.expect(out.run.peek);
     try testing.expect(out.run.reverse);
     try testing.expect(out.run.zebra);
     try testing.expect(out.run.shuffle);
@@ -259,6 +267,7 @@ test "parse option event cases" {
         .{ .argv = &.{ "--delimiter", "\\t", "-" }, .delimiter = '\t' },
         .{ .argv = &.{ "--border", "compact_double", "-" }, .border_name = .compact_double },
         .{ .argv = &.{ "--filter", "ali", "-" } },
+        .{ .argv = &.{ "--peek", "-" } },
         .{ .argv = &.{ "--zebra", "-" } },
         .{ .argv = &.{ "--shuffle", "-" } },
         .{ .argv = &.{ "--shuf", "-" } },
@@ -273,6 +282,7 @@ test "parse option event cases" {
         if (tc.delimiter) |d| try testing.expectEqual(d, parsed.run.delimiter);
         if (tc.border_name) |b| try testing.expectEqual(b, parsed.run.border);
         if (std.mem.eql(u8, tc.argv[0], "--filter")) try testing.expectEqualStrings("ali", parsed.run.filter);
+        if (std.mem.eql(u8, tc.argv[0], "--peek")) try testing.expect(parsed.run.peek);
         if (std.mem.eql(u8, tc.argv[0], "--shuffle") or std.mem.eql(u8, tc.argv[0], "--shuf")) {
             try testing.expect(parsed.run.shuffle);
         }

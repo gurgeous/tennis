@@ -12,7 +12,7 @@ const Option = struct {
 
 // Fixed-capacity collection of parsed completion options.
 const Options = struct {
-    items: [24]Option,
+    items: [32]Option,
     len: usize,
 };
 
@@ -144,6 +144,7 @@ fn parseOptions() Options {
     var it = std.mem.splitScalar(u8, Args.help, '\n');
     while (it.next()) |line| {
         const opt = parseOption(line) orelse continue;
+        std.debug.assert(out.len < out.items.len);
         out.items[out.len] = opt;
         out.len += 1;
     }
@@ -244,7 +245,7 @@ test "writes zsh completion" {
     const out = try renderForTest(testing.allocator, .zsh);
     defer testing.allocator.free(out);
     try testing.expect(std.mem.indexOf(u8, out, "_arguments -s") != null);
-    try testing.expect(std.mem.indexOf(u8, out, "--completion[Print a shell completion script") != null);
+    try testing.expect(std.mem.indexOf(u8, out, "--completion[Print shell completion") != null);
 }
 
 // Render one completion script into an owned buffer for tests.
