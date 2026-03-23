@@ -14,6 +14,7 @@ pub const Config = struct {
     reverse: bool = false,
     row_numbers: bool = false,
     select: []const u8 = "",
+    shuffle: bool = false,
     sort: []const u8 = "",
     tail: usize = 0,
     theme: Theme = .auto,
@@ -23,6 +24,8 @@ pub const Config = struct {
     // Bound header indexes populated after data load for select/sort.
     select_cols: []usize = &.{},
     sort_cols: []usize = &.{},
+    // Test-only shuffle seed for deterministic row order assertions.
+    srand: u64 = 0,
 
     // Resolve any header-based config against the loaded header row.
     pub fn bind(self: *Config, alloc: std.mem.Allocator, headers: Row) !void {

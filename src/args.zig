@@ -11,6 +11,7 @@ pub const Args = struct {
         \\  -n, --row-numbers         Turn on row numbers
         \\  -t, --title <string>      Add a title to the table
         \\  -r, --reverse             Reverse row order (helpful when sorting)
+        \\      --shuffle, --shuf     Shuffle row order before head or tail
         \\
         \\      --border <border>     Table border style (rounded|thin|double|...)
         \\      --color <color>       Turn color off and on (on|off|auto)
@@ -36,6 +37,8 @@ pub const Args = struct {
         \\    --color <COLOR>
         \\    --completion <SHELL>
         \\    --head <INT>
+        \\    --shuffle
+        \\    --shuf
         \\    --sort <STRING>
         \\    --tail <INT>
         \\    --theme <THEME>
@@ -133,6 +136,7 @@ pub const Args = struct {
         }
         config.reverse = res.args.reverse > 0;
         if (res.args.select) |v| config.select = v;
+        config.shuffle = res.args.shuffle > 0 or res.args.shuf > 0;
         if (res.args.sort) |v| config.sort = v;
         if (res.args.tail) |v| {
             if (v == 0) return error.InvalidTailValue;
@@ -198,6 +202,7 @@ test "parse option config case" {
         "--head",
         "5",
         "--reverse",
+        "--shuffle",
         "--select",
         "name,score",
         "--sort",
@@ -219,6 +224,7 @@ test "parse option config case" {
     try testing.expectEqual(@as(usize, 4), out.run.digits);
     try testing.expectEqual(@as(usize, 5), out.run.head);
     try testing.expect(out.run.reverse);
+    try testing.expect(out.run.shuffle);
     try testing.expectEqualStrings("name,score", out.run.select);
     try testing.expectEqualStrings("score,name", out.run.sort);
     try testing.expectEqual(types.Theme.light, out.run.theme);
@@ -241,6 +247,8 @@ test "parse option event cases" {
         .{ .argv = &.{ "--delimiter", "tab", "-" }, .delimiter = '\t' },
         .{ .argv = &.{ "--delimiter", "\\t", "-" }, .delimiter = '\t' },
         .{ .argv = &.{ "--border", "compact_double", "-" }, .border_name = .compact_double },
+        .{ .argv = &.{ "--shuffle", "-" } },
+        .{ .argv = &.{ "--shuf", "-" } },
         .{ .argv = &.{ "--sort", "score,name", "-" } },
         .{ .argv = &.{ "--completion", "zsh" }, .event = .{ .completion = .zsh } },
         .{ .argv = &.{"--help"}, .event = .help },
@@ -251,6 +259,9 @@ test "parse option event cases" {
         const parsed = try parseTest(tc.argv);
         if (tc.delimiter) |d| try testing.expectEqual(d, parsed.run.delimiter);
         if (tc.border_name) |b| try testing.expectEqual(b, parsed.run.border);
+        if (std.mem.eql(u8, tc.argv[0], "--shuffle") or std.mem.eql(u8, tc.argv[0], "--shuf")) {
+            try testing.expect(parsed.run.shuffle);
+        }
         if (tc.event) |event| try testing.expectEqual(event, parsed);
     }
 }

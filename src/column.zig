@@ -10,7 +10,7 @@ pub const Column = struct {
     formatted: ?[]Field = null, // numerics get formatted in here
 
     // Build one measured column from the table's visible rows.
-    pub fn init(table: *const Table, index: usize) !Column {
+    pub fn init(table: *Table, index: usize) !Column {
         var column: Column = .{
             .table = table,
             .name = table.headers()[index],

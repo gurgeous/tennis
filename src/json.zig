@@ -12,7 +12,7 @@
 
 pub fn load(alloc: std.mem.Allocator, bytes: []const u8) !Data {
     var timer = try std.time.Timer.start();
-    defer util.benchmark(" json", timer.read());
+    defer util.benchmark("json", timer.read());
 
     // empty input?
     if (bytes.len == 0) return .{ .rows = try alloc.alloc(DataRow, 0) };

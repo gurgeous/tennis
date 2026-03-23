@@ -43,6 +43,9 @@ $ tennis diamonds.csv
 *-r*, *--reverse*
 	Reverse row order. Helpful when sorting.
 
+*--shuffle*, *--shuf*
+	Shuffle row order before applying *--head* or *--tail*.
+
 *-t*, *--title* <string>
 	Add a title above the table.
 

@@ -165,7 +165,7 @@ pub fn benchmark(label: []const u8, elapsed_ns: u64) void {
     if (!hasenv("BENCHMARK")) return;
     const ms = elapsed_ns / std.time.ns_per_ms;
     const frac = (elapsed_ns % std.time.ns_per_ms) / std.time.ns_per_us;
-    stderr.print("{s:<16} {d:>8}.{d:0>3} ms\n", .{ label, ms, frac }) catch {};
+    stderr.print("{s:<17} {d:>8}.{d:0>3} ms\n", .{ label, ms, frac }) catch {};
     stderr.flush() catch {};
 }
 

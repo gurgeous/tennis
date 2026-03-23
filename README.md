@@ -46,6 +46,7 @@ $ zig build
   -n, --row-numbers         Turn on row numbers
   -t, --title <string>      Add a title to the table
   -r, --reverse             Reverse row order (helpful when sorting)
+      --shuffle, --shuf     Shuffle row order before head or tail
 
       --border <border>     Table border style (rounded|thin|double|...)
       --color <color>       Turn color off and on (on|off|auto)
@@ -73,11 +74,9 @@ Note that color defaults to `on`. Tennis likes to be colorful.
 
 ### Future Work
 
-- `--shuffle` and `--sample`
 - filter - `--filter`
 - add zebra stripes - `--zebra`
 - briefly summarize each col `--summary` or `--peek`
-- sample some rows `--sample`
 
 ### Similar Tools
 
@@ -101,7 +100,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 - `.json`, `.jsonl`, and `.ndjson` support
 - `--head` and `--tail` for clipping large tables
 - `--select` for selecting, reordering, or duplicating columns
-- `--sort` and `--reverse` for sorting rows by header
+- `--sort`, `--reverse`, and `--shuffle` for reordering rows
 - `doomicode`, best-effort Unicode width for emojis, etc
 - auto-detect csv vs tsv (or semis, or pipes)
 

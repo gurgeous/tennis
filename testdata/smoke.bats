@@ -223,6 +223,16 @@ setup() {
   [[ "$output" != *"alice"* ]]
 }
 
+@test "accepts shuffle and shuf aliases" {
+  run "$TENNIS_BIN" --color=off --width 80 --shuffle --head 2 "$REPO_ROOT/testdata/test.json"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"│ name"* ]]
+
+  run "$TENNIS_BIN" --color=off --width 80 --shuf --head 2 "$REPO_ROOT/testdata/test.json"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"│ name"* ]]
+}
+
 @test "sorts naturally with mixed and float columns" {
   run "$TENNIS_BIN" --color=off --vanilla --width 120 --sort mixed --head 1 "$REPO_ROOT/testdata/natsort.csv"
   [ "$status" -eq 0 ]

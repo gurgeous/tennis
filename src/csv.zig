@@ -10,7 +10,7 @@ pub fn load(alloc: std.mem.Allocator, bytes: []const u8, delimiter: u8) !Data {
     defer loader.deinit();
 
     const data = try loader.load();
-    util.benchmark(" csv", timer.read());
+    util.benchmark("csv", timer.read());
     return data;
 }
 

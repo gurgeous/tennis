@@ -8,6 +8,8 @@ _tennis() {
     '--title[Add a title to the table]:string:' \
     '-r[Reverse row order (helpful when sorting)]' \
     '--reverse[Reverse row order (helpful when sorting)]' \
+    '--shuffle[Shuffle row order before head or tail]' \
+    '--shuf[Shuffle row order before head or tail]' \
     '--border[Table border style (rounded|thin|double|...)]:border:(ascii_rounded basic basic_compact compact compact_double dots double heavy light markdown none psql reinforced restructured rounded single thin with_love)' \
     '--color[Turn color off and on (on|off|auto)]:color:(auto off on)' \
     '--delimiter[CSV delim (can be any char or "tab")]:char:(tab , \; \|)' \
