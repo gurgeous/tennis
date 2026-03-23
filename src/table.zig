@@ -174,7 +174,7 @@ pub const Table = struct {
         if (self.config.tail > 0) n = @min(self.config.tail, n);
         const start = if (self.config.tail > 0) row_order.len - n else 0;
         const clipped = row_order[start .. start + n];
-        self.header = try projectRow(self.alloc, self.data.headers(), col_order);
+        self.header = try DataRow.project(self.alloc, self.data.headers(), col_order);
 
         // col_order & row_order => our rows
         var rows: std.ArrayList(DataRow) = .empty;
@@ -183,7 +183,7 @@ pub const Table = struct {
             rows.deinit(self.alloc);
         }
         try rows.ensureTotalCapacity(self.alloc, clipped.len);
-        for (clipped) |ii| try rows.append(self.alloc, try projectRow(self.alloc, self.data.row(ii + 1), col_order));
+        for (clipped) |ii| try rows.append(self.alloc, try DataRow.project(self.alloc, self.data.row(ii + 1), col_order));
         return try rows.toOwnedSlice(self.alloc);
     }
 
@@ -220,14 +220,6 @@ pub const Table = struct {
     }
 };
 
-// Copy a row into display order
-fn projectRow(alloc: std.mem.Allocator, source: Row, col_order: []const usize) !DataRow {
-    const row = try alloc.alloc(Field, col_order.len);
-    defer alloc.free(row);
-    for (col_order, 0..) |col, ii| row[ii] = source[col];
-    return try DataRow.init(alloc, row);
-}
-
 //
 // testing
 //
@@ -253,11 +245,11 @@ test "table shape and headers" {
         const table = try Table.initCsv(testing.allocator, tc.config, tc.input);
         defer table.deinit();
 
-        try test_support.expectStrings(tc.headers, table.headers());
+        try test_support.expectEqualRows(tc.headers, table.headers());
         try testing.expectEqual(tc.nrows, table.nrows());
         try testing.expectEqual(tc.ncols, table.ncols());
         try testing.expectEqual(tc.empty, table.isEmpty());
-        if (tc.first_row) |row| try test_support.expectStrings(row, table.row(0));
+        if (tc.first_row) |row| try test_support.expectEqualRows(row, table.row(0));
         if (tc.empty and tc.input.len > 0) try testing.expectEqual(@as(usize, 0), table.columns.len);
     }
 }
@@ -290,7 +282,7 @@ test "nrows and row reflect head and tail" {
         defer table.deinit();
 
         try testing.expectEqual(tc.want_count, table.nrows());
-        for (tc.rows, 0..) |want, ii| try test_support.expectStrings(want, table.row(ii));
+        for (tc.rows, 0..) |want, ii| try test_support.expectEqualRows(want, table.row(ii));
     }
 }
 
@@ -298,33 +290,33 @@ test "table sorts rows by one column" {
     const table = try Table.initCsv(testing.allocator, .{ .sort = "name" }, "name,score\nbob,2\nalice,1\ncara,3\n");
     defer table.deinit();
 
-    try test_support.expectStrings(&.{ "alice", "1" }, table.row(0));
-    try test_support.expectStrings(&.{ "bob", "2" }, table.row(1));
-    try test_support.expectStrings(&.{ "cara", "3" }, table.row(2));
+    try test_support.expectEqualRows(&.{ "alice", "1" }, table.row(0));
+    try test_support.expectEqualRows(&.{ "bob", "2" }, table.row(1));
+    try test_support.expectEqualRows(&.{ "cara", "3" }, table.row(2));
 }
 
 test "table sorts rows by multiple columns" {
     const table = try Table.initCsv(testing.allocator, .{ .sort = "city,name" }, "name,city\nbob,denver\ncara,boston\nalice,boston\n");
     defer table.deinit();
 
-    try test_support.expectStrings(&.{ "alice", "boston" }, table.row(0));
-    try test_support.expectStrings(&.{ "cara", "boston" }, table.row(1));
-    try test_support.expectStrings(&.{ "bob", "denver" }, table.row(2));
+    try test_support.expectEqualRows(&.{ "alice", "boston" }, table.row(0));
+    try test_support.expectEqualRows(&.{ "cara", "boston" }, table.row(1));
+    try test_support.expectEqualRows(&.{ "bob", "denver" }, table.row(2));
 }
 
 test "table sorts with case insensitive header match" {
     const table = try Table.initCsv(testing.allocator, .{ .sort = "NAME" }, "name,score\nbob,2\nalice,1\n");
     defer table.deinit();
 
-    try test_support.expectStrings(&.{ "alice", "1" }, table.row(0));
-    try test_support.expectStrings(&.{ "bob", "2" }, table.row(1));
+    try test_support.expectEqualRows(&.{ "alice", "1" }, table.row(0));
+    try test_support.expectEqualRows(&.{ "bob", "2" }, table.row(1));
 }
 
 test "table selects a subset of columns" {
     const table = try Table.initCsv(testing.allocator, .{ .select = "score,name" }, "name,score,city\nbob,2,denver\nalice,1,boston\n");
     defer table.deinit();
 
-    try test_support.expectStrings(&.{ "score", "name" }, table.headers());
+    try test_support.expectEqualRows(&.{ "score", "name" }, table.headers());
     try testing.expectEqual(@as(usize, 2), table.ncols());
     try testing.expectEqualStrings("2", table.column(0).field(0));
     try testing.expectEqualStrings("bob", table.column(1).field(0));
@@ -337,8 +329,8 @@ test "table filters rows by case insensitive substring" {
     defer table.deinit();
 
     try testing.expectEqual(@as(usize, 2), table.nrows());
-    try test_support.expectStrings(&.{ "Alice", "1", "boston" }, table.row(0));
-    try test_support.expectStrings(&.{ "mali", "3", "paris" }, table.row(1));
+    try test_support.expectEqualRows(&.{ "Alice", "1", "boston" }, table.row(0));
+    try test_support.expectEqualRows(&.{ "mali", "3", "paris" }, table.row(1));
 }
 
 test "table filters before sort and head" {
@@ -346,14 +338,14 @@ test "table filters before sort and head" {
     defer table.deinit();
 
     try testing.expectEqual(@as(usize, 1), table.nrows());
-    try test_support.expectStrings(&.{ "Alice", "1", "boston" }, table.row(0));
+    try test_support.expectEqualRows(&.{ "Alice", "1", "boston" }, table.row(0));
 }
 
 test "table select supports duplicates" {
     const table = try Table.initCsv(testing.allocator, .{ .select = "name,score,name" }, "name,score\nbob,2\n");
     defer table.deinit();
 
-    try test_support.expectStrings(&.{ "name", "score", "name" }, table.headers());
+    try test_support.expectEqualRows(&.{ "name", "score", "name" }, table.headers());
     try testing.expectEqual(@as(usize, 3), table.ncols());
     try testing.expectEqualStrings("bob", table.column(0).field(0));
     try testing.expectEqualStrings("2", table.column(1).field(0));
@@ -364,7 +356,7 @@ test "table sorts using hidden columns after select" {
     const table = try Table.initCsv(testing.allocator, .{ .select = "name", .sort = "score" }, "name,score\nbob,2\nalice,1\n");
     defer table.deinit();
 
-    try test_support.expectStrings(&.{"name"}, table.headers());
+    try test_support.expectEqualRows(&.{"name"}, table.headers());
     try testing.expectEqual(@as(usize, 1), table.ncols());
     try testing.expectEqualStrings("alice", table.column(0).field(0));
     try testing.expectEqualStrings("bob", table.column(0).field(1));
@@ -374,61 +366,61 @@ test "table sorts before head and tail" {
     const head = try Table.initCsv(testing.allocator, .{ .sort = "name", .head = 2 }, "name,score\ncara,3\nbob,2\nalice,1\n");
     defer head.deinit();
     try testing.expectEqual(@as(usize, 2), head.nrows());
-    try test_support.expectStrings(&.{ "alice", "1" }, head.row(0));
-    try test_support.expectStrings(&.{ "bob", "2" }, head.row(1));
+    try test_support.expectEqualRows(&.{ "alice", "1" }, head.row(0));
+    try test_support.expectEqualRows(&.{ "bob", "2" }, head.row(1));
 
     const tail = try Table.initCsv(testing.allocator, .{ .sort = "name", .tail = 2 }, "name,score\ncara,3\nbob,2\nalice,1\n");
     defer tail.deinit();
     try testing.expectEqual(@as(usize, 2), tail.nrows());
-    try test_support.expectStrings(&.{ "bob", "2" }, tail.row(0));
-    try test_support.expectStrings(&.{ "cara", "3" }, tail.row(1));
+    try test_support.expectEqualRows(&.{ "bob", "2" }, tail.row(0));
+    try test_support.expectEqualRows(&.{ "cara", "3" }, tail.row(1));
 }
 
 test "table reverses rows before head and tail" {
     const head = try Table.initCsv(testing.allocator, .{ .reverse = true, .head = 2 }, "name,score\nalice,1\nbob,2\ncara,3\n");
     defer head.deinit();
     try testing.expectEqual(@as(usize, 2), head.nrows());
-    try test_support.expectStrings(&.{ "cara", "3" }, head.row(0));
-    try test_support.expectStrings(&.{ "bob", "2" }, head.row(1));
+    try test_support.expectEqualRows(&.{ "cara", "3" }, head.row(0));
+    try test_support.expectEqualRows(&.{ "bob", "2" }, head.row(1));
 
     const tail = try Table.initCsv(testing.allocator, .{ .reverse = true, .tail = 2 }, "name,score\nalice,1\nbob,2\ncara,3\n");
     defer tail.deinit();
     try testing.expectEqual(@as(usize, 2), tail.nrows());
-    try test_support.expectStrings(&.{ "bob", "2" }, tail.row(0));
-    try test_support.expectStrings(&.{ "alice", "1" }, tail.row(1));
+    try test_support.expectEqualRows(&.{ "bob", "2" }, tail.row(0));
+    try test_support.expectEqualRows(&.{ "alice", "1" }, tail.row(1));
 }
 
 test "table reverses sorted rows" {
     const table = try Table.initCsv(testing.allocator, .{ .sort = "name", .reverse = true }, "name,score\nbob,2\nalice,1\ncara,3\n");
     defer table.deinit();
 
-    try test_support.expectStrings(&.{ "cara", "3" }, table.row(0));
-    try test_support.expectStrings(&.{ "bob", "2" }, table.row(1));
-    try test_support.expectStrings(&.{ "alice", "1" }, table.row(2));
+    try test_support.expectEqualRows(&.{ "cara", "3" }, table.row(0));
+    try test_support.expectEqualRows(&.{ "bob", "2" }, table.row(1));
+    try test_support.expectEqualRows(&.{ "alice", "1" }, table.row(2));
 }
 
 test "table shuffles rows with a seeded config" {
     const table = try Table.initCsv(testing.allocator, .{ .shuffle = true, .srand = 1 }, "name,score\nalice,1\nbob,2\ncara,3\ndina,4\n");
     defer table.deinit();
 
-    try test_support.expectStrings(&.{ "dina", "4" }, table.row(0));
-    try test_support.expectStrings(&.{ "alice", "1" }, table.row(1));
-    try test_support.expectStrings(&.{ "cara", "3" }, table.row(2));
-    try test_support.expectStrings(&.{ "bob", "2" }, table.row(3));
+    try test_support.expectEqualRows(&.{ "dina", "4" }, table.row(0));
+    try test_support.expectEqualRows(&.{ "alice", "1" }, table.row(1));
+    try test_support.expectEqualRows(&.{ "cara", "3" }, table.row(2));
+    try test_support.expectEqualRows(&.{ "bob", "2" }, table.row(3));
 }
 
 test "table shuffles before head and tail" {
     const head = try Table.initCsv(testing.allocator, .{ .shuffle = true, .srand = 1, .head = 2 }, "name,score\nalice,1\nbob,2\ncara,3\ndina,4\n");
     defer head.deinit();
     try testing.expectEqual(@as(usize, 2), head.nrows());
-    try test_support.expectStrings(&.{ "dina", "4" }, head.row(0));
-    try test_support.expectStrings(&.{ "alice", "1" }, head.row(1));
+    try test_support.expectEqualRows(&.{ "dina", "4" }, head.row(0));
+    try test_support.expectEqualRows(&.{ "alice", "1" }, head.row(1));
 
     const tail = try Table.initCsv(testing.allocator, .{ .shuffle = true, .srand = 1, .tail = 2 }, "name,score\nalice,1\nbob,2\ncara,3\ndina,4\n");
     defer tail.deinit();
     try testing.expectEqual(@as(usize, 2), tail.nrows());
-    try test_support.expectStrings(&.{ "cara", "3" }, tail.row(0));
-    try test_support.expectStrings(&.{ "bob", "2" }, tail.row(1));
+    try test_support.expectEqualRows(&.{ "cara", "3" }, tail.row(0));
+    try test_support.expectEqualRows(&.{ "bob", "2" }, tail.row(1));
 }
 
 test "nrows clamps oversized head and tail" {
