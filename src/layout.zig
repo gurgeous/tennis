@@ -93,9 +93,8 @@ fn autolayout(table: *Table) ![]usize {
     // due to rounding, there might be a few extra chars. hand those out too
     const extra = available -| util.sum(usize, layout);
     if (extra > 0) {
-        const indexes = try alloc.alloc(usize, widths.len);
+        const indexes = try util.range(alloc, widths.len);
         defer alloc.free(indexes);
-        for (indexes, 0..) |*x, i| x.* = i;
         std.sort.block(usize, indexes, diffs, struct {
             // Sort indexes by descending spare width.
             fn lessThan(ctx: []usize, a: usize, b: usize) bool {
@@ -119,7 +118,7 @@ fn measure(table: *const Table) ![]usize {
     // naive widths
     var widths = std.ArrayList(usize).empty;
     if (table.config.row_numbers) {
-        try widths.append(alloc, util.digits(usize, table.visibleLastRowNumber()));
+        try widths.append(alloc, util.digits(usize, table.nrows()));
     }
     for (table.columns) |column| {
         try widths.append(alloc, column.width);

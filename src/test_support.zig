@@ -8,7 +8,7 @@ pub fn initCsv(alloc: std.mem.Allocator, config: types.Config, bytes: []const u8
 }
 
 // Assert that two string slices match element by element.
-pub fn expectStrings(want: []const []const u8, got: []const []const u8) !void {
+pub fn expectEqualRows(want: []const []const u8, got: []const []const u8) !void {
     try testing.expectEqual(want.len, got.len);
     for (want, got) |w, g| try testing.expectEqualStrings(w, g);
 }

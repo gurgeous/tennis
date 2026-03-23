@@ -9,6 +9,7 @@ pub const Config = struct {
     color: Color = .on,
     delimiter: u8 = ',',
     digits: usize = 3,
+    filter: []const u8 = "",
     filename: ?[]const u8 = null,
     head: usize = 0,
     reverse: bool = false,

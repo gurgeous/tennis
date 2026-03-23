@@ -55,6 +55,24 @@ pub fn sum(comptime T: type, slice: []const T) T {
     return total;
 }
 
+// Return an owned slice containing only the items kept by `keep`.
+pub fn filter(comptime T: type, alloc: std.mem.Allocator, input: []const T, comptime keep: fn (T) bool) ![]T {
+    var out: std.ArrayList(T) = .empty;
+    defer out.deinit(alloc);
+
+    for (input) |item| {
+        if (keep(item)) try out.append(alloc, item);
+    }
+    return out.toOwnedSlice(alloc);
+}
+
+// Return an owned slice filled with ascending indexes from 0 to len - 1.
+pub fn range(alloc: std.mem.Allocator, len: usize) ![]usize {
+    const out = try alloc.alloc(usize, len);
+    for (out, 0..) |*slot, ii| slot.* = ii;
+    return out;
+}
+
 //
 // string
 //
@@ -95,6 +113,20 @@ pub fn lowerAscii(dest: []u8, src: []const u8) []const u8 {
         dest[ii] = std.ascii.toLower(ch);
     }
     return dest[0..src.len];
+}
+
+// Report whether `needle` appears in `haystack` with ASCII case folded.
+pub fn containsIgnoreCase(haystack: []const u8, needle: []const u8) bool {
+    if (needle.len == 0) return true;
+    if (needle.len > haystack.len) return false;
+
+    var ii: usize = 0;
+    while (ii + needle.len <= haystack.len) : (ii += 1) {
+        for (needle, 0..) |want, jj| {
+            if (std.ascii.toLower(haystack[ii + jj]) != std.ascii.toLower(want)) break;
+        } else return true;
+    }
+    return false;
 }
 
 // Replace any item found in `find` with `replace`. O(N^2) but doesn't matter for our purposes.
@@ -202,6 +234,30 @@ test "digits" {
     try testing.expectEqual(@as(usize, 3), digits(usize, 123));
 }
 
+test "filter keeps matching items" {
+    const items = [_]usize{ 1, 2, 3, 4, 5 };
+    const got = try filter(usize, testing.allocator, &items, struct {
+        fn keep(n: usize) bool {
+            return n % 2 == 0;
+        }
+    }.keep);
+    defer testing.allocator.free(got);
+
+    try testing.expectEqualSlices(usize, &.{ 2, 4 }, got);
+}
+
+test "filter handles empty result" {
+    const items = [_][]const u8{ "a", "bb", "ccc" };
+    const got = try filter([]const u8, testing.allocator, &items, struct {
+        fn keep(s: []const u8) bool {
+            return s.len > 10;
+        }
+    }.keep);
+    defer testing.allocator.free(got);
+
+    try testing.expectEqual(@as(usize, 0), got.len);
+}
+
 test "fileExists" {
     const path = "testdata/test.csv";
     try testing.expect(fileExists(path));
@@ -223,6 +279,13 @@ test "inspect" {
     });
     defer testing.allocator.free(s2);
     try testing.expectEqualStrings("\"\\\"\\\\\\t\\e\\r\\n\\x08\\x0c\\x0b\\xff\"", s2);
+}
+
+test "containsIgnoreCase" {
+    try testing.expect(containsIgnoreCase("Hello", "ell"));
+    try testing.expect(containsIgnoreCase("Hello", "EL"));
+    try testing.expect(!containsIgnoreCase("Hello", "world"));
+    try testing.expect(containsIgnoreCase("Hello", ""));
 }
 
 test "readByte" {

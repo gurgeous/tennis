@@ -14,7 +14,7 @@ pub const Column = struct {
         var column: Column = .{
             .table = table,
             .name = table.headers()[index],
-            .index = table.sourceCol(index),
+            .index = index,
         };
 
         // infer/format if not --vanilla
@@ -53,7 +53,7 @@ pub const Column = struct {
     // Return one rendered or raw cell by visible row index.
     pub fn field(self: Column, visible_index: usize) Field {
         if (self.formatted) |fields| return fields[visible_index];
-        return self.table.row(self.table.visibleRow(visible_index))[self.index];
+        return self.table.row(visible_index)[self.index];
     }
 
     //
@@ -63,7 +63,7 @@ pub const Column = struct {
     // Measure the widest visible cell in this column.
     fn measure(self: Column) usize {
         var width = doomicode.displayWidth(self.name);
-        for (0..self.table.visibleRowCount()) |visible_index| {
+        for (0..self.table.nrows()) |visible_index| {
             width = @max(width, doomicode.displayWidth(self.field(visible_index)));
         }
         return width;
@@ -107,7 +107,7 @@ pub const Column = struct {
         comptime formatter: fn (*Column, std.mem.Allocator, []const u8) anyerror![]u8,
     ) !void {
         const alloc = self.table.alloc;
-        const fields = try alloc.alloc(Field, self.table.visibleRowCount());
+        const fields = try alloc.alloc(Field, self.table.nrows());
         errdefer alloc.free(fields);
 
         var ii: usize = 0;
@@ -153,8 +153,8 @@ pub const ColumnIterator = struct {
 
     // Return the next visible raw cell in this column.
     pub fn next(self: *ColumnIterator) ?Field {
-        if (self.visible_row >= self.table.visibleRowCount()) return null;
-        const field = self.table.row(self.table.visibleRow(self.visible_row))[self.col];
+        if (self.visible_row >= self.table.nrows()) return null;
+        const field = self.table.row(self.visible_row)[self.col];
         self.visible_row += 1;
         return field;
     }

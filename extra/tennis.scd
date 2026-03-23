@@ -64,6 +64,9 @@ $ tennis diamonds.csv
 	Set the number of digits after the decimal for float columns. Valid values:
 	*1* through *6*. The default is *3*.
 
+*--filter* <string>
+	Keep rows where any field contains the given text, case-insensitively.
+
 *--head* <int>
 	Show the first _N_ data rows.
 

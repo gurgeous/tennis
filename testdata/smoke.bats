@@ -192,12 +192,12 @@ setup() {
   [[ "$output" != *"│  3 │"* ]]
 }
 
-@test "renders tail rows with original row numbers" {
+@test "renders tail rows with visible row numbers" {
   run "$TENNIS_BIN" --color=off --width 80 -n --tail 2 "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"│ 13 │"* ]]
-  [[ "$output" == *"│ 14 │"* ]]
-  [[ "$output" != *"│  1 │"* ]]
+  [[ "$output" == *"│  1 │"* ]]
+  [[ "$output" == *"│  2 │"* ]]
+  [[ "$output" != *"│ 13 │"* ]]
 }
 
 @test "sorts rows before head" {
@@ -213,6 +213,14 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"│ score │ name  │"* ]]
   [[ "$output" != *"city"* ]]
+}
+
+@test "filters rows by case insensitive substring" {
+  run "$TENNIS_BIN" --color=off --width 80 --filter ali "$REPO_ROOT/testdata/test.json"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alice"* ]]
+  [[ "$output" != *"bob"* ]]
+  [[ "$output" != *"cara"* ]]
 }
 
 @test "reverses rows before head" {

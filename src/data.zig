@@ -45,6 +45,23 @@ pub const DataRow = struct {
         return if (slow) initSlow(alloc, row) else initFast(alloc, row, len);
     }
 
+    // Copy selected source columns into one owned row buffer with shared normalization.
+    pub fn project(alloc: std.mem.Allocator, source: Row, col_order: []const usize) !DataRow {
+        const row = try alloc.alloc(Field, col_order.len);
+        errdefer alloc.free(row);
+
+        var slow = false;
+        var len: usize = 0;
+        for (col_order, 0..) |col, ii| {
+            const str = util.strip(u8, source[col]);
+            row[ii] = str;
+            if (hasControl(str)) slow = true;
+            len += str.len;
+        }
+
+        return if (slow) initSlow(alloc, row) else initFast(alloc, row, len);
+    }
+
     fn initFast(alloc: std.mem.Allocator, row: []Field, len: usize) !DataRow {
         const buf = try alloc.alloc(u8, len);
         errdefer alloc.free(buf);
@@ -115,6 +132,17 @@ test "DataRow.init copies disjoint slices into one owned row" {
     try testing.expectEqualStrings("a", got.row[0]);
     try testing.expectEqualStrings("d", got.row[1]);
     try testing.expectEqualStrings("ad", got.buf);
+}
+
+test "DataRow.project copies selected columns into one owned row" {
+    const alloc = testing.allocator;
+    const got = try DataRow.project(alloc, &.{ " c ", "a\tb", "d" }, &.{ 1, 0, 1 });
+    defer got.deinit(alloc);
+
+    try testing.expectEqual(@as(usize, 3), got.row.len);
+    try testing.expectEqualStrings("a\\tb", got.row[0]);
+    try testing.expectEqualStrings("c", got.row[1]);
+    try testing.expectEqualStrings("a\\tb", got.row[2]);
 }
 
 test "Data.headers returns first row or empty" {

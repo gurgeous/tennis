@@ -17,6 +17,7 @@ pub const Args = struct {
         \\      --color <color>       Turn color off and on (on|off|auto)
         \\      --delimiter <char>    CSV delim (can be any char or "tab")
         \\      --digits <int>        Digits after decimal for float columns (1-6)
+        \\      --filter <string>     Keep rows where any field contains this text
         \\      --theme <theme>       Select color theme (auto|dark|light)
         \\      --vanilla             Disable numeric formatting entirely
         \\      --width <int>         Set max table width in chars
@@ -36,6 +37,7 @@ pub const Args = struct {
         \\    --border <BORDER>
         \\    --color <COLOR>
         \\    --completion <SHELL>
+        \\    --filter <STRING>
         \\    --head <INT>
         \\    --shuffle
         \\    --shuf
@@ -130,6 +132,7 @@ pub const Args = struct {
             if (v < 1 or v > 6) return error.InvalidDigits;
             config.digits = v;
         }
+        if (res.args.filter) |v| config.filter = v;
         if (res.args.head) |v| {
             if (v == 0) return error.InvalidHeadValue;
             config.head = v;
@@ -199,6 +202,8 @@ test "parse option config case" {
         "off",
         "--digits",
         "4",
+        "--filter",
+        "ali",
         "--head",
         "5",
         "--reverse",
@@ -222,6 +227,7 @@ test "parse option config case" {
     try testing.expectEqual(border.BorderName.double, out.run.border);
     try testing.expectEqual(types.Color.off, out.run.color);
     try testing.expectEqual(@as(usize, 4), out.run.digits);
+    try testing.expectEqualStrings("ali", out.run.filter);
     try testing.expectEqual(@as(usize, 5), out.run.head);
     try testing.expect(out.run.reverse);
     try testing.expect(out.run.shuffle);
@@ -247,6 +253,7 @@ test "parse option event cases" {
         .{ .argv = &.{ "--delimiter", "tab", "-" }, .delimiter = '\t' },
         .{ .argv = &.{ "--delimiter", "\\t", "-" }, .delimiter = '\t' },
         .{ .argv = &.{ "--border", "compact_double", "-" }, .border_name = .compact_double },
+        .{ .argv = &.{ "--filter", "ali", "-" } },
         .{ .argv = &.{ "--shuffle", "-" } },
         .{ .argv = &.{ "--shuf", "-" } },
         .{ .argv = &.{ "--sort", "score,name", "-" } },
@@ -259,6 +266,7 @@ test "parse option event cases" {
         const parsed = try parseTest(tc.argv);
         if (tc.delimiter) |d| try testing.expectEqual(d, parsed.run.delimiter);
         if (tc.border_name) |b| try testing.expectEqual(b, parsed.run.border);
+        if (std.mem.eql(u8, tc.argv[0], "--filter")) try testing.expectEqualStrings("ali", parsed.run.filter);
         if (std.mem.eql(u8, tc.argv[0], "--shuffle") or std.mem.eql(u8, tc.argv[0], "--shuf")) {
             try testing.expect(parsed.run.shuffle);
         }
