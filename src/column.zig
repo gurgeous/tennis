@@ -1,5 +1,6 @@
 // A column owns any formatted numeric cells and measures/inferes against visible rows only.
 
+// One measured and optionally formatted table column.
 pub const Column = struct {
     table: *const Table,
     name: []const u8,
@@ -8,6 +9,7 @@ pub const Column = struct {
     type: ColumnType = .string, // what does it contain?
     formatted: ?[]Field = null, // numerics get formatted in here
 
+    // Build one measured column from the table's visible rows.
     pub fn init(table: *const Table, index: usize) !Column {
         var column: Column = .{
             .table = table,
@@ -31,6 +33,7 @@ pub const Column = struct {
         return column;
     }
 
+    // Release any formatted numeric cells owned by this column.
     pub fn deinit(self: Column, alloc: std.mem.Allocator) void {
         if (self.formatted) |fields| {
             for (fields) |formatted| alloc.free(formatted);
@@ -42,19 +45,22 @@ pub const Column = struct {
     // accessors
     //
 
+    // Iterate this column's visible raw cells.
     pub fn iterator(self: Column) ColumnIterator {
         return .init(self.table, self.index);
     }
 
+    // Return one rendered or raw cell by visible row index.
     pub fn field(self: Column, visible_index: usize) Field {
         if (self.formatted) |fields| return fields[visible_index];
-        return self.table.rows()[self.table.visibleRow(visible_index)][self.index];
+        return self.table.row(self.table.visibleRow(visible_index))[self.index];
     }
 
     //
     // measure/infer
     //
 
+    // Measure the widest visible cell in this column.
     fn measure(self: Column) usize {
         var width = doomicode.displayWidth(self.name);
         for (0..self.table.visibleRowCount()) |visible_index| {
@@ -63,6 +69,7 @@ pub const Column = struct {
         return width;
     }
 
+    // Infer the display type for the visible cells in this column.
     fn inferColumnType(self: Column) ColumnType {
         var floats: bool = false;
         var ints: bool = false;
@@ -94,6 +101,7 @@ pub const Column = struct {
     // format
     //
 
+    // Format visible numeric cells into owned display strings.
     fn formatColumn(
         self: *Column,
         comptime formatter: fn (*Column, std.mem.Allocator, []const u8) anyerror![]u8,
@@ -113,159 +121,126 @@ pub const Column = struct {
         self.formatted = fields;
     }
 
+    // Format one integer cell for display.
     fn formatInt(self: *Column, alloc: std.mem.Allocator, raw: []const u8) ![]u8 {
         _ = self;
         return int.intFormat(alloc, raw);
     }
 
+    // Format one floating-point cell for display.
     fn formatFloat(self: *Column, alloc: std.mem.Allocator, raw: []const u8) ![]u8 {
         return float.floatFormat(alloc, raw, self.table.config.digits);
     }
 };
 
+// Display-oriented type inferred for a column.
 pub const ColumnType = enum { int, float, string };
 
 //
 // iterator
 //
 
+// Iterator over the visible cells of one column.
 pub const ColumnIterator = struct {
     table: *const Table,
     col: usize,
     visible_row: usize = 0,
 
+    // Create a visible-row iterator for one table column.
     pub fn init(table: *const Table, col: usize) ColumnIterator {
         return .{ .table = table, .col = col };
     }
 
+    // Return the next visible raw cell in this column.
     pub fn next(self: *ColumnIterator) ?Field {
         if (self.visible_row >= self.table.visibleRowCount()) return null;
-        const field = self.table.rows()[self.table.visibleRow(self.visible_row)][self.col];
+        const field = self.table.row(self.table.visibleRow(self.visible_row))[self.col];
         self.visible_row += 1;
         return field;
     }
 };
 
 //
-// tests
+// testing
 //
 
 test "column init stores table header and index" {
-    var in = std.io.fixedBufferStream("a,b\nc,d\n");
-    const table = try Table.init(std.testing.allocator, .{}, in.reader());
+    const table = try Table.initCsv(testing.allocator, .{}, "a,b\nc,d\n");
     defer table.deinit();
 
     const column = table.column(1);
-    try std.testing.expectEqual(table, column.table);
-    try std.testing.expectEqualStrings("b", column.name);
-    try std.testing.expectEqual(@as(usize, 1), column.index);
-    try std.testing.expectEqual(@as(usize, 1), column.width);
-    try std.testing.expectEqual(ColumnType.string, column.type);
-}
-
-test "column vanilla skips inference and formatting" {
-    var in = std.io.fixedBufferStream("a\n1234\n");
-    const table = try Table.init(std.testing.allocator, .{ .vanilla = true }, in.reader());
-    defer table.deinit();
-
-    try std.testing.expectEqual(ColumnType.string, table.column(0).type);
-    try std.testing.expectEqualStrings("1234", table.column(0).field(0));
-    try std.testing.expectEqual(@as(usize, 4), table.column(0).width);
+    try testing.expectEqual(table, column.table);
+    try testing.expectEqualStrings("b", column.name);
+    try testing.expectEqual(@as(usize, 1), column.index);
+    try testing.expectEqual(@as(usize, 1), column.width);
+    try testing.expectEqual(ColumnType.string, column.type);
 }
 
 test "column iterator walks data rows only" {
-    var in = std.io.fixedBufferStream("a,b\nc,d\ne,f\n");
-    const table = try Table.init(std.testing.allocator, .{}, in.reader());
+    const table = try Table.initCsv(testing.allocator, .{}, "a,b\nc,d\ne,f\n");
     defer table.deinit();
 
     var it = table.column(1).iterator();
-    try std.testing.expectEqualStrings("d", it.next().?);
-    try std.testing.expectEqualStrings("f", it.next().?);
-    try std.testing.expectEqual(@as(?Field, null), it.next());
+    try testing.expectEqualStrings("d", it.next().?);
+    try testing.expectEqualStrings("f", it.next().?);
+    try testing.expectEqual(@as(?Field, null), it.next());
 }
 
 test "column tail formatting and width use visible rows" {
-    var in = std.io.fixedBufferStream("a,b\nsuper-wide,1\nok,2\n");
-    const table = try Table.init(std.testing.allocator, .{ .tail = 1 }, in.reader());
+    const table = try Table.initCsv(testing.allocator, .{ .tail = 1 }, "a,b\nsuper-wide,1\nok,2\n");
     defer table.deinit();
 
-    try std.testing.expectEqualStrings("ok", table.column(0).field(0));
-    try std.testing.expectEqual(@as(usize, 2), table.column(0).width);
-    try std.testing.expectEqualStrings("2", table.column(1).field(0));
+    try testing.expectEqualStrings("ok", table.column(0).field(0));
+    try testing.expectEqual(@as(usize, 2), table.column(0).width);
+    try testing.expectEqualStrings("2", table.column(1).field(0));
 }
 
-test "column measures widest header or field" {
-    var in = std.io.fixedBufferStream("alpha,b\nx,longer\n");
-    const table = try Table.init(std.testing.allocator, .{}, in.reader());
-    defer table.deinit();
+test "column formatting and inference cases" {
+    const cases = [_]struct {
+        name: []const u8,
+        config: types.Config = .{},
+        input: []const u8,
+        index: usize,
+        want_type: ColumnType,
+        want_width: usize,
+        want_fields: []const []const u8,
+    }{
+        .{ .name = "vanilla", .config = .{ .vanilla = true }, .input = "a\n1234\n", .index = 0, .want_type = .string, .want_width = 4, .want_fields = &.{"1234"} },
+        .{ .name = "widest", .input = "alpha,b\nx,longer\n", .index = 1, .want_type = .string, .want_width = 6, .want_fields = &.{"longer"} },
+        .{ .name = "int width", .input = "a\n1234\n", .index = 0, .want_type = .int, .want_width = 5, .want_fields = &.{"1,234"} },
+        .{ .name = "float width", .input = "a\n1234.0\n", .index = 0, .want_type = .float, .want_width = 9, .want_fields = &.{"1,234.000"} },
+        .{ .name = "float digits", .config = .{ .digits = 2 }, .input = "a\n12.34567\n", .index = 0, .want_type = .float, .want_width = 5, .want_fields = &.{"12.34"} },
+        .{ .name = "float blanks", .input = "a,b\n64,\n61.5,\n,\n", .index = 0, .want_type = .float, .want_width = 6, .want_fields = &.{ "64.000", "61.500", "" } },
+        .{ .name = "infer int", .input = "a,b,c\n1,12.5,foo\n22,3.0,barbaz\n", .index = 0, .want_type = .int, .want_width = 2, .want_fields = &.{ "1", "22" } },
+        .{ .name = "infer float", .input = "a,b,c\n1,12.5,foo\n22,3.0,barbaz\n", .index = 1, .want_type = .float, .want_width = 6, .want_fields = &.{ "12.500", "3.000" } },
+        .{ .name = "infer string", .input = "a,b,c\n1,12.5,foo\n22,3.0,barbaz\n", .index = 2, .want_type = .string, .want_width = 6, .want_fields = &.{ "foo", "barbaz" } },
+    };
 
-    try std.testing.expectEqual(@as(usize, 5), table.column(0).width);
-    try std.testing.expectEqual(@as(usize, 6), table.column(1).width);
-}
-
-test "column int width includes delimiters" {
-    var in = std.io.fixedBufferStream("a\n1234\n");
-    const table = try Table.init(std.testing.allocator, .{}, in.reader());
-    defer table.deinit();
-
-    try std.testing.expectEqual(@as(usize, 5), table.column(0).width);
-}
-
-test "column float width includes delimiters and precision" {
-    var in = std.io.fixedBufferStream("a\n1234.0\n");
-    const table = try Table.init(std.testing.allocator, .{}, in.reader());
-    defer table.deinit();
-
-    try std.testing.expectEqual(@as(usize, 9), table.column(0).width);
-    try std.testing.expectEqualStrings("1,234.000", table.column(0).field(0));
-}
-
-test "column float formatting respects digits config" {
-    var in = std.io.fixedBufferStream("a\n12.34567\n");
-    const table = try Table.init(std.testing.allocator, .{ .digits = 2 }, in.reader());
-    defer table.deinit();
-
-    try std.testing.expectEqualStrings("12.34", table.column(0).field(0));
-    try std.testing.expectEqual(@as(usize, 5), table.column(0).width);
-}
-
-test "column float formatting handles integer-looking and blank cells" {
-    var in = std.io.fixedBufferStream("a,b\n64,\n61.5,\n,\n");
-    const table = try Table.init(std.testing.allocator, .{}, in.reader());
-    defer table.deinit();
-
-    try std.testing.expectEqual(ColumnType.float, table.column(0).type);
-    try std.testing.expectEqualStrings("64.000", table.column(0).field(0));
-    try std.testing.expectEqualStrings("61.500", table.column(0).field(1));
-    try std.testing.expectEqualStrings("", table.column(0).field(2));
-}
-
-test "column infers data types" {
-    var in = std.io.fixedBufferStream("a,b,c\n1,12.5,foo\n22,3.0,barbaz\n");
-    const table = try Table.init(std.testing.allocator, .{}, in.reader());
-    defer table.deinit();
-
-    try std.testing.expectEqual(ColumnType.int, table.column(0).type);
-    try std.testing.expectEqual(ColumnType.float, table.column(1).type);
-    try std.testing.expectEqual(ColumnType.string, table.column(2).type);
+    for (cases) |tc| {
+        const table = try Table.initCsv(testing.allocator, tc.config, tc.input);
+        defer table.deinit();
+        const col = table.column(tc.index);
+        try testing.expectEqual(tc.want_type, col.type);
+        try testing.expectEqual(tc.want_width, col.width);
+        for (tc.want_fields, 0..) |want, ii| try testing.expectEqualStrings(want, col.field(ii));
+    }
 }
 
 test "column inference ignores blanks and scans all rows" {
     var buf = std.ArrayList(u8).empty;
-    defer buf.deinit(std.testing.allocator);
+    defer buf.deinit(testing.allocator);
 
-    try buf.appendSlice(std.testing.allocator, "a,b\n");
+    try buf.appendSlice(testing.allocator, "a,b\n");
     for (0..100) |ii| {
-        try buf.writer(std.testing.allocator).print("{d},\n", .{ii});
+        try buf.writer(testing.allocator).print("{d},\n", .{ii});
     }
-    try buf.appendSlice(std.testing.allocator, "not-a-number,\n");
+    try buf.appendSlice(testing.allocator, "not-a-number,\n");
 
-    var in = std.io.fixedBufferStream(buf.items);
-    const table = try Table.init(std.testing.allocator, .{}, in.reader());
+    const table = try Table.initCsv(testing.allocator, .{}, buf.items);
     defer table.deinit();
 
-    try std.testing.expectEqual(ColumnType.string, table.column(0).type);
-    try std.testing.expectEqual(ColumnType.string, table.column(1).type);
+    try testing.expectEqual(ColumnType.string, table.column(0).type);
+    try testing.expectEqual(ColumnType.string, table.column(1).type);
 }
 
 const doomicode = @import("doomicode.zig");
@@ -273,4 +248,6 @@ const Field = @import("types.zig").Field;
 const float = @import("float.zig");
 const int = @import("int.zig");
 const std = @import("std");
+const testing = std.testing;
 const Table = @import("table.zig").Table;
+const types = @import("types.zig");

@@ -88,10 +88,53 @@ pub fn inspect(alloc: std.mem.Allocator, s: []const u8) ![]u8 {
     return out.toOwnedSlice(alloc);
 }
 
+// Lowercase ASCII bytes from `src` into `dest` and return the written prefix.
+pub fn lowerAscii(dest: []u8, src: []const u8) []const u8 {
+    std.debug.assert(dest.len >= src.len);
+    for (src, 0..) |ch, ii| {
+        dest[ii] = std.ascii.toLower(ch);
+    }
+    return dest[0..src.len];
+}
+
+// Replace any item found in `find` with `replace`. O(N^2) but doesn't matter for our purposes.
+pub fn replaceAny(comptime T: type, alloc: std.mem.Allocator, input: []const T, find: []const T, replace: []const T) ![]T {
+    var out: std.ArrayList(T) = .empty;
+    defer out.deinit(alloc);
+
+    for (input) |ch| {
+        for (find) |n| {
+            if (ch == n) {
+                try out.appendSlice(alloc, replace);
+                break;
+            }
+        } else {
+            try out.append(alloc, ch);
+        }
+    }
+    return out.toOwnedSlice(alloc);
+}
+
 // trim whitespace from slice
 pub fn strip(comptime T: type, slice: []const T) []const T {
-    const whitespace = [_]T{ ' ', '\t', '\r', '\n' };
-    return std.mem.trim(T, slice, &whitespace);
+    return std.mem.trim(T, slice, &std.ascii.whitespace);
+}
+
+// Borrow the bytes associated with a scalar JSON token.
+pub fn tokenBytes(token: std.json.Token) []const u8 {
+    return switch (token) {
+        .allocated_number, .allocated_string, .number, .string => |v| v,
+        else => unreachable,
+    };
+}
+
+// Uppercase ASCII bytes from `src` into `dest` and return the written prefix.
+pub fn upperAscii(dest: []u8, src: []const u8) []const u8 {
+    std.debug.assert(dest.len >= src.len);
+    for (src, 0..) |ch, ii| {
+        dest[ii] = std.ascii.toUpper(ch);
+    }
+    return dest[0..src.len];
 }
 
 // write text truncated to width, using an ellipsis when needed
@@ -150,36 +193,36 @@ pub fn termWidth() usize {
 }
 
 //
-// tests
+// testing
 //
 
 test "digits" {
-    try std.testing.expectEqual(@as(usize, 1), digits(usize, 0));
-    try std.testing.expectEqual(@as(usize, 1), digits(usize, 7));
-    try std.testing.expectEqual(@as(usize, 3), digits(usize, 123));
+    try testing.expectEqual(@as(usize, 1), digits(usize, 0));
+    try testing.expectEqual(@as(usize, 1), digits(usize, 7));
+    try testing.expectEqual(@as(usize, 3), digits(usize, 123));
 }
 
 test "fileExists" {
     const path = "testdata/test.csv";
-    try std.testing.expect(fileExists(path));
-    try std.testing.expect(!fileExists("testdata/definitely-missing.csv"));
+    try testing.expect(fileExists(path));
+    try testing.expect(!fileExists("testdata/definitely-missing.csv"));
 }
 
 test "hasenv" {
-    try std.testing.expect(hasenv("PATH"));
-    try std.testing.expect(!hasenv("TENNIS_TEST_ENV_DOES_NOT_EXIST"));
+    try testing.expect(hasenv("PATH"));
+    try testing.expect(!hasenv("TENNIS_TEST_ENV_DOES_NOT_EXIST"));
 }
 
 test "inspect" {
-    const s1 = try inspect(std.testing.allocator, "abc 123");
-    defer std.testing.allocator.free(s1);
-    try std.testing.expectEqualStrings("\"abc 123\"", s1);
+    const s1 = try inspect(testing.allocator, "abc 123");
+    defer testing.allocator.free(s1);
+    try testing.expectEqualStrings("\"abc 123\"", s1);
 
-    const s2 = try inspect(std.testing.allocator, &[_]u8{
+    const s2 = try inspect(testing.allocator, &[_]u8{
         '"', '\\', '\t', '\x1b', '\r', '\n', '\x08', '\x0c', '\x0b', 0xff,
     });
-    defer std.testing.allocator.free(s2);
-    try std.testing.expectEqualStrings("\"\\\"\\\\\\t\\e\\r\\n\\x08\\x0c\\x0b\\xff\"", s2);
+    defer testing.allocator.free(s2);
+    try testing.expectEqualStrings("\"\\\"\\\\\\t\\e\\r\\n\\x08\\x0c\\x0b\\xff\"", s2);
 }
 
 test "readByte" {
@@ -188,11 +231,47 @@ test "readByte" {
     defer std.posix.close(fds[1]);
 
     _ = try std.posix.write(fds[1], "z");
-    try std.testing.expectEqual(@as(u8, 'z'), try readByte(fds[0]));
+    try testing.expectEqual(@as(u8, 'z'), try readByte(fds[0]));
 }
 
 test "strip" {
-    try std.testing.expectEqualStrings("abc", strip(u8, " \t abc\r\n"));
+    try testing.expectEqualStrings("abc", strip(u8, " \t abc\r\n"));
+}
+
+test "replaceAny" {
+    const alloc = testing.allocator;
+
+    const s1 = try replaceAny(u8, alloc, "abc", "x", "_");
+    defer alloc.free(s1);
+    try testing.expectEqualStrings("abc", s1);
+
+    const s2 = try replaceAny(u8, alloc, "abc", "b", "_");
+    defer alloc.free(s2);
+    try testing.expectEqualStrings("a_c", s2);
+
+    const s3 = try replaceAny(u8, alloc, "abcde", "bcd", "_");
+    defer alloc.free(s3);
+    try testing.expectEqualStrings("a___e", s3);
+
+    const s4 = try replaceAny(u8, alloc, "a\rb\nc\t", "\r\n\t", " ");
+    defer alloc.free(s4);
+    try testing.expectEqualStrings("a b c ", s4);
+
+    const s5 = try replaceAny(u8, alloc, "abc", "b", "--");
+    defer alloc.free(s5);
+    try testing.expectEqualStrings("a--c", s5);
+
+    const s6 = try replaceAny(u8, alloc, "abc", "b", "");
+    defer alloc.free(s6);
+    try testing.expectEqualStrings("ac", s6);
+}
+
+test "lowerAscii" {
+    var buf: [16]u8 = undefined;
+    try testing.expectEqualStrings(".json", lowerAscii(&buf, ".JSON"));
+    try testing.expectEqualStrings("abc123", lowerAscii(&buf, "AbC123"));
+    try testing.expectEqualStrings(".JSON", upperAscii(&buf, ".json"));
+    try testing.expectEqualStrings("ABC123", upperAscii(&buf, "AbC123"));
 }
 
 test "truncate" {
@@ -200,19 +279,19 @@ test "truncate" {
     var writer = std.Io.Writer.fixed(&buf);
 
     try truncate(&writer, "this is too long", 8);
-    try std.testing.expectEqualStrings("this is…", writer.buffered());
+    try testing.expectEqualStrings("this is…", writer.buffered());
     writer.end = 0;
 
     try truncate(&writer, "éééé", 3);
-    try std.testing.expectEqualStrings("éé…", writer.buffered());
+    try testing.expectEqualStrings("éé…", writer.buffered());
     writer.end = 0;
 
     try truncate(&writer, "abcdef", 0);
-    try std.testing.expectEqualStrings("", writer.buffered());
+    try testing.expectEqualStrings("", writer.buffered());
 }
 
 test "sum" {
-    try std.testing.expectEqual(@as(usize, 10), sum(usize, &.{ 1, 2, 3, 4 }));
+    try testing.expectEqual(@as(usize, 10), sum(usize, &.{ 1, 2, 3, 4 }));
 }
 
 test "tdebug" {
@@ -221,8 +300,9 @@ test "tdebug" {
 }
 
 test "termWidth returns a positive width" {
-    try std.testing.expect(termWidth() > 0);
+    try testing.expect(termWidth() > 0);
 }
 
 const mibu = @import("mibu");
 const std = @import("std");
+const testing = std.testing;

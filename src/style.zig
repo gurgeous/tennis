@@ -2,12 +2,14 @@
 // style/theming
 //
 
+// ANSI style bundle used while rendering one table.
 pub const Style = struct {
     chrome: []const u8 = "", // table borders, row numbers, placeholders... (dim)
     field: []const u8 = "", // data text color (bright)
     headers: []const []const u8 = &.{}, // header text color (colorful)
     title: []const u8 = "", // title text color (colorful)
 
+    // Pick a concrete style for the requested color and theme settings.
     pub fn init(alloc: std.mem.Allocator, color: types.Color, theme: types.Theme) Style {
         if (!colorEnabled(color)) return none;
         return switch (theme) {
@@ -58,6 +60,7 @@ pub const Style = struct {
 // helpers
 //
 
+// Build one ANSI foreground sequence at comptime.
 fn fg(comptime hex: []const u8, comptime is_bold: bool) []const u8 {
     const c = comptime Color.initHex(hex) catch @compileError("invalid hex color");
     const bold_prefix = if (is_bold) "1;" else "";
@@ -69,6 +72,7 @@ fn fg(comptime hex: []const u8, comptime is_bold: bool) []const u8 {
 // is color enabled?
 //
 
+// Report whether ANSI colors should be emitted.
 fn colorEnabled(color: types.Color) bool {
     return switch (color) {
         .on => true,
@@ -83,31 +87,32 @@ fn colorEnabled(color: types.Color) bool {
 }
 
 //
-// tests
+// testing
 //
 
 test "color title style" {
-    const s1 = Style.init(std.testing.allocator, .off, .dark);
-    try std.testing.expectEqualStrings("", s1.title);
-    const s2 = Style.init(std.testing.allocator, .on, .dark);
-    try std.testing.expectEqualStrings("\x1b[1;38;2;96;165;250m", s2.title);
-    const s3 = Style.init(std.testing.allocator, .on, .light);
-    try std.testing.expectEqualStrings("\x1b[1;38;2;37;99;235m", s3.title);
+    const s1 = Style.init(testing.allocator, .off, .dark);
+    try testing.expectEqualStrings("", s1.title);
+    const s2 = Style.init(testing.allocator, .on, .dark);
+    try testing.expectEqualStrings("\x1b[1;38;2;96;165;250m", s2.title);
+    const s3 = Style.init(testing.allocator, .on, .light);
+    try testing.expectEqualStrings("\x1b[1;38;2;37;99;235m", s3.title);
 }
 
 test "colorEnabled handles explicit modes" {
-    try std.testing.expect(colorEnabled(.on));
-    try std.testing.expect(!colorEnabled(.off));
+    try testing.expect(colorEnabled(.on));
+    try testing.expect(!colorEnabled(.off));
 }
 
 test "colorEnabled auto returns a boolean" {
     _ = colorEnabled(.auto);
-    try std.testing.expect(colorEnabled(.auto) == true or colorEnabled(.auto) == false);
+    try testing.expect(colorEnabled(.auto) == true or colorEnabled(.auto) == false);
 }
 
 const Color = @import("color.zig").Color;
 const mibu = @import("mibu");
 const std = @import("std");
+const testing = std.testing;
 const termbg = @import("termbg.zig");
 const types = @import("types.zig");
 const util = @import("util.zig");

@@ -1,11 +1,12 @@
-// Match -?\d+
+// Integer detection and formatting helpers for numeric columns.
+// Report whether a byte slice looks like a simple integer literal.
 pub fn isInt(str: []const u8) bool {
     var scan = Scanner.init(str);
     _ = scan.scanCh('-'); // skip neg
     return scan.scanDigits() > 0 and scan.eos();
 }
 
-// format s as a delimited int
+// Format an integer string with thousands separators.
 pub fn intFormat(alloc: std.mem.Allocator, str: []const u8) ![]u8 {
     // Small ints do not need separators. This is common.
     const width = intWidth(str);
@@ -17,7 +18,7 @@ pub fn intFormat(alloc: std.mem.Allocator, str: []const u8) ![]u8 {
     return out;
 }
 
-// format an int (as string) with delimiters.
+// Write an integer string into a pre-sized output buffer.
 pub fn formatInto(out: []u8, str: []const u8) void {
     if (str.len == 0) return;
     const neg = str[0] == '-';
@@ -42,7 +43,7 @@ pub fn formatInto(out: []u8, str: []const u8) void {
     }
 }
 
-// calculate how big a buf we need to format an int with delims
+// Compute the display width of an int with separators.
 pub fn intWidth(s: []const u8) usize {
     if (s.len == 0) return 0;
     const off: usize = if (s[0] == '-') 1 else 0;
@@ -52,17 +53,17 @@ pub fn intWidth(s: []const u8) usize {
 }
 
 //
-// tests
+// testing
 //
 
 test "intWidth" {
-    try std.testing.expectEqual(@as(usize, 0), intWidth(""));
-    try std.testing.expectEqual(@as(usize, 1), intWidth("0"));
-    try std.testing.expectEqual(@as(usize, 3), intWidth("123"));
-    try std.testing.expectEqual(@as(usize, 5), intWidth("1234"));
-    try std.testing.expectEqual(@as(usize, 6), intWidth("-1234"));
-    try std.testing.expectEqual(@as(usize, 9), intWidth("1234567"));
-    try std.testing.expectEqual(@as(usize, 10), intWidth("-1234567"));
+    try testing.expectEqual(@as(usize, 0), intWidth(""));
+    try testing.expectEqual(@as(usize, 1), intWidth("0"));
+    try testing.expectEqual(@as(usize, 3), intWidth("123"));
+    try testing.expectEqual(@as(usize, 5), intWidth("1234"));
+    try testing.expectEqual(@as(usize, 6), intWidth("-1234"));
+    try testing.expectEqual(@as(usize, 9), intWidth("1234567"));
+    try testing.expectEqual(@as(usize, 10), intWidth("-1234567"));
 }
 
 test "intFormat" {
@@ -80,9 +81,9 @@ test "intFormat" {
     };
 
     for (cases) |case| {
-        const act = try intFormat(std.testing.allocator, case.in);
-        defer std.testing.allocator.free(act);
-        try std.testing.expectEqualStrings(case.exp, act);
+        const act = try intFormat(testing.allocator, case.in);
+        defer testing.allocator.free(act);
+        try testing.expectEqualStrings(case.exp, act);
     }
 }
 
@@ -92,16 +93,17 @@ test "formatInto handles empty input" {
 }
 
 test "isInt" {
-    try std.testing.expect(isInt("0"));
-    try std.testing.expect(isInt("123"));
-    try std.testing.expect(isInt("-123"));
-    try std.testing.expect(!isInt(""));
-    try std.testing.expect(!isInt("-"));
-    try std.testing.expect(!isInt("1.0"));
-    try std.testing.expect(!isInt("+1"));
-    try std.testing.expect(!isInt("1e6"));
-    try std.testing.expect(!isInt("abc"));
+    try testing.expect(isInt("0"));
+    try testing.expect(isInt("123"));
+    try testing.expect(isInt("-123"));
+    try testing.expect(!isInt(""));
+    try testing.expect(!isInt("-"));
+    try testing.expect(!isInt("1.0"));
+    try testing.expect(!isInt("+1"));
+    try testing.expect(!isInt("1e6"));
+    try testing.expect(!isInt("abc"));
 }
 
 const Scanner = @import("scanner.zig").Scanner;
 const std = @import("std");
+const testing = std.testing;

@@ -1,4 +1,5 @@
 .DS_Store
 .zig-cache
-zig-out/
+std.md
 tmp/
+zig-out/

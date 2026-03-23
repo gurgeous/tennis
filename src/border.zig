@@ -256,12 +256,12 @@ const Specimen = struct {
     len: usize,
 };
 
-// Convert a named border into the parsed border representation used by render.
+// Parse one named border specimen into a render-ready border.
 pub fn getBorder(border: BorderName) Border {
     return parseSpecimen(specimen_table[@intFromEnum(border)]);
 }
 
-// Parse a canonical specimen into the normalized border type.
+// Parse a specimen string into a full border description.
 fn parseSpecimen(input: []const u8) Border {
     const lines = splitLines(input);
     const header_index = findLine(lines, 'A');
@@ -280,7 +280,7 @@ fn parseSpecimen(input: []const u8) Border {
     };
 }
 
-// Parse the content row to infer the left, middle, and right separators.
+// Parse one specimen body row into row separators.
 fn parseRow(line: []const u8) RowStyle {
     const a = std.mem.indexOfScalar(u8, line, 'A').?;
     const b = std.mem.indexOfScalar(u8, line, 'B').?;
@@ -296,7 +296,7 @@ fn parseRow(line: []const u8) RowStyle {
     };
 }
 
-// Parse a horizontal rule by using the inferred row separators as the guide.
+// Parse one specimen rule line into a border rule.
 // If the middle slots match the fill char, this is a continuous rule like
 // `─────` or `.-----.`; otherwise it is segmented like `├─┼─┼─┤`.
 fn parseRule(line: []const u8, row_style: RowStyle) BorderRule {
@@ -335,7 +335,7 @@ fn parseRule(line: []const u8, row_style: RowStyle) BorderRule {
     } };
 }
 
-// Split the embedded specimen into physical lines.
+// Split a specimen into its compact line array.
 fn splitLines(input: []const u8) Specimen {
     var out: [7][]const u8 = undefined;
     var it = std.mem.splitScalar(u8, input, '\n');
@@ -346,7 +346,7 @@ fn splitLines(input: []const u8) Specimen {
     return .{ .items = out, .len = n };
 }
 
-// Find the row containing the given specimen marker.
+// Find the specimen line containing a marker cell.
 fn findLine(lines: Specimen, marker: u8) usize {
     for (lines.items[0..lines.len], 0..) |line, ii| {
         if (std.mem.indexOfScalar(u8, line, marker) != null) return ii;
@@ -354,7 +354,7 @@ fn findLine(lines: Specimen, marker: u8) usize {
     unreachable;
 }
 
-// Split a UTF-8 string into glyph spans.
+// Split a UTF-8 line into glyph byte ranges.
 fn splitGlyphs(line: []const u8, out: *[32]Glyph) usize {
     var n: usize = 0;
     var i: usize = 0;
@@ -366,7 +366,7 @@ fn splitGlyphs(line: []const u8, out: *[32]Glyph) usize {
     return n;
 }
 
-// Count UTF-8 glyphs in a line.
+// Count glyphs in a UTF-8 line.
 fn glyphCount(line: []const u8) usize {
     var n: usize = 0;
     var i: usize = 0;
@@ -376,14 +376,14 @@ fn glyphCount(line: []const u8) usize {
     return n;
 }
 
-// Slice a line by glyph positions instead of byte offsets.
+// Slice a UTF-8 line by glyph index range.
 fn glyphRange(line: []const u8, glyphs: []const Glyph, start: usize, end: usize) []const u8 {
     if (start == end) return "";
     return line[glyphs[start].start..glyphs[end - 1].end];
 }
 
 //
-// tests
+// testing
 //
 
 test "all supported borders roundtrip through the specimen parser" {
@@ -424,34 +424,35 @@ test "all supported borders roundtrip through the specimen parser" {
         };
         const have = compactLines(lines);
 
-        try std.testing.expectEqual(want.len, have.len);
+        try testing.expectEqual(want.len, have.len);
         for (want.items[0..want.len], 0..) |line, ii| {
-            try std.testing.expectEqualStrings(line, have.items[ii]);
+            try testing.expectEqualStrings(line, have.items[ii]);
         }
     }
 }
 
 test "thin has a row separator but rounded does not" {
-    try std.testing.expect(getBorder(.thin).row != .none);
-    try std.testing.expect(getBorder(.rounded).row == .none);
+    try testing.expect(getBorder(.thin).row != .none);
+    try testing.expect(getBorder(.rounded).row == .none);
 }
 
 test "psql omits outer borders" {
     const psql = getBorder(.psql);
-    try std.testing.expectEqualStrings("", psql.left);
-    try std.testing.expectEqualStrings("", psql.right);
+    try testing.expectEqualStrings("", psql.left);
+    try testing.expectEqualStrings("", psql.right);
 }
 
 test "reinforced has a bottom border but no header separator" {
     const reinforced = getBorder(.reinforced);
-    try std.testing.expect(reinforced.header == .none);
-    try std.testing.expect(reinforced.bottom != .none);
+    try testing.expect(reinforced.header == .none);
+    try testing.expect(reinforced.bottom != .none);
 }
 
 //
 // Test-only helpers for specimen roundtrip coverage.
 //
 
+// Pack non-empty rendered test lines back into a specimen.
 fn compactLines(lines: [7][]const u8) Specimen {
     var out: [7][]const u8 = undefined;
     var n: usize = 0;
@@ -463,6 +464,7 @@ fn compactLines(lines: [7][]const u8) Specimen {
     return .{ .items = out, .len = n };
 }
 
+// Render one border rule into a scratch buffer for tests.
 fn renderRule(buf: []u8, style_: Border, line: BorderRule) []const u8 {
     var n: usize = 0;
     switch (line) {
@@ -485,6 +487,7 @@ fn renderRule(buf: []u8, style_: Border, line: BorderRule) []const u8 {
     return buf[0..n];
 }
 
+// Render one specimen body row into a scratch buffer for tests.
 fn renderRow(buf: []u8, style_: Border, a: []const u8, b: []const u8, c: []const u8) []const u8 {
     var n: usize = 0;
     append(buf, &n, style_.left);
@@ -497,9 +500,11 @@ fn renderRow(buf: []u8, style_: Border, a: []const u8, b: []const u8, c: []const
     return buf[0..n];
 }
 
+// Append text into a fixed scratch buffer for tests.
 fn append(buf: []u8, n: *usize, text: []const u8) void {
     @memcpy(buf[n.* .. n.* + text.len], text);
     n.* += text.len;
 }
 
 const std = @import("std");
+const testing = std.testing;

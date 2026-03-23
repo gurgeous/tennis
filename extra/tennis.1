@@ -21,7 +21,8 @@ https://github.\&com/gurgeous/tennis
 .P
 \fBtennis\fR is a small CLI for printing stylish CSV tables in your terminal.\&
 Rows will be truncated to fit and it'\&ll automatically pick nice colors
-to match your terminal.\& Written in Zig.\&
+to match your terminal.\& Works with all csv variants as well as \fB.\&json\fR and
+\fBndjson\fR.\& Written in zig.\&
 .P
 .SH DEMO
 .P
@@ -144,6 +145,12 @@ Render a tab-delimited file:
 .P
 .RS 4
 $ tennis --delimiter tab data.\&tsv
+.P
+.RE
+Render a JSON file:
+.P
+.RS 4
+$ tennis data.\&json
 .P
 .RE
 .SH SIMILAR TOOLS

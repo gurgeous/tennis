@@ -1,0 +1,7 @@
+{
+  "name": "alice",
+  "score": 1234,
+  "city": "boston",
+  "tags": ["a", "b"],
+  "meta": {"ok": true}
+}

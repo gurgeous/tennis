@@ -17,36 +17,13 @@ run *ARGS:
   zig build run -- {{ARGS}}
 
 #
-# benchmark
-# Be sure to use the release binary here, debug builds are terrible for
-# benchmarking.
-#
-
-benchmark: build-release
-  bin/gen-benchmark-csv > tmp/tennis-benchmark.csv
-  BENCHMARK=1 ./zig-out/bin/tennis --color=on --width 80 tmp/tennis-benchmark.csv > /dev/null
-  just banner "✓ benchmark ✓"
-
-#
-# release
-#
-
-release: check valgrind
-  bin/release
-
-goreleaser-preview: check
-  goreleaser release --clean --snapshot
-  just banner "macOS tarball preview..."
-  tar -tvzf "$(find tmp/dist -maxdepth 1 -name 'tennis_*_darwin_arm64.tar.gz' | head -n 1)"
-
-#
 # hygiene
 #
 
 check: clean-weekly build lint test bats
   just banner "✓ check ✓"
 
-llm:
+llm: fmt
   LLM=1 just check
 
 bats: build
@@ -62,13 +39,6 @@ clean-weekly:
     just banner "✓ clean-weekly ✓" ; \
   fi
 
-completions: build
-  just run --completion bash > extra/tennis.bash
-  just run --completion zsh > extra/_tennis
-  just banner "completion diffs, if any..."
-  git --no-pager diff -- extra/tennis.bash extra/_tennis
-  just banner "✓ completions ✓"
-
 fmt:
   zig fmt src build.zig
   just banner "✓ fmt ✓"
@@ -79,6 +49,53 @@ lint:
   bin/lint-imports
   just banner "✓ lint ✓"
 
+test:
+  if [ -n "${LLM:-}" ]; then zig build test --summary none ; else zig build test --summary all ; fi
+  just banner "✓ test ✓"
+
+test-watch:
+  watchexec --clear=clear --stop-timeout=0 just test
+
+#
+# benchmark
+# Be sure to use build-release here. We intentionally benchmark `ReleaseSmall`
+# because binary size matters more than peak throughput for this app. On the
+# current tree, `ReleaseFast` was ~25x larger (3.4 MB vs 136 KB), ~2x faster on
+# csv, and only ~16% faster on json.
+#
+
+benchmark:
+  just benchmark-csv
+  just benchmark-json
+  just benchmark-jsonl
+  just banner "✓ benchmark ✓"
+
+benchmark-csv: build-release
+  bin/gen-benchmark-csv > tmp/tennis-benchmark.csv
+  BENCHMARK=1 ./zig-out/bin/tennis --color=on --width 80 tmp/tennis-benchmark.csv > /dev/null
+  just banner "✓ benchmark-csv ✓"
+
+benchmark-json: build-release
+  bin/gen-benchmark-json > tmp/tennis-benchmark.json
+  BENCHMARK=1 ./zig-out/bin/tennis --color=on --width 80 tmp/tennis-benchmark.json > /dev/null
+  just banner "✓ benchmark-json ✓"
+
+benchmark-jsonl: build-release
+  bin/gen-benchmark-json | sed '1d;$d;s/,$//' > tmp/tennis-benchmark.jsonl
+  BENCHMARK=1 ./zig-out/bin/tennis --color=on --width 80 tmp/tennis-benchmark.jsonl > /dev/null
+  just banner "✓ benchmark-jsonl ✓"
+
+#
+# release and related items
+#
+
+completions: build
+  just run --completion bash > extra/tennis.bash
+  just run --completion zsh > extra/_tennis
+  just banner "completion diffs, if any..."
+  git --no-pager diff -- extra/tennis.bash extra/_tennis
+  just banner "✓ completions ✓"
+
 man:
   scdoc < extra/tennis.scd > extra/tennis.1
   man -l extra/tennis.1
@@ -86,14 +103,18 @@ man:
 readme:
   glow --pager README.md
 
+release-preview: check
+  goreleaser release --clean --snapshot
+  just banner "macOS tarball preview..."
+  tar -tvzf "$(find tmp/dist -maxdepth 1 -name 'tennis_*_darwin_arm64.tar.gz' | head -n 1)"
+
+release: check valgrind
+  bin/release
+
 [working-directory: 'tmp']
 screenshot: build
   ../bin/screenshot
   just banner "✓ screenshot - see tmp/vhs.png ✓"
-
-test:
-  if [ -n "${LLM:-}" ]; then zig build test --summary none ; else zig build test --summary all ; fi
-  just banner "✓ test ✓"
 
 #
 # more esoteric hygiene

@@ -92,6 +92,66 @@ setup() {
   [[ "$output" == *"denver"* ]]
 }
 
+@test "renders json array input" {
+  run "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/test.json"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alice"* ]]
+  [[ "$output" == *"bob"* ]]
+  [[ "$output" == *"{\"ok\":true}"* ]]
+  [[ "$output" == *"[\"a\",\"b\"]"* ]]
+}
+
+@test "renders single json object input" {
+  run "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/test-jsono.json"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"key"* ]]
+  [[ "$output" == *"value"* ]]
+  [[ "$output" == *"name"* ]]
+  [[ "$output" == *"alice"* ]]
+  [[ "$output" == *"{\"ok\": true}"* ]]
+}
+
+@test "renders jsonl input" {
+  run "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/test.jsonl"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alice"* ]]
+  [[ "$output" == *"bob"* ]]
+  [[ "$output" == *"{\"ok\":true}"* ]]
+}
+
+@test "renders ndjson input with head" {
+  run "$TENNIS_BIN" --color=off --width 80 --head 2 "$REPO_ROOT/testdata/test.ndjson"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alice"* ]]
+  [[ "$output" == *"1,234"* ]]
+  [[ "$output" == *"bob"* ]]
+  [[ "$output" != *"cara"* ]]
+}
+
+@test "auto-detects json array from stdin" {
+  run bash -lc "cat '$REPO_ROOT/testdata/test.json' | '$TENNIS_BIN' --color=off --width 80"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alice"* ]]
+  [[ "$output" == *"{\"ok\":true}"* ]]
+}
+
+@test "auto-detects single json object from stdin" {
+  run bash -lc "cat '$REPO_ROOT/testdata/test-jsono.json' | '$TENNIS_BIN' --color=off --width 80"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"key"* ]]
+  [[ "$output" == *"value"* ]]
+  [[ "$output" == *"name"* ]]
+  [[ "$output" == *"alice"* ]]
+  [[ "$output" == *"{\"ok\": true}"* ]]
+}
+
+@test "auto-detects jsonl from stdin" {
+  run bash -lc "cat '$REPO_ROOT/testdata/test.jsonl' | '$TENNIS_BIN' --color=off --width 80"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alice"* ]]
+  [[ "$output" == *"bob"* ]]
+}
+
 @test "explicit delimiter overrides sniffing" {
   run "$TENNIS_BIN" --color=off --width 80 -d ',' "$REPO_ROOT/testdata/semicolon.csv"
   [ "$status" -eq 0 ]

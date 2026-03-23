@@ -65,6 +65,7 @@ pub fn truncate(writer: *std.Io.Writer, text: []const u8, stop: usize) !void {
 // UnitIter - Iterate in display units
 //
 
+// Iterator that groups UTF-8 input into approximate display units.
 const UnitIter = struct {
     text: []const u8,
     ii: usize = 0,
@@ -214,7 +215,7 @@ fn writeSpaces(writer: *std.Io.Writer, count: usize) !void {
 }
 
 //
-// tests
+// testing
 //
 
 test "displayWidth" {
@@ -235,7 +236,7 @@ test "displayWidth" {
     };
 
     for (cases) |tc| {
-        try std.testing.expectEqual(tc.exp, displayWidth(tc.text));
+        try testing.expectEqual(tc.exp, displayWidth(tc.text));
     }
 }
 
@@ -277,8 +278,9 @@ test "truncate" {
     for (cases) |tc| {
         var writer = std.Io.Writer.fixed(&buf);
         try truncate(&writer, tc.text, tc.stop);
-        try std.testing.expectEqualStrings(tc.exp, writer.buffered());
+        try testing.expectEqualStrings(tc.exp, writer.buffered());
     }
 }
 
 const std = @import("std");
+const testing = std.testing;
