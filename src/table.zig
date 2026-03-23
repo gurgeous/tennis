@@ -1,16 +1,12 @@
 // Parsed table data plus rendering-time caches and helpers.
 pub const Table = struct {
     alloc: std.mem.Allocator,
-    data: Data,
+    data: Data = .{ .rows = &.{} },
+    header: ?DataRow = null,
+    rows: []DataRow = &.{},
     columns: []Column,
     config: types.Config = .{},
     empty: bool = false,
-    col_view: []usize,
-    row_view: []usize,
-    row_count: usize = 0,
-    visible_row_count: usize = 0,
-    // memoized
-    _headers: ?Row = null,
     _style: ?Style = null,
     _term_width: ?usize = null,
 
@@ -25,21 +21,15 @@ pub const Table = struct {
         const table = try alloc.create(Table);
         errdefer alloc.destroy(table);
 
-        const col_view = try alloc.alloc(usize, if (data.rows.len > 1) data.headers().len else 0);
-        errdefer alloc.free(col_view);
-        const row_view = try alloc.alloc(usize, if (data.rows.len > 0) data.rows.len - 1 else 0);
-        errdefer alloc.free(row_view);
-
         const empty = data.rows.len < 2;
         table.* = .{
             .alloc = alloc,
             .columns = &.{},
-            .col_view = col_view,
             .config = config,
             .data = data,
             .empty = empty,
-            .row_view = row_view,
         };
+        errdefer table.deinit();
 
         var timer = try std.time.Timer.start();
         if (!table.empty) try table.transforms();
@@ -65,9 +55,11 @@ pub const Table = struct {
     pub fn deinit(self: *Self) void {
         for (self.columns) |col| col.deinit(self.alloc);
         self.alloc.free(self.columns);
-        if (self._headers) |cached| self.alloc.free(cached);
-        self.alloc.free(self.col_view);
-        self.alloc.free(self.row_view);
+        if (self.header) |header| header.deinit(self.alloc);
+        if (self.rows.len > 0) {
+            for (self.rows) |data_row| data_row.deinit(self.alloc);
+            self.alloc.free(self.rows);
+        }
         self.data.deinit(self.alloc);
         self.alloc.destroy(self);
     }
@@ -100,53 +92,30 @@ pub const Table = struct {
     }
 
     // Return the header row.
-    pub fn headers(self: *Self) Row {
-        if (self.empty) return &.{};
-        if (self._headers == null) self._headers = self.buildHeaders() catch unreachable;
-        return self._headers.?;
+    pub fn headers(self: *const Self) Row {
+        return if (self.header) |header| header.row else &.{};
     }
 
     // Return the number of visible rows after clipping.
     pub fn nrows(self: *const Self) usize {
-        return self.visible_row_count;
+        return self.rows.len;
     }
 
     // note: does not include row-number column
     // Return the number of columns in the table.
     pub fn ncols(self: *const Self) usize {
-        return self.col_view.len;
+        return self.headers().len;
     }
 
     // Return one visible data row.
     pub fn row(self: *const Self, visible_index: usize) Row {
-        return self.data.row(self.row_view[self.sourceRow(visible_index)] + 1);
+        return self.rows[visible_index].row;
     }
 
     // Return one built column view.
     pub fn column(self: *const Self, visible_index: usize) Column {
         return self.columns[visible_index];
     }
-
-    // Return one source row index for one visible row.
-    pub fn sourceRow(self: *const Self, visible_index: usize) usize {
-        if (self.config.tail > 0) return self.row_view.len - self.visible_row_count + visible_index;
-        return visible_index;
-    }
-
-    // Return the source column index for one visible column.
-    pub fn sourceCol(self: *const Self, visible_index: usize) usize {
-        return self.col_view[visible_index];
-    }
-
-    // Return the last visible 1-based row number for row-number layout.
-    pub fn lastRowNumber(self: *const Self) usize {
-        if (self.empty) return 0;
-        return self.sourceRow(self.nrows() - 1) + 1;
-    }
-
-    //
-    // memoized accessors
-    //
 
     // Return the cached style, building it on first use.
     pub fn style(self: *Self) *const Style {
@@ -162,13 +131,6 @@ pub const Table = struct {
             self._term_width = if (self.config.width > 0) self.config.width else util.termWidth();
         }
         return self._term_width.?;
-    }
-
-    // Build the visible header row in selected display order.
-    fn buildHeaders(self: *const Self) !Row {
-        const out = try self.alloc.alloc(Field, self.col_view.len);
-        for (self.col_view, 0..) |col, ii| out[ii] = self.data.headers()[col];
-        return out;
     }
 
     // Build every column for this table.
@@ -187,55 +149,85 @@ pub const Table = struct {
         return columns;
     }
 
-    // Apply display transforms such as select, filter, sort, and clipping.
+    // Apply all transforms through local row/column orders, then materialize final rows.
     fn transforms(self: *Self) !void {
-        // --select
-        for (self.col_view, 0..) |*slot, ii| slot.* = ii;
-        if (self.config.select_cols.len > 0) {
-            const out = self.alloc.dupe(usize, self.config.select_cols) catch unreachable;
-            self.alloc.free(self.col_view);
-            self.col_view = out;
-        }
+        // col order
+        const col_order = try self.initColOrder(self.data.headers().len);
+        defer self.alloc.free(col_order);
 
-        // --filter, --sort, --shuffle, --reverse
-        for (self.row_view, 0..) |*slot, ii| slot.* = ii;
-        if (self.config.filter.len > 0) self.filterRows();
+        // tmp/row_order stores row order
+        const tmp = try self.alloc.alloc(usize, self.data.rows.len - 1);
+        defer self.alloc.free(tmp);
+        for (tmp, 0..) |*slot, ii| slot.* = ii;
+
+        // --filter / --sort / --shuffle / --reverse
+        const row_order = if (self.config.filter.len > 0) self.filterRows(tmp) else tmp;
         if (self.config.sort_cols.len > 0) {
             const sorter: sort.Sort = .{ .cols = self.config.sort_cols };
-            sorter.apply(self.data, self.row_view);
+            sorter.apply(self.data, row_order);
         }
         if (self.config.shuffle) {
             const seed = if (self.config.srand != 0) self.config.srand else std.crypto.random.int(u64);
             var prng = std.Random.DefaultPrng.init(seed);
-            prng.random().shuffle(usize, self.row_view);
+            prng.random().shuffle(usize, row_order);
         }
-        if (self.config.reverse) std.mem.reverse(usize, self.row_view);
+        if (self.config.reverse) std.mem.reverse(usize, row_order);
 
-        // set visible_row_count
-        var n: usize = self.row_view.len;
-        if (self.config.head > 0) n = @min(self.config.head, n);
-        if (self.config.tail > 0) n = @min(self.config.tail, n);
-        self.visible_row_count = n;
+        // --head/--tail
+        const clipped = self.clipRowOrder(row_order);
+        self.header = try projectRow(self.alloc, self.data.headers(), col_order);
+
+        // now apply row_order and store.rows
+        var rows: std.ArrayList(DataRow) = .empty;
+        defer {
+            for (rows.items) |data_row| data_row.deinit(self.alloc);
+            rows.deinit(self.alloc);
+        }
+        try rows.ensureTotalCapacity(self.alloc, clipped.len);
+        for (clipped) |ii| try rows.append(self.alloc, try projectRow(self.alloc, self.data.row(ii + 1), col_order));
+        self.rows = try rows.toOwnedSlice(self.alloc);
     }
 
-    // Keep only rows where any field contains the case-insensitive filter text.
-    fn filterRows(self: *Self) void {
-        var ii: usize = 0;
-        for (self.row_view) |row_index| {
-            const data_row = self.data.row(row_index + 1);
-            for (data_row) |field| {
+    // Build the final visible column order from the bound select config.
+    fn initColOrder(self: *const Self, count: usize) ![]usize {
+        if (self.config.select_cols.len > 0) return try self.alloc.dupe(usize, self.config.select_cols);
+        const cols = try self.alloc.alloc(usize, count);
+        for (cols, 0..) |*slot, ii| slot.* = ii;
+        return cols;
+    }
+
+    // Keep only row indexes where any field contains the case-insensitive filter text.
+    fn filterRows(self: *const Self, row_order: []usize) []usize {
+        var out: usize = 0;
+        for (row_order) |row_index| {
+            for (self.data.row(row_index + 1)) |field| {
                 if (util.containsIgnoreCase(field, self.config.filter)) {
-                    self.row_view[ii] = row_index;
-                    ii += 1;
+                    row_order[out] = row_index;
+                    out += 1;
                     break;
                 }
             }
         }
-        const old = self.row_view;
-        defer self.alloc.free(old);
-        self.row_view = self.alloc.dupe(usize, self.row_view[0..ii]) catch unreachable;
+        return row_order[0..out];
+    }
+
+    // --head/--tail
+    fn clipRowOrder(self: *const Self, row_order: []usize) []usize {
+        var n = row_order.len;
+        if (self.config.head > 0) n = @min(self.config.head, n);
+        if (self.config.tail > 0) n = @min(self.config.tail, n);
+        const start = if (self.config.tail > 0) row_order.len - n else 0;
+        return row_order[start .. start + n];
     }
 };
+
+// Copy a row into display order
+fn projectRow(alloc: std.mem.Allocator, source: Row, col_order: []const usize) !DataRow {
+    const row = try alloc.alloc(Field, col_order.len);
+    defer alloc.free(row);
+    for (col_order, 0..) |col, ii| row[ii] = source[col];
+    return try DataRow.init(alloc, row);
+}
 
 //
 // testing
@@ -420,7 +412,6 @@ test "table shuffles rows with a seeded config" {
     const table = try Table.initCsv(testing.allocator, .{ .shuffle = true, .srand = 1 }, "name,score\nalice,1\nbob,2\ncara,3\ndina,4\n");
     defer table.deinit();
 
-    try testing.expectEqualSlices(usize, &.{ 3, 0, 2, 1 }, table.row_view);
     try test_support.expectStrings(&.{ "dina", "4" }, table.row(0));
     try test_support.expectStrings(&.{ "alice", "1" }, table.row(1));
     try test_support.expectStrings(&.{ "cara", "3" }, table.row(2));
@@ -445,12 +436,10 @@ test "nrows clamps oversized head and tail" {
     const head = try Table.initCsv(testing.allocator, .{ .head = 100 }, "a,b\n1,2\n3,4\n");
     defer head.deinit();
     try testing.expectEqual(@as(usize, 2), head.nrows());
-    try testing.expectEqual(@as(usize, 2), head.lastRowNumber());
 
     const tail = try Table.initCsv(testing.allocator, .{ .tail = 100 }, "a,b\n1,2\n3,4\n");
     defer tail.deinit();
     try testing.expectEqual(@as(usize, 2), tail.nrows());
-    try testing.expectEqual(@as(usize, 2), tail.lastRowNumber());
 }
 
 test "table builds columns from headers" {
@@ -484,6 +473,7 @@ test "termWidth respects config width" {
 const Column = @import("column.zig").Column;
 const csv = @import("csv.zig");
 const Data = @import("data.zig").Data;
+const DataRow = @import("data.zig").DataRow;
 const Field = @import("types.zig").Field;
 const Layout = @import("layout.zig").Layout;
 const Render = @import("render.zig").Render;

@@ -132,11 +132,10 @@ pub const Render = struct {
     fn renderRow(self: *Render, visible_index: usize) !void {
         try self.writeChrome(self.border.left);
 
-        const source_row = self.table.sourceRow(visible_index);
         var col: usize = 0;
         if (self.table.config.row_numbers) {
             var num_buf: [32]u8 = undefined;
-            const label = try std.fmt.bufPrint(&num_buf, "{d}", .{source_row + 1});
+            const label = try std.fmt.bufPrint(&num_buf, "{d}", .{visible_index + 1});
             const sep = if (col + 1 == self.layout.widths.len) self.border.right else self.border.mid;
             try self.renderField(self.table.style().chrome, label, col, sep, .right);
             col += 1;

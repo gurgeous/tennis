@@ -192,12 +192,12 @@ setup() {
   [[ "$output" != *"│  3 │"* ]]
 }
 
-@test "renders tail rows with original row numbers" {
+@test "renders tail rows with visible row numbers" {
   run "$TENNIS_BIN" --color=off --width 80 -n --tail 2 "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"│ 13 │"* ]]
-  [[ "$output" == *"│ 14 │"* ]]
-  [[ "$output" != *"│  1 │"* ]]
+  [[ "$output" == *"│  1 │"* ]]
+  [[ "$output" == *"│  2 │"* ]]
+  [[ "$output" != *"│ 13 │"* ]]
 }
 
 @test "sorts rows before head" {

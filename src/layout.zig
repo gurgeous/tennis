@@ -119,7 +119,7 @@ fn measure(table: *const Table) ![]usize {
     // naive widths
     var widths = std.ArrayList(usize).empty;
     if (table.config.row_numbers) {
-        try widths.append(alloc, util.digits(usize, table.lastRowNumber()));
+        try widths.append(alloc, util.digits(usize, table.nrows()));
     }
     for (table.columns) |column| {
         try widths.append(alloc, column.width);
