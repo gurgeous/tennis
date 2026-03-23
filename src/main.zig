@@ -1,26 +1,5 @@
 // Owns process flow, input detection, loading, and top-level CLI behavior.
 pub fn main() !void {
-    const code = try main0();
-    std.process.exit(code);
-}
-
-// Run the CLI and return the process exit code.
-fn main0() !u8 {
-    // always flush
-    defer util.stdout.flush() catch {};
-    defer util.stderr.flush() catch {};
-
-    // timer
-    var total = try std.time.Timer.start();
-    defer util.benchmark("total", total.read());
-
-    // BENCHMARK=1 sanity check
-    if (util.hasenv("BENCHMARK") and builtin.mode == .Debug) {
-        try util.stderr.writeAll("tennis: BENCHMARK=1 requires `just benchmark` or a release build\n");
-        std.process.exit(1);
-    }
-
-    // allocators
     var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer {
         const check = gpa.deinit();
@@ -28,44 +7,78 @@ fn main0() !u8 {
     }
     const alloc = gpa.allocator();
 
+    if (try main0(alloc)) |fatal| {
+        defer fatal.deinit(alloc);
+        try fatal.print();
+        try util.stdout.flush();
+        try util.stderr.flush();
+        std.process.exit(1);
+    }
+    try util.stdout.flush();
+    try util.stderr.flush();
+    std.process.exit(0);
+}
+
+// Run the CLI and return a printable failure when the command should fail.
+fn main0(alloc: std.mem.Allocator) !?failure.Failure {
+    // timer
+    var total = try std.time.Timer.start();
+    defer util.benchmark("total", total.read());
+
+    // sanity checks
+    if (util.hasenv("BENCHMARK") and builtin.mode == .Debug) {
+        return .{ .code = .benchmark_requires_release };
+    }
+
     //
-    // args
+    // parse args
     //
 
     var timer = try std.time.Timer.start();
     const argv = try std.process.argsAlloc(alloc);
     defer std.process.argsFree(alloc, argv);
-    var args = try Args.init(alloc, argv[1..]);
-    defer args.deinit(alloc);
-    util.benchmark("args", timer.read());
+    var event = try Args.init(alloc, argv[1..]);
+    defer event.deinit(alloc);
 
     //
     // handle early exits ("actions")
     //
 
-    if (args.action) |action| {
-        switch (action) {
-            .banner => try printBanner(null),
-            .completion => try completion.write(alloc, args.completion.?),
-            .help => try util.stdout.writeAll(Args.help),
-            .version => try util.stdout.print("tennis: {s}\n", .{version}),
-            .fatal => {
-                try printBanner(args.err_str);
-                return 1;
-            },
-        }
-        return 0;
-    }
+    var config = switch (event) {
+        .banner => {
+            // plain `tennis` with no file/stdin prints the banner
+            try failure.printBanner(util.stdout, null);
+            return null;
+        },
+        .completion => |shell| {
+            // shell completion is generated immediately
+            try completion.write(alloc, shell);
+            return null;
+        },
+        // arg/setup failures are already fully formed Failures
+        .fatal => return event.takeFailure(),
+        .help => {
+            // help text bypasses the rest of the CLI
+            try util.stdout.writeAll(Args.help);
+            return null;
+        },
+        .version => {
+            // version is another direct early exit
+            try util.stdout.print("tennis: {s}\n", .{version});
+            return null;
+        },
+        // otherwise keep the parsed config and continue
+        .run => |cfg| cfg,
+    };
 
     //
     // where are we reading from?
     //
 
     timer = try std.time.Timer.start();
-    var needs_close = false;
     var input = std.fs.File.stdin();
-    const filename = args.filename;
-    if (filename) |path| {
+    var needs_close = false;
+    if (config.filename) |path| {
         if (!std.mem.eql(u8, path, "-")) {
             input = try std.fs.cwd().openFile(path, .{});
             needs_close = true;
@@ -75,49 +88,32 @@ fn main0() !u8 {
     util.benchmark("input", timer.read());
 
     //
-    // read all bytes
+    // read input => input_bytes
     //
 
-    timer = try std.time.Timer.start();
     const input_bytes = try input.readToEndAlloc(alloc, std.math.maxInt(usize));
     defer alloc.free(input_bytes);
 
     //
-    // bytes => data
+    // input_bytes => data rows
     //
 
-    var data = load(alloc, &args, input_bytes) catch |err| {
-        const err_str = switch (err) {
-            error.JaggedCsv => "All csv rows must have same number of columns",
-            error.OutOfMemory => return err,
-            error.SyntaxError => "That JSON/JSONL file doesn't look right",
-            else => "That CSV file doesn't look right",
-        };
-        try printBanner(err_str);
-        return 1;
+    var data = load(alloc, config, input_bytes) catch |err| {
+        return failure.Failure.fromError(err) orelse return err;
     };
-    var data_moved = false;
-    defer if (!data_moved) data.deinit(alloc);
+    errdefer data.deinit(alloc);
 
-    //
-    // sort
-    //
-
-    if (args.config.sort.len > 0) {
-        sort.validate(alloc, data.headers(), args.config.sort) catch {
-            const maybe_err_str = sort.errorString(alloc, data.headers()) catch null;
-            defer if (maybe_err_str) |msg| alloc.free(msg);
-            try printBanner(maybe_err_str orelse "That sort doesn't look right");
-            return 1;
-        };
-    }
+    // plug data headers into config, for validation
+    config.bind(alloc, data.headers()) catch |err| {
+        return try failure.Failure.fromTableError(alloc, err, data.headers());
+    };
+    defer config.deinit(alloc);
 
     //
     // data => table
     //
 
-    const table = try Table.init(alloc, args.config, data);
-    data_moved = true;
+    const table = try Table.init(alloc, config, data);
     defer table.deinit();
     util.benchmark("table.init", timer.read());
 
@@ -128,33 +124,22 @@ fn main0() !u8 {
     timer = try std.time.Timer.start();
     try table.renderTable(util.stdout);
     util.benchmark("table.render", timer.read());
-    return 0;
+    return null;
 }
 
-fn load(alloc: std.mem.Allocator, args: *Args, bytes_in: []const u8) !Data {
+fn load(alloc: std.mem.Allocator, config: types.Config, bytes_in: []const u8) !Data {
     // skip bom
     var bytes = bytes_in;
     if (std.mem.startsWith(u8, bytes, "\xef\xbb\xbf")) {
         bytes = bytes[3..];
     }
 
-    const format = try detect.detectFormat(alloc, args.filename, bytes);
-    if (format == .json) {
-        return try json.load(alloc, bytes);
-    }
+    const format = try detect.detectFormat(alloc, config.filename, bytes);
+    if (format == .json) return try json.load(alloc, bytes);
 
-    var delimiter = args.config.delimiter;
+    var delimiter = config.delimiter;
     if (delimiter == 0) delimiter = sniffer.sniff(bytes) orelse ',';
     return try csv.load(alloc, bytes, delimiter);
-}
-
-// Print the startup banner to the shared app writers.
-fn printBanner(err_str: ?[]const u8) !void {
-    const writer = if (err_str != null) util.stderr else util.stdout;
-    if (err_str) |s| {
-        try writer.print("tennis: {s}\n", .{s});
-    }
-    try writer.writeAll("tennis: try 'tennis --help' for more information\n");
 }
 
 //
@@ -170,6 +155,7 @@ test {
     _ = @import("csv.zig");
     _ = @import("detect.zig");
     _ = @import("doomicode.zig");
+    _ = @import("failure.zig");
     _ = @import("float.zig");
     _ = @import("json.zig");
     _ = @import("json_to_string.zig");
@@ -187,13 +173,13 @@ test {
 
 test "load strips UTF-8 BOM before parsing csv and jsonl" {
     const cases = [_]struct {
-        args: Args,
+        config: types.Config,
         input: []const u8,
         nrows: usize,
         checks: []const struct { row: usize, fields: []const []const u8 },
     }{
         .{
-            .args = .{ .filename = null, .config = .{} },
+            .config = .{ .filename = null },
             .input = "\xef\xbb\xbfa,b\nc,d\n",
             .nrows = 2,
             .checks = &.{
@@ -202,7 +188,7 @@ test "load strips UTF-8 BOM before parsing csv and jsonl" {
             },
         },
         .{
-            .args = .{ .filename = "data.jsonl", .config = .{} },
+            .config = .{ .filename = "data.jsonl" },
             .input = "\xef\xbb\xbf{\"name\":\"alice\"}\r\n{\"name\":\"bob\"}",
             .nrows = 3,
             .checks = &.{
@@ -214,8 +200,7 @@ test "load strips UTF-8 BOM before parsing csv and jsonl" {
     };
 
     for (cases) |tc| {
-        var args = tc.args;
-        const data = try load(testing.allocator, &args, tc.input);
+        const data = try load(testing.allocator, tc.config, tc.input);
         defer data.deinit(testing.allocator);
 
         try testing.expectEqual(tc.nrows, data.rows.len);
@@ -232,9 +217,9 @@ const completion = @import("completion.zig");
 const csv = @import("csv.zig");
 const Data = @import("data.zig").Data;
 const detect = @import("detect.zig");
+const failure = @import("failure.zig");
 const json = @import("json.zig");
 const sniffer = @import("sniffer.zig");
-const sort = @import("sort.zig");
 const std = @import("std");
 const testing = std.testing;
 const Table = @import("table.zig").Table;

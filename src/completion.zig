@@ -12,12 +12,12 @@ const Option = struct {
 
 // Fixed-capacity collection of parsed completion options.
 const Options = struct {
-    items: [16]Option,
+    items: [20]Option,
     len: usize,
 };
 
 // Write one shell completion script to stdout.
-pub fn write(alloc: std.mem.Allocator, shell: args.CompletionShell) !void {
+pub fn write(alloc: std.mem.Allocator, shell: types.CompletionShell) !void {
     const options = parseOptions();
     var buf: std.ArrayList(u8) = .empty;
     defer buf.deinit(alloc);
@@ -141,7 +141,7 @@ fn writeZshSpec(
 // Parse the option table from Args.help.
 fn parseOptions() Options {
     var out: Options = .{ .items = undefined, .len = 0 };
-    var it = std.mem.splitScalar(u8, args.Args.help, '\n');
+    var it = std.mem.splitScalar(u8, Args.help, '\n');
     while (it.next()) |line| {
         const opt = parseOption(line) orelse continue;
         out.items[out.len] = opt;
@@ -178,10 +178,10 @@ fn parseOption(line: []const u8) ?Option {
 }
 
 // Return the completion values for one long option.
-fn valuesFor(shell: args.CompletionShell, long: []const u8) ?[]const u8 {
+fn valuesFor(shell: types.CompletionShell, long: []const u8) ?[]const u8 {
     if (std.mem.eql(u8, long, "--border")) return enumValues(border.BorderName);
     if (std.mem.eql(u8, long, "--color")) return enumValues(types.Color);
-    if (std.mem.eql(u8, long, "--completion")) return enumValues(args.CompletionShell);
+    if (std.mem.eql(u8, long, "--completion")) return enumValues(types.CompletionShell);
     if (std.mem.eql(u8, long, "--delimiter")) {
         return if (shell == .zsh) "tab , \\; \\|" else ", ; | tab";
     }
@@ -248,7 +248,7 @@ test "writes zsh completion" {
 }
 
 // Render one completion script into an owned buffer for tests.
-fn renderForTest(alloc: std.mem.Allocator, shell: args.CompletionShell) ![]u8 {
+fn renderForTest(alloc: std.mem.Allocator, shell: types.CompletionShell) ![]u8 {
     const options = parseOptions();
     var buf: std.ArrayList(u8) = .empty;
     defer buf.deinit(alloc);
@@ -261,7 +261,7 @@ fn renderForTest(alloc: std.mem.Allocator, shell: args.CompletionShell) ![]u8 {
     return buf.toOwnedSlice(alloc);
 }
 
-const args = @import("args.zig");
+const Args = @import("args.zig").Args;
 const border = @import("border.zig");
 const std = @import("std");
 const testing = std.testing;

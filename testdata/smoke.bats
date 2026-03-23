@@ -208,6 +208,13 @@ setup() {
   [[ "$output" != *"cara"* ]]
 }
 
+@test "selects and reorders columns" {
+  run "$TENNIS_BIN" --color=off --width 80 --select score,name "$REPO_ROOT/testdata/test.json"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"│ score │ name  │"* ]]
+  [[ "$output" != *"city"* ]]
+}
+
 @test "reverses rows before head" {
   run "$TENNIS_BIN" --color=off --width 80 --reverse --head 2 "$REPO_ROOT/testdata/test.json"
   [ "$status" -eq 0 ]
@@ -231,8 +238,15 @@ setup() {
 @test "rejects invalid sort columns without panicking" {
   run "$TENNIS_BIN" --color=off --sort version "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 1 ]
-  [[ "$output" == *"tennis:  --sort didn't look right, should be a comma-separated list of columns."* ]]
-  [[ "$output" == *"column names in that file: carat, cut, color, clarity, depth, table, price, x, y, z"* ]]
+  [[ "$output" == *"tennis: --sort didn't look right, should be a comma-separated list of columns."* ]]
+  [[ "$output" == *"column names: carat, cut, color, clarity, depth, table, price, x, y, z"* ]]
+}
+
+@test "rejects invalid select columns without panicking" {
+  run "$TENNIS_BIN" --color=off --select version "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"tennis: --select didn't look right, should be a comma-separated list of columns."* ]]
+  [[ "$output" == *"column names: carat, cut, color, clarity, depth, table, price, x, y, z"* ]]
 }
 
 @test "rejects head and tail together" {

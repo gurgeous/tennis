@@ -55,6 +55,7 @@ $ zig build
       --vanilla             Disable numeric formatting entirely
       --width <int>         Set max table width in chars
 
+      --select <headers>    Show one or more comma-separated headers
       --sort <headers>      Sort by one or more comma-separated headers
       --head <int>          Show first N rows
       --tail <int>          Show last N rows
@@ -72,7 +73,6 @@ Note that color defaults to `on`. Tennis likes to be colorful.
 
 ### Future Work
 
-- select cols - `--only` or `--col` or `--columns` or `--select`
 - `--shuffle` and `--sample`
 - filter - `--filter`
 - add zebra stripes - `--zebra`
@@ -100,6 +100,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 - `--completion` for auto-generating bash/zsh completions
 - `.json`, `.jsonl`, and `.ndjson` support
 - `--head` and `--tail` for clipping large tables
+- `--select` for selecting, reordering, or duplicating columns
 - `--sort` and `--reverse` for sorting rows by header
 - `doomicode`, best-effort Unicode width for emojis, etc
 - auto-detect csv vs tsv (or semis, or pipes)

@@ -5,6 +5,8 @@ pub const Table = struct {
     columns: []Column,
     config: types.Config = .{},
     empty: bool = false,
+    col_order: []usize,
+    header_row: Row,
     row_order: []usize,
     visible_row_count: usize = 0,
     // memoized
@@ -21,23 +23,33 @@ pub const Table = struct {
     pub fn init(alloc: std.mem.Allocator, config: types.Config, data: Data) !*Table {
         const table = try alloc.create(Table);
         errdefer alloc.destroy(table);
-        errdefer data.deinit(alloc);
+
+        const col_order = try alloc.alloc(usize, if (data.rows.len > 1) data.headers().len else 0);
+        errdefer alloc.free(col_order);
+        const row_order = try alloc.alloc(usize, if (data.rows.len > 0) data.rows.len - 1 else 0);
+        errdefer alloc.free(row_order);
 
         table.* = .{
             .alloc = alloc,
             .columns = &.{},
+            .col_order = col_order,
             .config = config,
             .data = data,
-            .row_order = try alloc.alloc(usize, if (data.rows.len > 0) data.rows.len - 1 else 0),
+            .header_row = &.{},
+            .row_order = row_order,
         };
-        errdefer alloc.free(table.row_order);
 
         // Input with zero data rows is intentionally rendered as "empty".
         table.empty = data.rows.len < 2;
 
         if (!table.empty) {
+            for (table.col_order, 0..) |*slot, ii| slot.* = ii;
+            if (config.select_cols.len > 0) table.selectCols();
+            table.header_row = try table.buildHeaderRow();
+            errdefer alloc.free(table.header_row);
+
             for (table.row_order, 0..) |*slot, ii| slot.* = ii;
-            if (config.sort.len > 0) try table.sortRows();
+            if (config.sort_cols.len > 0) table.sortRows();
             if (config.reverse) std.mem.reverse(usize, table.row_order);
 
             var n: usize = table.nrows();
@@ -56,13 +68,18 @@ pub const Table = struct {
     pub fn initCsv(alloc: std.mem.Allocator, config: types.Config, bytes: []const u8) !*Table {
         const data = try csv.load(alloc, bytes, config.delimiter);
         errdefer data.deinit(alloc);
-        return init(alloc, config, data);
+        var bound = config;
+        defer bound.deinit(alloc);
+        try bound.bind(alloc, data.headers());
+        return init(alloc, bound, data);
     }
 
     // Release the table, columns, style cache, and stored rows.
     pub fn deinit(self: *Self) void {
         for (self.columns) |col| col.deinit(self.alloc);
         self.alloc.free(self.columns);
+        if (!self.empty) self.alloc.free(self.header_row);
+        self.alloc.free(self.col_order);
         self.alloc.free(self.row_order);
         self.data.deinit(self.alloc);
         self.alloc.destroy(self);
@@ -98,7 +115,7 @@ pub const Table = struct {
     // Return the header row.
     pub fn headers(self: *const Self) Row {
         if (self.empty) return &.{};
-        return self.data.row(0);
+        return self.header_row;
     }
 
     // Return the number of loaded data rows.
@@ -110,7 +127,7 @@ pub const Table = struct {
     // note: does not include row-number column
     // Return the number of columns in the table.
     pub fn ncols(self: *const Self) usize {
-        return self.columns.len;
+        return self.col_order.len;
     }
 
     // Return one loaded data row.
@@ -164,7 +181,7 @@ pub const Table = struct {
 
     // Build every column for this table.
     fn buildColumns(self: *const Self) ![]Column {
-        const columns = try self.alloc.alloc(Column, self.headers().len);
+        const columns = try self.alloc.alloc(Column, self.ncols());
         errdefer self.alloc.free(columns);
 
         var ii: usize = 0;
@@ -178,12 +195,28 @@ pub const Table = struct {
         return columns;
     }
 
-    fn sortRows(self: *Self) !void {
-        if (self.config.sort.len > 0) {
-            const sorter = try sort.Sort.init(self.alloc, self.headers(), self.config.sort);
-            defer sorter.deinit(self.alloc);
-            sorter.apply(self.data, self.row_order);
-        }
+    fn sortRows(self: *Self) void {
+        const sorter: sort.Sort = .{ .cols = self.config.sort_cols };
+        sorter.apply(self.data, self.row_order);
+    }
+
+    // Return the source column index for one visible column.
+    pub fn sourceCol(self: *const Self, index: usize) usize {
+        return self.col_order[index];
+    }
+
+    // Resolve selected visible columns against the source header row.
+    fn selectCols(self: *Self) void {
+        const out = self.alloc.dupe(usize, self.config.select_cols) catch unreachable;
+        self.alloc.free(self.col_order);
+        self.col_order = out;
+    }
+
+    // Build the visible header row in selected display order.
+    fn buildHeaderRow(self: *const Self) !Row {
+        const out = try self.alloc.alloc(Field, self.col_order.len);
+        for (self.col_order, 0..) |col, ii| out[ii] = self.data.headers()[col];
+        return out;
     }
 };
 
@@ -279,6 +312,39 @@ test "table sorts with case insensitive header match" {
     try test_support.expectStrings(&.{ "bob", "2" }, table.row(1));
 }
 
+test "table selects a subset of columns" {
+    const table = try Table.initCsv(testing.allocator, .{ .select = "score,name" }, "name,score,city\nbob,2,denver\nalice,1,boston\n");
+    defer table.deinit();
+
+    try test_support.expectStrings(&.{ "score", "name" }, table.headers());
+    try testing.expectEqual(@as(usize, 2), table.ncols());
+    try testing.expectEqualStrings("2", table.column(0).field(0));
+    try testing.expectEqualStrings("bob", table.column(1).field(0));
+    try testing.expectEqualStrings("1", table.column(0).field(1));
+    try testing.expectEqualStrings("alice", table.column(1).field(1));
+}
+
+test "table select supports duplicates" {
+    const table = try Table.initCsv(testing.allocator, .{ .select = "name,score,name" }, "name,score\nbob,2\n");
+    defer table.deinit();
+
+    try test_support.expectStrings(&.{ "name", "score", "name" }, table.headers());
+    try testing.expectEqual(@as(usize, 3), table.ncols());
+    try testing.expectEqualStrings("bob", table.column(0).field(0));
+    try testing.expectEqualStrings("2", table.column(1).field(0));
+    try testing.expectEqualStrings("bob", table.column(2).field(0));
+}
+
+test "table sorts using hidden columns after select" {
+    const table = try Table.initCsv(testing.allocator, .{ .select = "name", .sort = "score" }, "name,score\nbob,2\nalice,1\n");
+    defer table.deinit();
+
+    try test_support.expectStrings(&.{"name"}, table.headers());
+    try testing.expectEqual(@as(usize, 1), table.ncols());
+    try testing.expectEqualStrings("alice", table.column(0).field(0));
+    try testing.expectEqualStrings("bob", table.column(0).field(1));
+}
+
 test "table sorts before head and tail" {
     const head = try Table.initCsv(testing.allocator, .{ .sort = "name", .head = 2 }, "name,score\ncara,3\nbob,2\nalice,1\n");
     defer head.deinit();
@@ -359,10 +425,10 @@ test "termWidth respects config width" {
 const Column = @import("column.zig").Column;
 const csv = @import("csv.zig");
 const Data = @import("data.zig").Data;
+const Field = @import("types.zig").Field;
 const Layout = @import("layout.zig").Layout;
 const Render = @import("render.zig").Render;
 const Row = @import("types.zig").Row;
-const Rows = @import("types.zig").Rows;
 const sort = @import("sort.zig");
 const std = @import("std");
 const Style = @import("style.zig").Style;

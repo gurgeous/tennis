@@ -64,6 +64,10 @@ $ tennis diamonds.csv
 *--head* <int>
 	Show the first _N_ data rows.
 
+*--select* <headers>
+	Show one or more comma-separated headers. This can select a subset of
+	columns, reorder them, or repeat the same column more than once.
+
 *--sort* <headers>
 	Sort rows by one or more comma-separated headers before applying *--head*
 	or *--tail*.

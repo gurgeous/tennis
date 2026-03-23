@@ -14,7 +14,7 @@ pub const Column = struct {
         var column: Column = .{
             .table = table,
             .name = table.headers()[index],
-            .index = index,
+            .index = table.sourceCol(index),
         };
 
         // infer/format if not --vanilla

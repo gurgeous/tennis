@@ -12,6 +12,7 @@ _tennis() {
     --digits) COMPREPLY=($(compgen -W "1 2 3 4 5 6" -- "${cur}")) ; return ;;
     --theme) COMPREPLY=($(compgen -W "auto dark light" -- "${cur}")) ; return ;;
     --width) COMPREPLY=() ; return ;;
+    --select) COMPREPLY=() ; return ;;
     --sort) COMPREPLY=() ; return ;;
     --head) COMPREPLY=() ; return ;;
     --tail) COMPREPLY=() ; return ;;
@@ -19,7 +20,7 @@ _tennis() {
   esac
 
   if [[ "${cur}" == -* ]]; then
-    COMPREPLY=($(compgen -W "-n --row-numbers -t --title -r --reverse --border --color --delimiter --digits --theme --vanilla --width --sort --head --tail --completion --help --version " -- "${cur}"))
+    COMPREPLY=($(compgen -W "-n --row-numbers -t --title -r --reverse --border --color --delimiter --digits --theme --vanilla --width --select --sort --head --tail --completion --help --version " -- "${cur}"))
   else
     _filedir csv
     [[ ${#COMPREPLY[@]} -eq 0 ]] && _filedir
