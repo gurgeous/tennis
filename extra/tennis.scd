@@ -40,6 +40,9 @@ $ tennis diamonds.csv
 *-n*, *--row-numbers*
 	Show row numbers.
 
+*--peek*
+	Show the visible shape, a few sample rows, and compact per-column stats.
+
 *-r*, *--reverse*
 	Reverse row order. Helpful when sorting.
 

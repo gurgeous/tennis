@@ -12,7 +12,7 @@ const Option = struct {
 
 // Fixed-capacity collection of parsed completion options.
 const Options = struct {
-    items: [24]Option,
+    items: [32]Option,
     len: usize,
 };
 
@@ -144,6 +144,7 @@ fn parseOptions() Options {
     var it = std.mem.splitScalar(u8, Args.help, '\n');
     while (it.next()) |line| {
         const opt = parseOption(line) orelse continue;
+        std.debug.assert(out.len < out.items.len);
         out.items[out.len] = opt;
         out.len += 1;
     }

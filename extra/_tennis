@@ -4,6 +4,7 @@ _tennis() {
   _arguments -s \
     '-n[Turn on row numbers]' \
     '--row-numbers[Turn on row numbers]' \
+    '--peek[Show shape, a small sample, and per-column stats]' \
     '-t[Add a title to the table]:string:' \
     '--title[Add a title to the table]:string:' \
     '-r[Reverse row order (helpful when sorting)]' \

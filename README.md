@@ -44,6 +44,7 @@ $ zig build
         tennis [options...]                # print csv from stdin
 
   -n, --row-numbers         Turn on row numbers
+      --peek               Show shape, a small sample, and per-column stats
   -t, --title <string>      Add a title to the table
   -r, --reverse             Reverse row order (helpful when sorting)
       --zebra               Turn on zebra stripes
@@ -74,10 +75,6 @@ Note that color defaults to `on`. Tennis likes to be colorful.
 
 `tennis` uses a `termbg.zig` module to detect the terminal background color so it can choose the correct theme (dark or light). Detection is complicated, and I'm calling it out here because I don't think anyone has implemented this in Zig yet.
 
-### Future Work
-
-- briefly summarize each col `--summary` or `--peek`
-
 ### Similar Tools
 
 We love CSV tools and use them all the time! Here are a few that we rely on:
@@ -99,6 +96,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 - JSON! Works with json array, jsonl, or even just a single json object
 - auto-detect csv vs tsv delims (or semis, or pipes)
 - `--filter`, `--sort`, `--reverse`, `--shuffle`, `--zebra`, `--head` and `--tail`
+- `--peek` for shape, a few sample rows, and compact column stats
 - `--select` for selecting columns
 - `doomicode`, best-effort Unicode width for emojis, etc
 

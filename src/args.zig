@@ -9,6 +9,7 @@ pub const Args = struct {
         \\        tennis [options...]                # print csv from stdin
         \\
         \\  -n, --row-numbers         Turn on row numbers
+        \\      --peek               Show shape, a small sample, and per-column stats
         \\  -t, --title <string>      Add a title to the table
         \\  -r, --reverse             Reverse row order (helpful when sorting)
         \\      --zebra               Turn on zebra stripes
@@ -40,6 +41,7 @@ pub const Args = struct {
         \\    --completion <SHELL>
         \\    --filter <STRING>
         \\    --head <INT>
+        \\    --peek
         \\    --shuffle
         \\    --shuf
         \\    --sort <STRING>
@@ -139,6 +141,7 @@ pub const Args = struct {
             if (v == 0) return error.InvalidHeadValue;
             config.head = v;
         }
+        config.peek = res.args.peek > 0;
         config.reverse = res.args.reverse > 0;
         if (res.args.select) |v| config.select = v;
         config.shuffle = res.args.shuffle > 0 or res.args.shuf > 0;
@@ -209,6 +212,7 @@ test "parse option config case" {
         "ali",
         "--head",
         "5",
+        "--peek",
         "--reverse",
         "--zebra",
         "--shuffle",
@@ -233,6 +237,7 @@ test "parse option config case" {
     try testing.expectEqual(@as(usize, 4), out.run.digits);
     try testing.expectEqualStrings("ali", out.run.filter);
     try testing.expectEqual(@as(usize, 5), out.run.head);
+    try testing.expect(out.run.peek);
     try testing.expect(out.run.reverse);
     try testing.expect(out.run.zebra);
     try testing.expect(out.run.shuffle);
@@ -259,6 +264,7 @@ test "parse option event cases" {
         .{ .argv = &.{ "--delimiter", "\\t", "-" }, .delimiter = '\t' },
         .{ .argv = &.{ "--border", "compact_double", "-" }, .border_name = .compact_double },
         .{ .argv = &.{ "--filter", "ali", "-" } },
+        .{ .argv = &.{ "--peek", "-" } },
         .{ .argv = &.{ "--zebra", "-" } },
         .{ .argv = &.{ "--shuffle", "-" } },
         .{ .argv = &.{ "--shuf", "-" } },
@@ -273,6 +279,7 @@ test "parse option event cases" {
         if (tc.delimiter) |d| try testing.expectEqual(d, parsed.run.delimiter);
         if (tc.border_name) |b| try testing.expectEqual(b, parsed.run.border);
         if (std.mem.eql(u8, tc.argv[0], "--filter")) try testing.expectEqualStrings("ali", parsed.run.filter);
+        if (std.mem.eql(u8, tc.argv[0], "--peek")) try testing.expect(parsed.run.peek);
         if (std.mem.eql(u8, tc.argv[0], "--shuffle") or std.mem.eql(u8, tc.argv[0], "--shuf")) {
             try testing.expect(parsed.run.shuffle);
         }
