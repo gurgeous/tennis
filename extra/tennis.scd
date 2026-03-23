@@ -41,7 +41,7 @@ $ tennis diamonds.csv
 	Show row numbers.
 
 *-r*, *--reverse*
-	Reverse row order before applying *--head* or *--tail*.
+	Reverse row order. Helpful when sorting.
 
 *-t*, *--title* <string>
 	Add a title above the table.

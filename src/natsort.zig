@@ -1,6 +1,8 @@
 // Natural string ordering for things like a2 < a10, with special handling for
 // leading-zero numeric runs so decimal-like strings sort more sensibly.
+//
 // Patterned after Martin Pool's natural sort algorithm.
+// https://github.com/sourcefrog/natsort
 
 // Compare two strings using natural ordering with numeric-run awareness.
 pub fn order(a_in: []const u8, b_in: []const u8) std.math.Order {
@@ -11,7 +13,7 @@ pub fn order(a_in: []const u8, b_in: []const u8) std.math.Order {
         a = std.mem.trimLeft(u8, a, &std.ascii.whitespace);
         b = std.mem.trimLeft(u8, b, &std.ascii.whitespace);
 
-        if (a.len > 0 and b.len > 0 and std.ascii.isDigit(a[0]) and std.ascii.isDigit(b[0])) {
+        if (a.len > 0 and b.len > 0 and isDigit(a[0]) and isDigit(b[0])) {
             // Leading-zero runs behave more like decimal fractions; other runs compare by magnitude.
             const ord = if (a[0] == '0' or b[0] == '0') compareLeft(a, b) else compareRight(a, b);
             if (ord != .eq) return ord;
@@ -28,19 +30,14 @@ pub fn order(a_in: []const u8, b_in: []const u8) std.math.Order {
     }
 }
 
-// Adapter for std.sort-style lessThan comparators.
-pub fn lessThan(_: void, a: []const u8, b: []const u8) bool {
-    return order(a, b) == .lt;
-}
-
 // Compare digit runs left-aligned so leading zeros remain significant.
 fn compareLeft(a_in: []const u8, b_in: []const u8) std.math.Order {
     var a = a_in;
     var b = b_in;
 
     while (true) {
-        const a_digit = a.len > 0 and std.ascii.isDigit(a[0]);
-        const b_digit = b.len > 0 and std.ascii.isDigit(b[0]);
+        const a_digit = a.len > 0 and isDigit(a[0]);
+        const b_digit = b.len > 0 and isDigit(b[0]);
 
         if (!a_digit and !b_digit) return .eq;
         if (!a_digit) return .lt;
@@ -60,8 +57,8 @@ fn compareRight(a_in: []const u8, b_in: []const u8) std.math.Order {
     var bias: std.math.Order = .eq;
 
     while (true) {
-        const a_digit = a.len > 0 and std.ascii.isDigit(a[0]);
-        const b_digit = b.len > 0 and std.ascii.isDigit(b[0]);
+        const a_digit = a.len > 0 and isDigit(a[0]);
+        const b_digit = b.len > 0 and isDigit(b[0]);
 
         if (!a_digit and !b_digit) return bias;
         if (!a_digit) return .lt;
@@ -121,5 +118,6 @@ test "natsort treats negative signs as plain characters" {
     try testing.expectEqual(std.math.Order.lt, order("-5", "-10"));
 }
 
+const isDigit = @import("std").ascii.isDigit;
 const std = @import("std");
 const testing = std.testing;
