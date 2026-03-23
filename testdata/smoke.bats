@@ -34,6 +34,7 @@ setup() {
   [[ "$output" == *"--digits <int>"* ]]
   [[ "$output" == *"--head <int>"* ]]
   [[ "$output" == *"--tail <int>"* ]]
+  [[ "$output" == *"--zebra"* ]]
   [[ "$output" == *"--vanilla"* ]]
   [[ "$output" == *"--version"* ]]
 }
@@ -239,6 +240,12 @@ setup() {
   run "$TENNIS_BIN" --color=off --width 80 --shuf --head 2 "$REPO_ROOT/testdata/test.json"
   [ "$status" -eq 0 ]
   [[ "$output" == *"│ name"* ]]
+}
+
+@test "renders zebra stripes" {
+  run "$TENNIS_BIN" --color=on --theme dark --zebra --width 80 "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *$'\e[38;2;255;255;255;48;2;34;34;34m'* ]]
 }
 
 @test "sorts naturally with mixed and float columns" {

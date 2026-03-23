@@ -11,6 +11,8 @@ pub const Render = struct {
     writer: *std.Io.Writer,
     layout: Layout,
     buf: std.Io.Writer.Allocating,
+    reset: []const u8 = "",
+    reset_buf: [128]u8 = undefined,
 
     // Build a renderer around a table, writer, and computed layout.
     pub fn init(table: *Table, writer: *std.Io.Writer, layout: Layout) Render {
@@ -30,23 +32,21 @@ pub const Render = struct {
 
     // Write the full table output.
     pub fn render(self: *Render) !void {
-        if (self.table.isEmpty()) {
-            return self.renderEmpty();
-        }
+        if (self.table.isEmpty()) return self.renderEmpty();
 
-        // top
+        // top rule
         if (self.border.top != .none) {
             const top = if (self.table.config.title.len > 0) spanRule(self.border.top) else self.border.top;
             try self.renderRule(top);
         }
 
-        // title
+        // title and title rule
         if (self.table.config.title.len > 0) {
             try self.renderTitle();
             if (self.border.header != .none) try self.renderRule(titleRule(self.border.top, self.border.header));
         }
 
-        // headers
+        // headers and header rule
         try self.renderHeaders();
         if (self.border.header != .none) try self.renderRule(self.border.header);
 
@@ -58,9 +58,13 @@ pub const Render = struct {
             }
         }
 
-        // bottom
+        // bottom rule
         if (self.border.bottom != .none) try self.renderRule(self.border.bottom);
     }
+
+    //
+    // rules
+    //
 
     // Render one horizontal border rule using the table layout widths.
     fn renderRule(self: *Render, rule: border.BorderRule) !void {
@@ -88,65 +92,85 @@ pub const Render = struct {
                 try out.writeAll(r.right);
             },
         }
-        if (style.chrome.len > 0) try out.writeAll(ansi.reset);
         try self.newline();
     }
 
+    //
     // Render the optional table title row and its surrounding rules.
+    //
+
     fn renderTitle(self: *Render) !void {
         const out = &self.buf.writer;
-        const chrome = doomicode.displayWidth(self.border.left) + doomicode.displayWidth(self.border.right) + 2;
-        const width = self.layout.tableWidth() - chrome;
+        const chromeWidth = doomicode.displayWidth(self.border.left) + doomicode.displayWidth(self.border.right) + 2;
+        const width = self.layout.tableWidth() - chromeWidth;
 
         try self.writeChrome(self.border.left);
         try out.writeByte(' ');
-        try fill(out, self.table.style().title, self.table.config.title, width, .center);
+        try fill(out, self.table.style().title, "", self.table.config.title, width, .center);
         try out.writeByte(' ');
         try self.writeChrome(self.border.right);
         try self.newline();
     }
 
+    //
     // Render the header row.
+    //
+
     fn renderHeaders(self: *Render) !void {
         try self.writeChrome(self.border.left);
 
         var col: usize = 0;
         if (self.table.config.row_numbers) {
-            try self.renderHeaderField(&col, "#");
+            try self.renderHeaderField(col, "#");
+            col += 1;
         }
         for (self.table.columns) |column| {
-            try self.renderHeaderField(&col, column.name);
+            try self.renderHeaderField(col, column.name);
+            col += 1;
         }
         try self.newline();
     }
 
     // Render one header cell and advance the output column.
-    fn renderHeaderField(self: *Render, col: *usize, text: []const u8) !void {
+    fn renderHeaderField(self: *Render, col: usize, text: []const u8) !void {
         const style = self.table.style();
-        const sep = if (col.* + 1 == self.layout.widths.len) self.border.right else self.border.mid;
-        try self.renderField(style.headers[col.* % style.headers.len], text, col.*, sep, .left);
-        col.* += 1;
+        const sep = if (col + 1 == self.layout.widths.len) self.border.right else self.border.mid;
+        try self.renderField(style.headers[col % style.headers.len], text, col, sep, .left);
     }
 
+    //
     // Render one visible data row.
+    //
+
     fn renderRow(self: *Render, visible_index: usize) !void {
+        // calculate row "reset" which is ansi.reset + zebra, if any
+        const style = self.table.style();
+        if (style.chrome.len > 0) {
+            const zebra = self.table.config.zebra and visible_index % 2 == 0;
+            const zebra_style = if (zebra) style.zebra else "";
+            self.reset = try std.fmt.bufPrint(&self.reset_buf, "{s}{s}", .{ ansi.reset, zebra_style });
+            try self.buf.writer.writeAll(self.reset);
+        }
+
+        // left
         try self.writeChrome(self.border.left);
 
+        // row #
         var col: usize = 0;
         if (self.table.config.row_numbers) {
             var num_buf: [32]u8 = undefined;
             const label = try std.fmt.bufPrint(&num_buf, "{d}", .{visible_index + 1});
             const sep = if (col + 1 == self.layout.widths.len) self.border.right else self.border.mid;
-            try self.renderField(self.table.style().chrome, label, col, sep, .right);
+            try self.renderField(style.chrome, label, col, sep, .right);
             col += 1;
         }
 
+        // fields
         for (self.table.columns) |column| {
-            const raw = column.field(visible_index);
-            const is_placeholder = raw.len == 0;
-            const style = self.table.style();
+            const str = column.field(visible_index);
+            const is_placeholder = str.len == 0;
             const cell_style = if (is_placeholder) style.chrome else style.field;
-            const field = if (is_placeholder) placeholder else raw;
+            const field = if (is_placeholder) placeholder else str;
             const sep = if (col + 1 == self.layout.widths.len) self.border.right else self.border.mid;
             const al: Align = switch (column.type) {
                 .int, .float => .right,
@@ -182,7 +206,7 @@ pub const Render = struct {
         const out = &self.buf.writer;
         try self.writeChrome(self.border.left);
         try out.writeByte(' ');
-        try fill(out, text_style, text, width, .center);
+        try fill(out, text_style, "", text, width, .center);
         try out.writeByte(' ');
         try self.writeChrome(self.border.right);
         try self.newline();
@@ -196,7 +220,7 @@ pub const Render = struct {
     fn renderField(self: *Render, field_style: []const u8, text: []const u8, col: usize, sep: []const u8, al: Align) !void {
         const out = &self.buf.writer;
         try out.writeByte(' ');
-        try fill(out, field_style, text, self.layout.widths[col], al);
+        try fill(out, field_style, self.reset, text, self.layout.widths[col], al);
         try out.writeByte(' ');
         try self.writeChrome(sep);
     }
@@ -205,20 +229,18 @@ pub const Render = struct {
     fn writeChrome(self: *Render, value: []const u8) !void {
         const out = &self.buf.writer;
         const chrome = self.table.style().chrome;
-        if (chrome.len == 0) {
-            try out.writeAll(value);
-            return;
-        }
-        try out.writeAll(chrome);
+        if (chrome.len > 0) try out.writeAll(chrome);
         try out.writeAll(value);
-        try out.writeAll(ansi.reset);
+        if (chrome.len > 0) try out.writeAll(self.reset);
     }
 
     // Finish the buffered line and flush it to the real writer.
     fn newline(self: *Render) !void {
+        if (self.table.style().chrome.len > 0) try self.buf.writer.writeAll(ansi.reset);
         try self.buf.writer.writeByte('\n');
         try self.writer.writeAll(self.buf.written());
         self.buf.clearRetainingCapacity();
+        self.reset = "";
     }
 };
 
@@ -257,9 +279,11 @@ fn titleRule(top: border.BorderRule, header: border.BorderRule) border.BorderRul
 }
 
 // Write one aligned cell, truncating and padding as needed.
-fn fill(writer: *std.Io.Writer, codes: []const u8, text: []const u8, width: usize, al: Align) !void {
+fn fill(writer: *std.Io.Writer, codes: []const u8, reset: []const u8, text: []const u8, width: usize, al: Align) !void {
     if (codes.len > 0) try writer.writeAll(codes);
-    defer if (codes.len > 0) writer.writeAll(ansi.reset) catch {};
+    defer if (reset.len > 0) {
+        writer.writeAll(reset) catch {};
+    };
 
     const display_width = doomicode.displayWidth(text);
     if (display_width == width) {
@@ -290,7 +314,13 @@ fn fill(writer: *std.Io.Writer, codes: []const u8, text: []const u8, width: usiz
 
 // Write a run of ASCII spaces.
 fn writeSpaces(writer: *std.Io.Writer, count: usize) !void {
-    for (0..count) |_| try writer.writeByte(' ');
+    const spaces = "                                ";
+    var left = count;
+    while (left > 0) {
+        const n = @min(left, spaces.len);
+        try writer.writeAll(spaces[0..n]);
+        left -= n;
+    }
 }
 
 //
@@ -301,15 +331,15 @@ test "fill padding and truncation" {
     var buf: [256]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
 
-    try fill(&writer, "", "12", 2, .left);
+    try fill(&writer, "", "", "12", 2, .left);
     try testing.expectEqualStrings("12", writer.buffered());
 
     writer.end = 0;
-    try fill(&writer, "", "hi", 6, .center);
+    try fill(&writer, "", "", "hi", 6, .center);
     try testing.expectEqualStrings("  hi  ", writer.buffered());
 
     writer.end = 0;
-    try fill(&writer, "", "hi", 6, .right);
+    try fill(&writer, "", "", "hi", 6, .right);
     try testing.expectEqualStrings("    hi", writer.buffered());
 }
 
@@ -395,6 +425,7 @@ test "render with title and row numbers" {
     const l = try Layout.init(test_table.table);
     defer l.deinit(test_table.table.alloc);
     var render: Render = .init(test_table.table, &writer, l);
+    defer render.deinit();
     try render.render();
 
     try testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "foo"));
@@ -425,6 +456,15 @@ test "render content cases" {
     }
 }
 
+test "render zebra uses alternating row background" {
+    const out = try renderTest("a,b\nc,d\ne,f\n", .{ .zebra = true, .theme = .dark });
+    defer testing.allocator.free(out);
+    const zebra = "\x1b[38;2;255;255;255;48;2;34;34;34m";
+    try testing.expect(std.mem.containsAtLeast(u8, out, 1, zebra));
+    try testing.expect(std.mem.containsAtLeast(u8, out, 1, zebra ++ "\x1b[38;2;107;114;128m"));
+    try testing.expect(std.mem.containsAtLeast(u8, out, 1, ansi.reset ++ zebra));
+}
+
 fn renderTest(input: []const u8, config: types.Config) ![]u8 {
     var test_table: test_support.TestTable = undefined;
     try test_table.init(testing.allocator, input);
@@ -435,6 +475,7 @@ fn renderTest(input: []const u8, config: types.Config) ![]u8 {
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
     var render: Render = .init(test_table.table, &writer, l);
+    defer render.deinit();
     try render.render();
     return testing.allocator.dupe(u8, writer.buffered());
 }
@@ -445,6 +486,7 @@ fn applyRenderConfig(table: *Table, config: types.Config) void {
     table.config.theme = config.theme;
     table.config.row_numbers = config.row_numbers;
     table.config.title = config.title;
+    table.config.zebra = config.zebra;
     if (config.width > 0) table.config.width = config.width;
 }
 

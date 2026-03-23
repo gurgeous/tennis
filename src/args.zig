@@ -11,6 +11,7 @@ pub const Args = struct {
         \\  -n, --row-numbers         Turn on row numbers
         \\  -t, --title <string>      Add a title to the table
         \\  -r, --reverse             Reverse row order (helpful when sorting)
+        \\      --zebra               Turn on zebra stripes
         \\      --shuffle, --shuf     Shuffle row order before head or tail
         \\
         \\      --border <border>     Table border style (rounded|thin|double|...)
@@ -47,6 +48,7 @@ pub const Args = struct {
         \\-d, --delimiter <CHAR>
         \\-n, --row-numbers
         \\-r, --reverse
+        \\--zebra
         \\-t, --title <STRING>
         \\-w, --width <INT>
         \\    --digits <INT>
@@ -78,7 +80,7 @@ pub const Args = struct {
     }
 
     // Parse argv into one top-level main event.
-    pub fn init(alloc: std.mem.Allocator, argv: []const []const u8) !types.MainEvent {
+    pub fn init(alloc: std.mem.Allocator, argv: []const []const u8) !MainEvent {
         var diagnostics: clap.Diagnostic = .{};
         const event = parse(alloc, argv, &diagnostics) catch |err| {
             return .{ .fatal = try failure.Failure.fromClapError(alloc, err, &diagnostics) };
@@ -101,7 +103,7 @@ pub const Args = struct {
         alloc: std.mem.Allocator,
         argv: []const []const u8,
         diagnostic: *clap.Diagnostic,
-    ) anyerror!types.MainEvent {
+    ) anyerror!MainEvent {
         if (builtin.os.tag == .windows) return error.Windows;
 
         var iter = clap.args.SliceIterator{ .args = argv };
@@ -123,7 +125,7 @@ pub const Args = struct {
         // copy args into Config
         //
 
-        var config: types.Config = .{};
+        var config: Config = .{};
         if (res.args.border) |v| config.border = v;
         if (res.args.color) |v| config.color = v;
         // note that 0 means "unset" and we try to sniff later before defaulting to comma
@@ -151,6 +153,7 @@ pub const Args = struct {
         if (res.args.width) |v| config.width = v;
         config.row_numbers = @field(res.args, "row-numbers") > 0;
         config.vanilla = res.args.vanilla > 0;
+        config.zebra = res.args.zebra > 0;
 
         //
         // now handle filename
@@ -161,11 +164,11 @@ pub const Args = struct {
 
     // Resolve positional input into stdin, file, or banner behavior.
     fn resolveInput(
-        config: types.Config,
+        config: Config,
         argv_len: usize,
         files: []const []const u8,
         stdin_is_tty: bool,
-    ) !types.MainEvent {
+    ) !MainEvent {
         switch (files.len) {
             0 => {
                 if (stdin_is_tty) {
@@ -207,6 +210,7 @@ test "parse option config case" {
         "--head",
         "5",
         "--reverse",
+        "--zebra",
         "--shuffle",
         "--select",
         "name,score",
@@ -230,6 +234,7 @@ test "parse option config case" {
     try testing.expectEqualStrings("ali", out.run.filter);
     try testing.expectEqual(@as(usize, 5), out.run.head);
     try testing.expect(out.run.reverse);
+    try testing.expect(out.run.zebra);
     try testing.expect(out.run.shuffle);
     try testing.expectEqualStrings("name,score", out.run.select);
     try testing.expectEqualStrings("score,name", out.run.sort);
@@ -254,6 +259,7 @@ test "parse option event cases" {
         .{ .argv = &.{ "--delimiter", "\\t", "-" }, .delimiter = '\t' },
         .{ .argv = &.{ "--border", "compact_double", "-" }, .border_name = .compact_double },
         .{ .argv = &.{ "--filter", "ali", "-" } },
+        .{ .argv = &.{ "--zebra", "-" } },
         .{ .argv = &.{ "--shuffle", "-" } },
         .{ .argv = &.{ "--shuf", "-" } },
         .{ .argv = &.{ "--sort", "score,name", "-" } },
@@ -270,6 +276,7 @@ test "parse option event cases" {
         if (std.mem.eql(u8, tc.argv[0], "--shuffle") or std.mem.eql(u8, tc.argv[0], "--shuf")) {
             try testing.expect(parsed.run.shuffle);
         }
+        if (std.mem.eql(u8, tc.argv[0], "--zebra")) try testing.expect(parsed.run.zebra);
         if (tc.event) |event| try testing.expectEqual(event, parsed);
     }
 }
@@ -375,7 +382,7 @@ test "init returns fatal event for missing file" {
     try testing.expect(std.mem.indexOf(u8, msg, "definitely-not-a-real-file.csv") != null);
 }
 
-fn parseTest(argv: []const []const u8) !types.MainEvent {
+fn parseTest(argv: []const []const u8) !MainEvent {
     var diag: clap.Diagnostic = .{};
     return Args.parse(testing.allocator, argv, &diag);
 }
@@ -403,3 +410,5 @@ const std = @import("std");
 const testing = std.testing;
 const types = @import("types.zig");
 const util = @import("util.zig");
+const Config = types.Config;
+const MainEvent = types.MainEvent;

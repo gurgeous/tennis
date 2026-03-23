@@ -35,7 +35,7 @@ $ zig build
 - auto-format numbers
 - auto-detect csv vs tsv (or semis, or pipes)
 - also works great with json (or jsonl)
-- titles, row numbers, border styles...
+- titles, row numbers, zebra stripes, border styles...
 
 ### Options
 
@@ -46,6 +46,7 @@ $ zig build
   -n, --row-numbers         Turn on row numbers
   -t, --title <string>      Add a title to the table
   -r, --reverse             Reverse row order (helpful when sorting)
+      --zebra               Turn on zebra stripes
       --shuffle, --shuf     Shuffle row order before head or tail
 
       --border <border>     Table border style (rounded|thin|double|...)
@@ -75,7 +76,6 @@ Note that color defaults to `on`. Tennis likes to be colorful.
 
 ### Future Work
 
-- add zebra stripes - `--zebra`
 - briefly summarize each col `--summary` or `--peek`
 
 ### Similar Tools
@@ -98,7 +98,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 - `--border` styles based on Nushell / `tabled` crate.
 - JSON! Works with json array, jsonl, or even just a single json object
 - auto-detect csv vs tsv delims (or semis, or pipes)
-- `--filter`, `--sort`, `--reverse`, `--shuffle`, `--head` and `--tail`
+- `--filter`, `--sort`, `--reverse`, `--shuffle`, `--zebra`, `--head` and `--tail`
 - `--select` for selecting columns
 - `doomicode`, best-effort Unicode width for emojis, etc
 
