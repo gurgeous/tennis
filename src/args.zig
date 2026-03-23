@@ -8,26 +8,29 @@ pub const Args = struct {
         \\ Usage: tennis [options...] <file.csv>     # print file.csv
         \\        tennis [options...]                # print csv from stdin
         \\
+        \\ Popular options:
         \\  -n, --row-numbers         Turn on row numbers
-        \\      --peek               Show shape, a small sample, and per-column stats
         \\  -t, --title <string>      Add a title to the table
-        \\  -r, --reverse             Reverse row order (helpful when sorting)
-        \\      --zebra               Turn on zebra stripes
-        \\      --shuffle, --shuf     Shuffle row order before head or tail
-        \\
         \\      --border <border>     Table border style (rounded|thin|double|...)
+        \\      --peek                Show csv shape, sample, and handy stats
+        \\      --zebra               Turn on zebra stripes
+        \\
+        \\ Sort, filter, etc:
+        \\      --select <headers>    Show one or more comma-separated headers
+        \\      --sort <headers>      Sort by one or more comma-separated headers
+        \\  -r, --reverse             Reverse row order (helpful when sorting)
+        \\      --shuffle, --shuf     Shuffle row order before head or tail
+        \\      --filter <string>     Keep rows where any field contains this text
+        \\      --head <int>          Show first N rows
+        \\      --tail <int>          Show last N rows
+        \\
+        \\ Other options:
         \\      --color <color>       Turn color off and on (on|off|auto)
         \\      --delimiter <char>    CSV delim (can be any char or "tab")
         \\      --digits <int>        Digits after decimal for float columns (1-6)
-        \\      --filter <string>     Keep rows where any field contains this text
         \\      --theme <theme>       Select color theme (auto|dark|light)
-        \\      --vanilla             Disable numeric formatting entirely
+        \\      --vanilla             Disable numeric formatting
         \\      --width <int>         Set max table width in chars
-        \\
-        \\      --select <headers>    Show one or more comma-separated headers
-        \\      --sort <headers>      Sort by one or more comma-separated headers
-        \\      --head <int>          Show first N rows
-        \\      --tail <int>          Show last N rows
         \\
         \\      --completion <shell>  Print a shell completion script (bash|zsh)
         \\      --help                Get help

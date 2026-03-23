@@ -63,7 +63,7 @@ pub const Render = struct {
             const footer_top = if (self.border.row != .none)
                 footerRule(self.border.row, self.border.bottom)
             else
-                spanRule(self.border.header);
+                footerRule(self.border.header, self.border.bottom);
             if (footer_top != .none) try self.renderRule(footer_top);
             try self.renderFooter();
         }
