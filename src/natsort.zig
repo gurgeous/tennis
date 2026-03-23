@@ -2,11 +2,6 @@
 // leading-zero numeric runs so decimal-like strings sort more sensibly.
 // Patterned after Martin Pool's natural sort algorithm.
 
-// Adapter for std.sort-style lessThan comparators.
-pub fn lessThan(_: void, a: []const u8, b: []const u8) bool {
-    return order(a, b) == .lt;
-}
-
 // Compare two strings using natural ordering with numeric-run awareness.
 pub fn order(a_in: []const u8, b_in: []const u8) std.math.Order {
     var a = a_in;
@@ -31,6 +26,11 @@ pub fn order(a_in: []const u8, b_in: []const u8) std.math.Order {
         a = a[1..];
         b = b[1..];
     }
+}
+
+// Adapter for std.sort-style lessThan comparators.
+pub fn lessThan(_: void, a: []const u8, b: []const u8) bool {
+    return order(a, b) == .lt;
 }
 
 // Compare digit runs left-aligned so leading zeros remain significant.

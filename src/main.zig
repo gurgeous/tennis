@@ -86,7 +86,7 @@ fn main0() !u8 {
     // bytes => data
     //
 
-    const data = load(alloc, &args, input_bytes) catch |err| {
+    var data = load(alloc, &args, input_bytes) catch |err| {
         const err_str = switch (err) {
             error.JaggedCsv => "All csv rows must have same number of columns",
             error.OutOfMemory => return err,
@@ -96,6 +96,8 @@ fn main0() !u8 {
         try printBanner(err_str);
         return 1;
     };
+    var data_moved = false;
+    defer if (!data_moved) data.deinit(alloc);
 
     //
     // sort
@@ -115,6 +117,7 @@ fn main0() !u8 {
     //
 
     const table = try Table.init(alloc, args.config, data);
+    data_moved = true;
     defer table.deinit();
     util.benchmark("table.init", timer.read());
 

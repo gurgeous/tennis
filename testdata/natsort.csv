@@ -1,0 +1,13 @@
+name,version,int,float,mixed,neg
+alpha,item2,2,1.001,x2-g8,-5
+beta,item10,10,1.02,x2-y08,-10
+gamma,item1,1,1.1,x2-y7,-2
+delta,item20,20,1.010,x8-y8,-1
+epsilon,item3,3,1.002,x2-y10,-20
+zeta,item11,11,2.0,x10-y2,-11
+eta,item9,9,10.5,x2-y2,-9
+theta,item12,12,1.3,x02-y2,-12
+iota,item100,100,2.01,x2-y02,-100
+kappa,item21,21,0.99,x2-g10,-21
+lambda,item2,2,1.001,x2-g8,-50
+mu,item10,10,1.02,x2-y08,-3

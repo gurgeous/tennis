@@ -208,6 +208,25 @@ setup() {
   [[ "$output" != *"cara"* ]]
 }
 
+@test "sorts naturally with mixed and float columns" {
+  run "$TENNIS_BIN" --color=off --vanilla --width 120 --sort mixed --head 1 "$REPO_ROOT/testdata/natsort.csv"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"theta"* ]]
+  [[ "$output" == *"x02-y2"* ]]
+
+  run "$TENNIS_BIN" --color=off --vanilla --width 120 --sort float --head 1 "$REPO_ROOT/testdata/natsort.csv"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"kappa"* ]]
+  [[ "$output" == *"0.99"* ]]
+}
+
+@test "rejects invalid sort columns without panicking" {
+  run "$TENNIS_BIN" --color=off --sort version "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"tennis: Problem with --sort. Use a comma-separated list of headers."* ]]
+  [[ "$output" == *"Columns: carat, cut, color, clarity, depth, table, price, x, y, z"* ]]
+}
+
 @test "rejects head and tail together" {
   run "$TENNIS_BIN" --head 2 --tail 2 "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 1 ]
