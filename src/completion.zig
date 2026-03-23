@@ -2,6 +2,7 @@
 // parse these from Args.help
 //
 
+// Parsed option metadata derived from `Args.help`.
 const Option = struct {
     short: ?[]const u8,
     long: []const u8,
@@ -9,12 +10,13 @@ const Option = struct {
     desc: []const u8,
 };
 
+// Fixed-capacity collection of parsed completion options.
 const Options = struct {
     items: [16]Option,
     len: usize,
 };
 
-// main entry point
+// Write one shell completion script to stdout.
 pub fn write(alloc: std.mem.Allocator, shell: args.CompletionShell) !void {
     const options = parseOptions();
     var buf: std.ArrayList(u8) = .empty;
@@ -28,6 +30,7 @@ pub fn write(alloc: std.mem.Allocator, shell: args.CompletionShell) !void {
     try std.fs.File.stdout().writeAll(buf.items);
 }
 
+// Generate the bash completion script.
 fn writeBash(alloc: std.mem.Allocator, writer: anytype, options: Options) !void {
     _ = alloc;
     try writer.writeAll(
@@ -81,6 +84,7 @@ fn writeBash(alloc: std.mem.Allocator, writer: anytype, options: Options) !void 
     );
 }
 
+// Generate the zsh completion script.
 fn writeZsh(alloc: std.mem.Allocator, writer: anytype, options: Options) !void {
     _ = alloc;
     try writer.writeAll(
@@ -113,6 +117,7 @@ fn writeZsh(alloc: std.mem.Allocator, writer: anytype, options: Options) !void {
     );
 }
 
+// Write one zsh `_arguments` spec line.
 fn writeZshSpec(
     writer: anytype,
     name: []const u8,
@@ -133,7 +138,7 @@ fn writeZshSpec(
     try writer.writeByte('\'');
 }
 
-// Parse all option rows out of args.help into short/long/value/description pieces.
+// Parse the option table from Args.help.
 fn parseOptions() Options {
     var out: Options = .{ .items = undefined, .len = 0 };
     var it = std.mem.splitScalar(u8, args.Args.help, '\n');
@@ -145,7 +150,7 @@ fn parseOptions() Options {
     return out;
 }
 
-// Parse one help row like `-d, --delimiter <char>   description`.
+// Parse one help line into a completion option.
 fn parseOption(line: []const u8) ?Option {
     const trimmed = std.mem.trimLeft(u8, line, " ");
     if (trimmed.len == 0 or trimmed[0] != '-') return null;
@@ -172,7 +177,7 @@ fn parseOption(line: []const u8) ?Option {
     return .{ .short = short, .long = long, .value_name = value_name, .desc = desc };
 }
 
-// Enum-backed options come from Zig enums; only digits and delimiter stay hardcoded.
+// Return the completion values for one long option.
 fn valuesFor(shell: args.CompletionShell, long: []const u8) ?[]const u8 {
     if (std.mem.eql(u8, long, "--border")) return enumValues(border.BorderName);
     if (std.mem.eql(u8, long, "--color")) return enumValues(types.Color);
@@ -185,6 +190,7 @@ fn valuesFor(shell: args.CompletionShell, long: []const u8) ?[]const u8 {
     return null;
 }
 
+// Write one bash pattern arm for an option name.
 fn writePattern(writer: anytype, opt: Option) !void {
     if (opt.short) |short| {
         try writer.print("{s}|{s}", .{ short, opt.long });
@@ -193,6 +199,7 @@ fn writePattern(writer: anytype, opt: Option) !void {
     }
 }
 
+// Write one zsh completion value list.
 fn writeZshValues(writer: anytype, values: []const u8) !void {
     try writer.writeByte('(');
     var it = std.mem.tokenizeScalar(u8, values, ' ');
@@ -209,6 +216,7 @@ fn writeZshValues(writer: anytype, values: []const u8) !void {
     try writer.writeByte(')');
 }
 
+// Join an enum's field names into a shell value list.
 fn enumValues(comptime T: type) []const u8 {
     return comptime blk: {
         const fields = @typeInfo(T).@"enum".fields;
@@ -226,19 +234,20 @@ fn enumValues(comptime T: type) []const u8 {
 //
 
 test "writes bash completion" {
-    const out = try renderForTest(std.testing.allocator, .bash);
-    defer std.testing.allocator.free(out);
-    try std.testing.expect(std.mem.indexOf(u8, out, "--completion") != null);
-    try std.testing.expect(std.mem.indexOf(u8, out, "with_love") != null);
+    const out = try renderForTest(testing.allocator, .bash);
+    defer testing.allocator.free(out);
+    try testing.expect(std.mem.indexOf(u8, out, "--completion") != null);
+    try testing.expect(std.mem.indexOf(u8, out, "with_love") != null);
 }
 
 test "writes zsh completion" {
-    const out = try renderForTest(std.testing.allocator, .zsh);
-    defer std.testing.allocator.free(out);
-    try std.testing.expect(std.mem.indexOf(u8, out, "_arguments -s") != null);
-    try std.testing.expect(std.mem.indexOf(u8, out, "--completion[Print a shell completion script") != null);
+    const out = try renderForTest(testing.allocator, .zsh);
+    defer testing.allocator.free(out);
+    try testing.expect(std.mem.indexOf(u8, out, "_arguments -s") != null);
+    try testing.expect(std.mem.indexOf(u8, out, "--completion[Print a shell completion script") != null);
 }
 
+// Render one completion script into an owned buffer for tests.
 fn renderForTest(alloc: std.mem.Allocator, shell: args.CompletionShell) ![]u8 {
     const options = parseOptions();
     var buf: std.ArrayList(u8) = .empty;
@@ -255,4 +264,5 @@ fn renderForTest(alloc: std.mem.Allocator, shell: args.CompletionShell) ![]u8 {
 const args = @import("args.zig");
 const border = @import("border.zig");
 const std = @import("std");
+const testing = std.testing;
 const types = @import("types.zig");

@@ -10,10 +10,6 @@
             .url = "git+https://github.com/xyaman/mibu#b1644432384ac31ffeb45e83d3d3501a911e8865",
             .hash = "mibu-0.0.1-dev-Ddr1rojEAABcqJWjDNhdeK_CWYjQUZlaGIvJwZOHJWf_",
         },
-        .zcsv = .{
-            .url = "git+https://github.com/gurgeous/zig_csv#9960093ec1c50364dfccd26e875791c1571169bc",
-            .hash = "zcsv-0.8.0-Wao6FkGtAgB3tQ1DeyPRnYMLGPIta8FYAPe_XpJlFp4C",
-        },
     },
     .fingerprint = 0x9420803bbcaa5265,
     .minimum_zig_version = "0.15.2",

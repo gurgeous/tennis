@@ -4,9 +4,9 @@ set -euo pipefail
 
 awk 'BEGIN {
   n = 25000
-  print "int1,float1,str1,int2,float2,str2,int3,float3,str3,int4,float4,str4,int5,float5,str5,int6,float6,str6,int7,float7,q1,q2"
+  print "["
   for (r = 1; r <= n; r++) {
-    printf "%d,%.6f,s%06d,%d,%.6f,t%06d,%d,%.6f,u%06d,%d,%.6f,v%06d,%d,%.6f,w%06d,%d,%.6f,x%06d,%d,%.6f,\"say \"\"hi\"\" %06d\",\"left,%06d,right\"\n",
+    printf "  {\"int1\":%d,\"float1\":%.6f,\"str1\":\"s%06d\",\"int2\":%d,\"float2\":%.6f,\"str2\":\"t%06d\",\"int3\":%d,\"float3\":%.6f,\"str3\":\"u%06d\",\"int4\":%d,\"float4\":%.6f,\"str4\":\"v%06d\",\"int5\":%d,\"float5\":%.6f,\"str5\":\"w%06d\",\"int6\":%d,\"float6\":%.6f,\"str6\":\"x%06d\",\"int7\":%d,\"float7\":%.6f}%s\n",
       r * 11,
       (r * 13) / 10.0,
       r,
@@ -27,7 +27,7 @@ awk 'BEGIN {
       r * 6,
       r * 59,
       (r * 61) / 10.0,
-      r,
-      r
+      (r < n ? "," : "")
   }
+  print "]"
 }'

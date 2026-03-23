@@ -1,5 +1,4 @@
-// Reader adapter that buffers and replays an initial buf before continuing
-// with the nested reader.
+// Reader adapter that buffers and replays an initial prefix before continuing.
 pub fn ReplayReader(comptime Reader: type) type {
     return struct {
         alloc: std.mem.Allocator,
@@ -43,12 +42,12 @@ pub fn ReplayReader(comptime Reader: type) type {
             self.alloc.free(self.buf);
         }
 
-        // Return the saved buf for sniffing or inspection.
+        // Return the saved prefix for sniffing or inspection.
         pub fn buffer(self: *const Self) []const u8 {
             return self.buf[0..self.len];
         }
 
-        // Return a standard Zig reader suitable
+        // Return a standard Zig reader over the replay adapter.
         pub fn reader(self: *Self) ReaderType {
             return .{ .context = self };
         }
@@ -85,25 +84,25 @@ pub fn ReplayReader(comptime Reader: type) type {
 }
 
 //
-// tests
+// testing
 //
 
 test "ReplayReader buffers and replays buf" {
-    const alloc = std.testing.allocator;
+    const alloc = testing.allocator;
     var inner = std.io.fixedBufferStream("abcdef");
     var replay = try ReplayReader(@TypeOf(inner.reader())).init(alloc, inner.reader(), 3);
     defer replay.deinit();
 
-    try std.testing.expectEqualStrings("abc", replay.buffer());
+    try testing.expectEqualStrings("abc", replay.buffer());
 
     var buf: [8]u8 = undefined;
     const n = try replay.reader().readAll(&buf);
-    try std.testing.expectEqual(@as(usize, 6), n);
-    try std.testing.expectEqualStrings("abcdef", buf[0..n]);
+    try testing.expectEqual(@as(usize, 6), n);
+    try testing.expectEqualStrings("abcdef", buf[0..n]);
 }
 
 test "ReplayReader works across small chunked reads" {
-    const alloc = std.testing.allocator;
+    const alloc = testing.allocator;
     var inner = std.io.fixedBufferStream("123456");
     var replay = try ReplayReader(@TypeOf(inner.reader())).init(alloc, inner.reader(), 3);
     defer replay.deinit();
@@ -112,51 +111,51 @@ test "ReplayReader works across small chunked reads" {
     var buf: [2]u8 = undefined;
 
     var n = try reader.read(&buf);
-    try std.testing.expectEqual(@as(usize, 2), n);
-    try std.testing.expectEqualStrings("12", buf[0..n]);
+    try testing.expectEqual(@as(usize, 2), n);
+    try testing.expectEqualStrings("12", buf[0..n]);
 
     n = try reader.read(&buf);
-    try std.testing.expectEqual(@as(usize, 2), n);
-    try std.testing.expectEqualStrings("34", buf[0..n]);
+    try testing.expectEqual(@as(usize, 2), n);
+    try testing.expectEqualStrings("34", buf[0..n]);
 
     n = try reader.read(&buf);
-    try std.testing.expectEqual(@as(usize, 2), n);
-    try std.testing.expectEqualStrings("56", buf[0..n]);
+    try testing.expectEqual(@as(usize, 2), n);
+    try testing.expectEqualStrings("56", buf[0..n]);
 
     n = try reader.read(&buf);
-    try std.testing.expectEqual(@as(usize, 0), n);
+    try testing.expectEqual(@as(usize, 0), n);
 }
 
 test "ReplayReader handles short input" {
-    const alloc = std.testing.allocator;
+    const alloc = testing.allocator;
     var inner = std.io.fixedBufferStream("xy");
     var replay = try ReplayReader(@TypeOf(inner.reader())).init(alloc, inner.reader(), 4);
     defer replay.deinit();
 
-    try std.testing.expectEqualStrings("xy", replay.buffer());
+    try testing.expectEqualStrings("xy", replay.buffer());
 
     var buf: [8]u8 = undefined;
     const n = try replay.reader().readAll(&buf);
-    try std.testing.expectEqual(@as(usize, 2), n);
-    try std.testing.expectEqualStrings("xy", buf[0..n]);
+    try testing.expectEqual(@as(usize, 2), n);
+    try testing.expectEqualStrings("xy", buf[0..n]);
 }
 
 test "ReplayReader handles zero-byte buffer" {
-    const alloc = std.testing.allocator;
+    const alloc = testing.allocator;
     var inner = std.io.fixedBufferStream("xyz");
     var replay = try ReplayReader(@TypeOf(inner.reader())).init(alloc, inner.reader(), 0);
     defer replay.deinit();
 
-    try std.testing.expectEqualStrings("", replay.buffer());
+    try testing.expectEqualStrings("", replay.buffer());
 
     var buf: [8]u8 = undefined;
     const n = try replay.reader().readAll(&buf);
-    try std.testing.expectEqual(@as(usize, 3), n);
-    try std.testing.expectEqualStrings("xyz", buf[0..n]);
+    try testing.expectEqual(@as(usize, 3), n);
+    try testing.expectEqualStrings("xyz", buf[0..n]);
 }
 
 test "ReplayReader zero-length read does nothing" {
-    const alloc = std.testing.allocator;
+    const alloc = testing.allocator;
     var inner = std.io.fixedBufferStream("abc");
     var replay = try ReplayReader(@TypeOf(inner.reader())).init(alloc, inner.reader(), 2);
     defer replay.deinit();
@@ -164,30 +163,30 @@ test "ReplayReader zero-length read does nothing" {
 
     var buf: [0]u8 = undefined;
     const n = try reader.read(&buf);
-    try std.testing.expectEqual(@as(usize, 0), n);
-    try std.testing.expectEqualStrings("ab", replay.buffer());
+    try testing.expectEqual(@as(usize, 0), n);
+    try testing.expectEqualStrings("ab", replay.buffer());
 }
 
 test "ReplayReader preserves buffered bytes when init hits a read error" {
-    const alloc = std.testing.allocator;
+    const alloc = testing.allocator;
     var inner: FailingReader = .{ .input = "abcdef", .fail_at = 2 };
     var replay = try ReplayReader(FailingReader.ReaderType).init(alloc, inner.reader(), 4);
     defer replay.deinit();
 
-    try std.testing.expectEqualStrings("ab", replay.buffer());
+    try testing.expectEqualStrings("ab", replay.buffer());
 
     var buf: [8]u8 = undefined;
     var reader = replay.reader();
 
     const n = try reader.read(&buf);
-    try std.testing.expectEqual(@as(usize, 2), n);
-    try std.testing.expectEqualStrings("ab", buf[0..n]);
+    try testing.expectEqual(@as(usize, 2), n);
+    try testing.expectEqualStrings("ab", buf[0..n]);
 
-    try std.testing.expectError(error.Boom, reader.read(&buf));
+    try testing.expectError(error.Boom, reader.read(&buf));
 }
 
 test "ReplayReader returns replayed bytes before surfacing later inner error" {
-    const alloc = std.testing.allocator;
+    const alloc = testing.allocator;
     var inner: FailingReader = .{ .input = "cdef", .fail_at = 2 };
     var replay = try ReplayReader(FailingReader.ReaderType).init(alloc, inner.reader(), 2);
     defer replay.deinit();
@@ -195,14 +194,14 @@ test "ReplayReader returns replayed bytes before surfacing later inner error" {
 
     var buf: [4]u8 = undefined;
     const n = try reader.read(&buf);
-    try std.testing.expectEqual(@as(usize, 2), n);
-    try std.testing.expectEqualStrings("cd", buf[0..n]);
+    try testing.expectEqual(@as(usize, 2), n);
+    try testing.expectEqualStrings("cd", buf[0..n]);
 
-    try std.testing.expectError(error.Boom, reader.read(&buf));
+    try testing.expectError(error.Boom, reader.read(&buf));
 }
 
 test "ReplayReader surfaces deferred error once buffer is exhausted" {
-    const alloc = std.testing.allocator;
+    const alloc = testing.allocator;
     var inner: FailingReader = .{ .input = "abc", .fail_at = 1 };
     var replay = try ReplayReader(FailingReader.ReaderType).init(alloc, inner.reader(), 2);
     defer replay.deinit();
@@ -210,10 +209,10 @@ test "ReplayReader surfaces deferred error once buffer is exhausted" {
 
     var buf: [4]u8 = undefined;
     const n = try reader.read(&buf);
-    try std.testing.expectEqual(@as(usize, 1), n);
-    try std.testing.expectEqualStrings("a", buf[0..n]);
+    try testing.expectEqual(@as(usize, 1), n);
+    try testing.expectEqualStrings("a", buf[0..n]);
 
-    try std.testing.expectError(error.Boom, reader.read(&buf));
+    try testing.expectError(error.Boom, reader.read(&buf));
 }
 
 const FailingReader = struct {
@@ -224,10 +223,12 @@ const FailingReader = struct {
     const Self = @This();
     const ReaderType = std.io.GenericReader(*Self, anyerror, read);
 
+    // Return a standard Zig reader over the failing test helper.
     fn reader(self: *Self) ReaderType {
         return .{ .context = self };
     }
 
+    // Return bytes until the configured failure offset is reached.
     fn read(self: *Self, dest: []u8) anyerror!usize {
         if (self.ii >= self.fail_at) return error.Boom;
 
@@ -242,3 +243,4 @@ const FailingReader = struct {
 };
 
 const std = @import("std");
+const testing = std.testing;

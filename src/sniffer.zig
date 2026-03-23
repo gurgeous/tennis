@@ -97,7 +97,7 @@ fn countColumnsForLine(line: []const u8, delimiter: u8) usize {
 }
 
 //
-// tests
+// testing
 //
 
 test "sniff success cases" {
@@ -119,7 +119,7 @@ test "sniff success cases" {
 
     for (cases) |tc| {
         const got = sniff(tc.sample).?;
-        try std.testing.expectEqual(tc.delimiter, got);
+        try testing.expectEqual(tc.delimiter, got);
     }
 }
 
@@ -136,7 +136,7 @@ test "sniff null cases" {
     };
 
     for (cases) |sample| {
-        try std.testing.expectEqual(@as(?u8, null), sniff(sample));
+        try testing.expectEqual(@as(?u8, null), sniff(sample));
     }
 }
 
@@ -146,11 +146,11 @@ test "sniff uses delimiter priority to break ties" {
         "1;2|3\n" ++
         "4;5|6\n";
     const got = sniff(sample).?;
-    try std.testing.expectEqual(@as(u8, ';'), got);
+    try testing.expectEqual(@as(u8, ';'), got);
 }
 
 test "sniff rejects jagged rows" {
-    try std.testing.expectEqual(@as(?u8, null), sniff("a,b,c\n1,2\n"));
+    try testing.expectEqual(@as(?u8, null), sniff("a,b,c\n1,2\n"));
 }
 
 test "splitLines cases" {
@@ -171,9 +171,9 @@ test "splitLines cases" {
 
     for (cases) |tc| {
         const got = splitLines(tc.sample);
-        try std.testing.expectEqual(tc.want.len, got.len);
+        try testing.expectEqual(tc.want.len, got.len);
         for (tc.want, got.items[0..got.len]) |want, line| {
-            try std.testing.expectEqualStrings(want, line);
+            try testing.expectEqualStrings(want, line);
         }
     }
 }
@@ -193,8 +193,9 @@ test "countColumnsForLine cases" {
     };
 
     for (cases) |tc| {
-        try std.testing.expectEqual(tc.want, countColumnsForLine(tc.line, tc.delimiter));
+        try testing.expectEqual(tc.want, countColumnsForLine(tc.line, tc.delimiter));
     }
 }
 
 const std = @import("std");
+const testing = std.testing;

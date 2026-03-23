@@ -1,8 +1,10 @@
+// Owns process flow, input detection, loading, and top-level CLI behavior.
 pub fn main() !void {
     const code = try main0();
     std.process.exit(code);
 }
 
+// Run the CLI and return the process exit code.
 fn main0() !u8 {
     // always flush
     defer util.stdout.flush() catch {};
@@ -75,20 +77,16 @@ fn main0() !u8 {
     //
 
     timer = try std.time.Timer.start();
+    const input_bytes = try input.readToEndAlloc(alloc, std.math.maxInt(usize));
+    defer alloc.free(input_bytes);
 
-    // try to sniff delim if necessary
-    var replay = try ReplayReader(std.fs.File).init(alloc, input, 4096);
-    defer replay.deinit();
-
-    var config = args.config;
-    if (config.delimiter == 0) config.delimiter = try sniff(alloc, replay.buffer());
-
-    const table = Table.init(alloc, config, replay.reader()) catch |err| {
-        if (err == error.OutOfMemory) return err;
-        const err_str = if (err == error.JaggedCsv)
-            "All csv rows must have same number of columns"
-        else
-            "That CSV file doesn't look right";
+    const table = initTable(alloc, args.filename, args.config, input_bytes) catch |err| {
+        const err_str = switch (err) {
+            error.OutOfMemory => return err,
+            error.InvalidJsonShape => "JSON input must be an array of objects",
+            error.JaggedCsv => "All csv rows must have same number of columns",
+            else => "That CSV file doesn't look right",
+        };
         try printBanner(err_str);
         return 1;
     };
@@ -101,29 +99,38 @@ fn main0() !u8 {
     return 0;
 }
 
-fn sniff(alloc: std.mem.Allocator, sample: []const u8) !u8 {
-    if (sniffer.sniff(sample)) |delimiter| {
-        const label = try util.inspect(alloc, &[_]u8{delimiter});
-        defer alloc.free(label);
-        util.tdebug("sniffed delimiter {s}", .{label});
-        return delimiter;
+// Load input into a table using the detected format and delimiter.
+fn initTable(alloc: std.mem.Allocator, filename: ?[]const u8, config_in: types.Config, bytes_in: []const u8) !*Table {
+    // skip bom
+    var bytes = bytes_in;
+    if (std.mem.startsWith(u8, bytes, "\xef\xbb\xbf")) {
+        bytes = bytes[3..];
     }
 
-    util.tdebug("could not sniff delimiter, falling back to comma", .{});
-    return ',';
+    var config = config_in;
+    const format = try detect.detectFormat(alloc, filename, bytes);
+    var data: Data = undefined;
+    if (format == .csv) {
+        if (config.delimiter == 0) config.delimiter = sniffer.sniff(bytes) orelse ',';
+        data = try csv.load(alloc, bytes, config.delimiter);
+    } else {
+        data = try json.load(alloc, bytes);
+    }
+    return Table.init(alloc, config, data);
 }
 
+// Print the startup banner to the shared app writers.
 fn printBanner(err_str: ?[]const u8) !void {
-    try printBannerTo(util.stdout, util.stderr, err_str);
-}
-
-fn printBannerTo(stdout_writer: *std.Io.Writer, stderr_writer: *std.Io.Writer, err_str: ?[]const u8) !void {
-    const writer = if (err_str != null) stderr_writer else stdout_writer;
+    const writer = if (err_str != null) util.stderr else util.stdout;
     if (err_str) |s| {
         try writer.print("tennis: {s}\n", .{s});
     }
     try writer.writeAll("tennis: try 'tennis --help' for more information\n");
 }
+
+//
+// testing
+//
 
 test {
     _ = @import("args.zig");
@@ -132,53 +139,56 @@ test {
     _ = @import("completion.zig");
     _ = @import("color.zig");
     _ = @import("csv.zig");
+    _ = @import("detect.zig");
     _ = @import("doomicode.zig");
     _ = @import("float.zig");
+    _ = @import("json.zig");
+    _ = @import("json_to_string.zig");
     _ = @import("layout.zig");
-    _ = @import("replay.zig");
     _ = @import("render.zig");
+    _ = @import("data.zig");
+    _ = @import("replay.zig");
     _ = @import("sniffer.zig");
     _ = @import("style.zig");
     _ = @import("termbg.zig");
     _ = @import("util.zig");
 }
 
-test "printBanner writes normal banner to stdout" {
-    var stdout_buf: [256]u8 = undefined;
-    var stderr_buf: [256]u8 = undefined;
-    var stdout_writer = std.Io.Writer.fixed(&stdout_buf);
-    var stderr_writer = std.Io.Writer.fixed(&stderr_buf);
+test "initTable strips UTF-8 BOM before CSV parsing" {
+    const table = try initTable(testing.allocator, null, .{}, "\xef\xbb\xbfa,b\nc,d\n");
+    defer table.deinit();
 
-    try printBannerTo(&stdout_writer, &stderr_writer, null);
-
-    try std.testing.expectEqualStrings(
-        "tennis: try 'tennis --help' for more information\n",
-        stdout_writer.buffered(),
-    );
-    try std.testing.expectEqualStrings("", stderr_writer.buffered());
+    try testing.expectEqualStrings("a", table.headers()[0]);
+    try testing.expectEqualStrings("b", table.headers()[1]);
+    try testing.expectEqualStrings("c", table.row(0)[0]);
+    try testing.expectEqualStrings("d", table.row(0)[1]);
 }
 
-test "printBanner writes errors to stderr" {
-    var stdout_buf: [256]u8 = undefined;
-    var stderr_buf: [256]u8 = undefined;
-    var stdout_writer = std.Io.Writer.fixed(&stdout_buf);
-    var stderr_writer = std.Io.Writer.fixed(&stderr_buf);
-
-    try printBannerTo(&stdout_writer, &stderr_writer, "bad csv");
-
-    try std.testing.expectEqualStrings("", stdout_writer.buffered());
-    try std.testing.expectEqualStrings(
-        "tennis: bad csv\ntennis: try 'tennis --help' for more information\n",
-        stderr_writer.buffered(),
+test "initTable strips UTF-8 BOM before JSONL parsing" {
+    const table = try initTable(
+        testing.allocator,
+        "data.jsonl",
+        .{},
+        "\xef\xbb\xbf{\"name\":\"alice\"}\r\n{\"name\":\"bob\"}",
     );
+    defer table.deinit();
+
+    try testing.expectEqual(@as(usize, 2), table.nrows());
+    try testing.expectEqualStrings("name", table.headers()[0]);
+    try testing.expectEqualStrings("alice", table.row(0)[0]);
+    try testing.expectEqualStrings("bob", table.row(1)[0]);
 }
 
 const Args = @import("args.zig").Args;
 const builtin = @import("builtin");
 const completion = @import("completion.zig");
-const ReplayReader = @import("replay.zig").ReplayReader;
+const csv = @import("csv.zig");
+const Data = @import("data.zig").Data;
+const detect = @import("detect.zig");
+const json = @import("json.zig");
 const sniffer = @import("sniffer.zig");
 const std = @import("std");
+const testing = std.testing;
 const Table = @import("table.zig").Table;
 const types = @import("types.zig");
 const util = @import("util.zig");

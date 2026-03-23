@@ -34,6 +34,7 @@ $ zig build
 - auto-themes to pick light or dark based on your terminal background
 - auto-format numbers
 - auto-detect csv vs tsv (or semis, or pipes)
+- also works great with json (or jsonl)
 - titles, row numbers, border styles...
 
 ### Options
@@ -67,15 +68,11 @@ Note that color defaults to `on`. Tennis likes to be colorful.
 
 ### Future Work
 
-- support for input.json (and maybe ndjson/jsonl)
-- show first/last rows - `--head`, `--tail`
-- sort rows - `--sort`
 - select cols - `--only` or `--col` or `--columns` or `--select`
-- pipe through less - `--pager`
+- sort and filter - `--sort` and `--filter`
 - add zebra stripes - `--zebra`
-- output markdown `--format markdown` or `--markdown`
-- watch a file, update display `--watch`
 - briefly summarize each col `--summary` or `--peek`
+- sample some rows `--sample`
 
 ### Similar Tools
 
@@ -96,6 +93,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 - `--border` styles based on Nushell / `tabled` crate.
 - `--completion` for auto-generating bash/zsh completions
+- `.json`, `.jsonl`, and `.ndjson` support
 - `--head` and `--tail` for clipping large tables
 - `doomicode`, best-effort Unicode width for emojis, etc
 - auto-detect csv vs tsv (or semis, or pipes)

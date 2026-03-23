@@ -1,6 +1,7 @@
+// Float detection and formatting helpers for numeric columns.
 const max_float_len = 64;
 
-// Does this str contain a float? -?\d+\.\d+
+// Report whether a byte slice looks like a simple float literal.
 pub fn isFloat(str: []const u8) bool {
     // Keep obviously huge numeric-looking cells out of the float formatter.
     if (str.len > max_float_len) return false;
@@ -11,7 +12,7 @@ pub fn isFloat(str: []const u8) bool {
     return scan.scanDigits() > 0 and scan.eos(); // fract
 }
 
-// Format str as a delimited float truncated to ndecimals.
+// Format a float-like string with the requested precision.
 pub fn floatFormat(alloc: std.mem.Allocator, str: []const u8, ndecimals: usize) ![]u8 {
     if (str.len == 0) return alloc.dupe(u8, str);
     // divide up into whole/fract
@@ -37,6 +38,10 @@ pub fn floatFormat(alloc: std.mem.Allocator, str: []const u8, ndecimals: usize) 
     return buf;
 }
 
+//
+// testing
+//
+
 test "floatFormat" {
     const cases = [_]struct {
         in: []const u8,
@@ -57,34 +62,35 @@ test "floatFormat" {
     };
 
     for (cases) |case| {
-        const act = try floatFormat(std.testing.allocator, case.in, 3);
-        defer std.testing.allocator.free(act);
-        try std.testing.expectEqualStrings(case.exp, act);
+        const act = try floatFormat(testing.allocator, case.in, 3);
+        defer testing.allocator.free(act);
+        try testing.expectEqualStrings(case.exp, act);
     }
 }
 
 test "floatFormat uses requested digits" {
-    const act = try floatFormat(std.testing.allocator, "12.34567", 1);
-    defer std.testing.allocator.free(act);
-    try std.testing.expectEqualStrings("12.3", act);
+    const act = try floatFormat(testing.allocator, "12.34567", 1);
+    defer testing.allocator.free(act);
+    try testing.expectEqualStrings("12.3", act);
 }
 
 test "isFloat" {
-    try std.testing.expect(isFloat("1.0"));
-    try std.testing.expect(isFloat("-1.0"));
-    try std.testing.expect(isFloat("12.34"));
-    try std.testing.expect(!isFloat(""));
-    try std.testing.expect(!isFloat("1"));
-    try std.testing.expect(!isFloat("1."));
-    try std.testing.expect(!isFloat("1.0b"));
-    try std.testing.expect(!isFloat(".5"));
-    try std.testing.expect(!isFloat("-.5"));
-    try std.testing.expect(!isFloat("1e6"));
-    try std.testing.expect(!isFloat("1.2.3"));
-    try std.testing.expect(!isFloat("+1.0"));
-    try std.testing.expect(!isFloat("12345678901234567890123456789012345678901234567890123456789012345.0"));
+    try testing.expect(isFloat("1.0"));
+    try testing.expect(isFloat("-1.0"));
+    try testing.expect(isFloat("12.34"));
+    try testing.expect(!isFloat(""));
+    try testing.expect(!isFloat("1"));
+    try testing.expect(!isFloat("1."));
+    try testing.expect(!isFloat("1.0b"));
+    try testing.expect(!isFloat(".5"));
+    try testing.expect(!isFloat("-.5"));
+    try testing.expect(!isFloat("1e6"));
+    try testing.expect(!isFloat("1.2.3"));
+    try testing.expect(!isFloat("+1.0"));
+    try testing.expect(!isFloat("12345678901234567890123456789012345678901234567890123456789012345.0"));
 }
 
 const int = @import("int.zig");
 const Scanner = @import("scanner.zig").Scanner;
 const std = @import("std");
+const testing = std.testing;

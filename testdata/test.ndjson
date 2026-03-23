@@ -1,0 +1,3 @@
+{"name":"alice","score":1234,"city":"boston","tags":["a","b"]}
+{"name":"bob","score":5678,"city":"denver","meta":{"ok":true}}
+{"name":"cara","score":90,"city":"chicago"}

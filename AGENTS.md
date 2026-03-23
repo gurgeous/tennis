@@ -1,44 +1,43 @@
 # AGENTS
 
-## Project Shape
+## Project
 
 - Small Zig CLI for rendering CSV as terminal tables.
-- Keep modules focused: `args` parses CLI, `main` owns process flow, `render` owns output behavior, `util` holds shared helpers.
-- Prefer simple value types and explicit ownership over clever abstractions.
+- Keep modules narrow: `args` parses CLI, `main` owns process flow, `render` owns output, `util` holds shared helpers.
+- Prefer simple value types and explicit ownership.
 
-## CLI Conventions
+## CLI
 
-- `Args.init(alloc, argv)` parses arguments and returns structured control flow.
+- `Args.init(alloc, argv)` returns structured control flow.
 - Use `Action` for early exits: `banner`, `fatal`, `help`, `version`.
-- Fatal CLI/setup errors should return owned `err_str` text; `main` prints and decides exit code.
+- Fatal CLI/setup errors should return owned `err_str`; `main` prints and picks the exit code.
 
-## I/O Conventions
+## I/O
 
-- Use `/dev/tty` for terminal-only probing (`termWidth`, terminal background detection).
-- Do not mix terminal probing with stdin CSV input.
-- `util.stdout` and `util.stderr` are the shared buffered writers.
+- Use `/dev/tty` only for terminal probing such as width or background detection.
+- Do not mix terminal probing with stdin table input.
+- Use `util.stdout` and `util.stderr` for shared buffered output.
 
-## Memory Rules
+## Memory
 
-- No arena allocator in the main app path; free what you allocate.
-- Never return slices into local stack buffers.
-- If a string must outlive the current scope, allocate it (`allocPrint`, `dupe`).
-- `util.readCsv` returns owned rows/fields; callers must `util.freeCsv`.
+- Never return slices into stack buffers.
+- Allocate any string that must outlive the current scope.
 
-## Testing
+## Tests
 
-- Prefer `just llm` during normal iteration; it is the default fast test path.
-- Use `just check` before each commit, after large refactors, and before other risky operations.
-- Keep `just check` green: lint, unit tests, snapshot smoke tests.
-- Use snapshot tests for CLI output and regressions in user-facing errors.
-- Keep tests deterministic by forcing `--width 80` where layout matters.
-- Use `just kcov` for coverage work.
-- Read `kcov/.../coverage.json` for machine-readable coverage results.
+- Prefer `just llm`. Run `just check` before commits and after larger refactors.
+- Keep tests deterministic. Force `--width 80` where layout matters.
+- Prefer table-driven tests and tiny helpers in `test_support` or the local test section when they reduce repetition.
+- This is partly for token reduction, colllapse if clarity stays good
+- In `src/*.zig`, if a file has tests, add:
+  `//`
+  `// testing`
+  `//`
 
 ## Style
 
 - Keep files and APIs small and direct.
-- Prefer straightforward Zig control flow (`switch`, `try`, explicit cleanup).
+- Prefer straightforward Zig control flow.
 - Keep imports sorted at the bottom of each file.
 - When the user says `commit`, commit all current changes by default, including unrelated local edits.
-- With `gh pr create`, never use unescaped backticks, prefer `--body-file` to avoid accidental command substitution
+- With `gh pr create`, never use unescaped backticks; prefer `--body-file`.

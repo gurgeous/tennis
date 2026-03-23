@@ -2,33 +2,39 @@
 // measure records to determine max width, then fit into term_width
 //
 
+// Final per-column widths used by the renderer.
 pub const Layout = struct {
     widths: []const usize,
 
+    // Measure the table and choose per-column widths.
     pub fn init(table: *Table) !Layout {
         return .{ .widths = try autolayout(table) };
     }
 
+    // Release the owned width array.
     pub fn deinit(self: Layout, alloc: std.mem.Allocator) void {
         alloc.free(self.widths);
     }
 
+    // Return the total width of data cells only.
     pub fn dataWidth(self: Layout) usize {
         return util.sum(usize, self.widths);
     }
 
     // how many chars do we need for the non-data stuff? (borders/whitespace)
+    // Return the total width contributed by borders and separators.
     pub fn chromeWidth(self: Layout) usize {
         return self.widths.len * 3 + 1;
     }
 
     // how wide is this table?
+    // Return the full rendered table width.
     pub fn tableWidth(self: Layout) usize {
         return self.chromeWidth() + self.dataWidth();
     }
 };
 
-// fit widths into term_width. this is similar to the HTML table layout algo
+// Fit measured column widths into the available terminal width.
 fn autolayout(table: *Table) ![]usize {
     const alloc = table.alloc;
     if (table.isEmpty()) return alloc.alloc(usize, 0);
@@ -91,6 +97,7 @@ fn autolayout(table: *Table) ![]usize {
         defer alloc.free(indexes);
         for (indexes, 0..) |*x, i| x.* = i;
         std.sort.block(usize, indexes, diffs, struct {
+            // Sort indexes by descending spare width.
             fn lessThan(ctx: []usize, a: usize, b: usize) bool {
                 return ctx[b] < ctx[a];
             }
@@ -105,7 +112,7 @@ fn autolayout(table: *Table) ![]usize {
     return layout;
 }
 
-// measure widths of ALL columns. min 2 per col
+// Measure the natural width of every visible column.
 fn measure(table: *const Table) ![]usize {
     const alloc = table.alloc;
 
@@ -128,94 +135,73 @@ fn measure(table: *const Table) ![]usize {
 }
 
 //
-// tests
+// testing
 //
 
-test "layout" {
-    var in1 = std.io.fixedBufferStream("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,bbbbbbbbbbbbbbbbbbbb,cccccccccc\nx,y,z\n");
-    const table1 = try Table.init(std.testing.allocator, .{ .width = 100 }, in1.reader());
-    defer table1.deinit();
-    const l1 = try autolayout(table1);
-    defer std.testing.allocator.free(l1);
-    try std.testing.expectEqualSlices(usize, &[_]usize{ 32, 20, 10 }, l1);
+test "autolayout cases" {
+    const cases = [_]struct {
+        config: types.Config,
+        input: []const u8,
+        want: []const usize,
+    }{
+        .{ .config = .{ .width = 100 }, .input = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,bbbbbbbbbbbbbbbbbbbb,cccccccccc\nx,y,z\n", .want = &.{ 32, 20, 10 } },
+        .{ .config = .{ .width = 50 }, .input = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,bbbbbbbbbbbbbbbbbbbb,cccccccccc\nx,y,z\n", .want = &.{ 16, 12, 10 } },
+        .{ .config = .{ .width = 39 }, .input = "1234567,123456789,12345678901\nx,y,z\n", .want = &.{ 7, 9, 11 } },
+        .{ .config = .{ .width = 80 }, .input = "", .want = &.{} },
+    };
 
-    var in2 = std.io.fixedBufferStream("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,bbbbbbbbbbbbbbbbbbbb,cccccccccc\nx,y,z\n");
-    const table2 = try Table.init(std.testing.allocator, .{ .width = 50 }, in2.reader());
-    defer table2.deinit();
-    const l2 = try autolayout(table2);
-    defer std.testing.allocator.free(l2);
-    try std.testing.expectEqualSlices(usize, &[_]usize{ 16, 12, 10 }, l2);
+    for (cases) |tc| try expectAutolayout(tc.config, tc.input, tc.want);
 }
 
 test "layout handles tiny terminals without underflow" {
-    var in = std.io.fixedBufferStream("12345678,12345678,12345678,12345678,12345678,12345678,12345678,12345678\nx,x,x,x,x,x,x,x\n");
-    const table = try Table.init(std.testing.allocator, .{ .width = 40 }, in.reader());
+    const table = try Table.initCsv(testing.allocator, .{ .width = 40 }, "12345678,12345678,12345678,12345678,12345678,12345678,12345678,12345678\nx,x,x,x,x,x,x,x\n");
     defer table.deinit();
     const l = try autolayout(table);
-    defer std.testing.allocator.free(l);
-    try std.testing.expectEqual(@as(usize, 8), l.len);
+    defer testing.allocator.free(l);
+    try testing.expectEqual(@as(usize, 8), l.len);
 }
 
 test "measure includes row numbers and unicode width" {
-    var in = std.io.fixedBufferStream("a,\xc3\xa9\xc3\xa9\n10,x\n");
-    const table = try Table.init(std.testing.allocator, .{ .row_numbers = true }, in.reader());
+    const table = try Table.initCsv(testing.allocator, .{ .row_numbers = true }, "a,\xc3\xa9\xc3\xa9\n10,x\n");
     defer table.deinit();
     const widths = try measure(table);
-    defer std.testing.allocator.free(widths);
+    defer testing.allocator.free(widths);
 
-    try std.testing.expectEqualSlices(usize, &[_]usize{ 2, 2, 2 }, widths);
+    try testing.expectEqualSlices(usize, &[_]usize{ 2, 2, 2 }, widths);
 }
 
-test "measure returns empty layout for empty table" {
-    var in = std.io.fixedBufferStream("");
-    const table = try Table.init(std.testing.allocator, .{}, in.reader());
-    defer table.deinit();
-    const widths = try measure(table);
-    defer std.testing.allocator.free(widths);
-
-    try std.testing.expectEqual(0, widths.len);
-}
-
-test "measure returns empty layout for header only table" {
-    var in = std.io.fixedBufferStream("a,b\n");
-    const table = try Table.init(std.testing.allocator, .{}, in.reader());
-    defer table.deinit();
-    const widths = try measure(table);
-    defer std.testing.allocator.free(widths);
-
-    try std.testing.expectEqual(0, widths.len);
+test "measure returns empty layout for empty inputs" {
+    try expectMeasure(.{}, "", &.{});
+    try expectMeasure(.{}, "a,b\n", &.{});
 }
 
 test "measure ignores empty data cell width" {
-    var in = std.io.fixedBufferStream("alpha,beta\n,xyz\n");
-    const table = try Table.init(std.testing.allocator, .{}, in.reader());
+    const table = try Table.initCsv(testing.allocator, .{}, "alpha,beta\n,xyz\n");
     defer table.deinit();
     const widths = try measure(table);
-    defer std.testing.allocator.free(widths);
+    defer testing.allocator.free(widths);
 
-    try std.testing.expectEqualSlices(usize, &[_]usize{ 5, 4 }, widths);
+    try testing.expectEqualSlices(usize, &[_]usize{ 5, 4 }, widths);
 }
 
-test "autolayout keeps widths when term width exactly fits" {
-    var in = std.io.fixedBufferStream("1234567,123456789,12345678901\nx,y,z\n");
-    const table = try Table.init(std.testing.allocator, .{ .width = 39 }, in.reader());
+fn expectAutolayout(config: types.Config, input: []const u8, want: []const usize) !void {
+    const table = try Table.initCsv(testing.allocator, config, input);
     defer table.deinit();
-    const out = try autolayout(table);
-    defer std.testing.allocator.free(out);
-
-    try std.testing.expectEqualSlices(usize, &[_]usize{ 7, 9, 11 }, out);
+    const got = try autolayout(table);
+    defer testing.allocator.free(got);
+    try testing.expectEqualSlices(usize, want, got);
 }
 
-test "autolayout handles empty widths" {
-    var in = std.io.fixedBufferStream("");
-    const table = try Table.init(std.testing.allocator, .{ .width = 80 }, in.reader());
+fn expectMeasure(config: types.Config, input: []const u8, want: []const usize) !void {
+    const table = try Table.initCsv(testing.allocator, config, input);
     defer table.deinit();
-    const out = try autolayout(table);
-    defer std.testing.allocator.free(out);
-
-    try std.testing.expectEqual(0, out.len);
+    const got = try measure(table);
+    defer testing.allocator.free(got);
+    try testing.expectEqualSlices(usize, want, got);
 }
 
 const std = @import("std");
+const testing = std.testing;
 const Table = @import("table.zig").Table;
+const types = @import("types.zig");
 const util = @import("util.zig");

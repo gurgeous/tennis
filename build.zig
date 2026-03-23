@@ -9,7 +9,6 @@ pub fn build(b: *std.Build) void {
 
     const clap_mod = b.dependency("clap", .{ .target = target, .optimize = optimize }).module("clap");
     const mibu_mod = b.dependency("mibu", .{ .target = target, .optimize = optimize }).module("mibu");
-    const zcsv_mod = b.dependency("zcsv", .{ .target = target, .optimize = optimize }).module("zcsv");
 
     //
     // build options
@@ -29,7 +28,6 @@ pub fn build(b: *std.Build) void {
         .imports = &.{
             .{ .name = "clap", .module = clap_mod },
             .{ .name = "mibu", .module = mibu_mod },
-            .{ .name = "zcsv", .module = zcsv_mod },
             .{ .name = "build_options", .module = build_options.createModule() },
         },
     });

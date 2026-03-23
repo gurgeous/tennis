@@ -5,6 +5,7 @@
 // response we read is cursor position instead of OSC, we assume OSC 11 was
 // ignored and return an error.
 
+// Probe the terminal and report whether its background is dark.
 pub fn isDark(alloc: std.mem.Allocator) !bool {
     // open dev/tty
     var devtty = std.fs.openFileAbsolute("/dev/tty", .{ .mode = .read_write }) catch |err| {
@@ -15,6 +16,7 @@ pub fn isDark(alloc: std.mem.Allocator) !bool {
     return try isDarkWith(alloc, std.posix.getenv("TERM"), builtin.os.tag, RealTty{ .file = &devtty });
 }
 
+// Probe terminal background color through an abstract tty interface.
 fn isDarkWith(alloc: std.mem.Allocator, term_opt: ?[]const u8, os_tag: std.Target.Os.Tag, tty: anytype) !bool {
     util.tdebug("TERM={s}", .{term_opt orelse "<unset>"});
     _ = try supportedTerm(term_opt);
@@ -61,6 +63,7 @@ fn isDarkWith(alloc: std.mem.Allocator, term_opt: ?[]const u8, os_tag: std.Targe
     return color.isDark();
 }
 
+// Reject TERM values that are known not to support this probe.
 fn supportedTerm(term_opt: ?[]const u8) ![]const u8 {
     const term = term_opt orelse return error.NotSupported;
     if (std.mem.startsWith(u8, term, "screen") or std.mem.startsWith(u8, term, "tmux") or std.mem.startsWith(u8, term, "dumb")) {
@@ -86,6 +89,7 @@ fn timeoutIndexes(os_tag: std.Target.Os.Tag) !struct { vmin: u8, vtime: u8 } {
     };
 }
 
+// Report whether a response starts with an OSC sequence.
 fn isOsc11Response(response: []const u8) bool {
     return response.len >= 2 and response[1] == ']';
 }
@@ -93,18 +97,22 @@ fn isOsc11Response(response: []const u8) bool {
 const RealTty = struct {
     file: *std.fs.File,
 
+    // Fetch the current terminal attributes.
     fn tcgetattr(self: @This()) !std.posix.termios {
         return try std.posix.tcgetattr(self.file.handle);
     }
 
+    // Apply terminal attributes immediately.
     fn tcsetattr(self: @This(), tio: std.posix.termios) !void {
         try std.posix.tcsetattr(self.file.handle, .NOW, tio);
     }
 
+    // Write raw bytes to the tty.
     fn writeAll(self: @This(), bytes: []const u8) !void {
         try self.file.writeAll(bytes);
     }
 
+    // Read one OSC or CSI response from the tty.
     fn readResponse(self: @This(), alloc: std.mem.Allocator) ![]u8 {
         return try termReadResponse(alloc, self.file.handle);
     }
@@ -114,6 +122,7 @@ const RealTty = struct {
 // read a response, defensively
 //
 
+// Read one OSC or CSI response from a terminal file descriptor.
 fn termReadResponse(alloc: std.mem.Allocator, fd: std.posix.fd_t) ![]u8 {
     // fast forward to ESC
     while (try util.readByte(fd) != ansi.esc[0]) {}
@@ -140,6 +149,7 @@ fn termReadResponse(alloc: std.mem.Allocator, fd: std.posix.fd_t) ![]u8 {
     return out.toOwnedSlice(alloc);
 }
 
+// Parse an OSC 11 response into a concrete RGB color.
 fn parseResponse(s: []const u8) !Color {
     // ESC ]11;rgb:0b0b/2727/3232 BEL
     const prefix = ansi.esc ++ "]11;rgb:";
@@ -161,50 +171,50 @@ fn parseResponse(s: []const u8) !Color {
 }
 
 //
-// tests
+// testing
 //
 
 test "parse osc11 response" {
-    try std.testing.expect((try parseResponse("\x1b]11;rgb:0000/0000/0000\x1b\\")).isDark());
-    try std.testing.expect((try parseResponse("\x1b]11;rgb:ffff/ffff/ffff\x1b\\")).isLight());
+    try testing.expect((try parseResponse("\x1b]11;rgb:0000/0000/0000\x1b\\")).isDark());
+    try testing.expect((try parseResponse("\x1b]11;rgb:ffff/ffff/ffff\x1b\\")).isLight());
 }
 
 test "parse osc11 response accepts bel terminator" {
-    try std.testing.expect((try parseResponse("\x1b]11;rgb:ffff/ffff/ffff\x07")).isLight());
+    try testing.expect((try parseResponse("\x1b]11;rgb:ffff/ffff/ffff\x07")).isLight());
 }
 
 test "parse osc11 response rejects invalid prefix" {
-    try std.testing.expectError(error.InvalidData, parseResponse("\x1b]10;rgb:ffff/ffff/ffff\x07"));
+    try testing.expectError(error.InvalidData, parseResponse("\x1b]10;rgb:ffff/ffff/ffff\x07"));
 }
 
 test "parse osc11 response rejects malformed payload" {
-    try std.testing.expectError(error.InvalidCharacter, parseResponse("\x1b]11;rgb:zzzz/ffff/ffff\x07"));
+    try testing.expectError(error.InvalidCharacter, parseResponse("\x1b]11;rgb:zzzz/ffff/ffff\x07"));
 }
 
 test "supportedTerm validates TERM" {
-    try std.testing.expectEqualStrings("xterm-256color", try supportedTerm("xterm-256color"));
-    try std.testing.expectError(error.NotSupported, supportedTerm(null));
-    try std.testing.expectError(error.NotSupported, supportedTerm("screen-256color"));
-    try std.testing.expectError(error.NotSupported, supportedTerm("tmux-256color"));
-    try std.testing.expectError(error.NotSupported, supportedTerm("dumb"));
+    try testing.expectEqualStrings("xterm-256color", try supportedTerm("xterm-256color"));
+    try testing.expectError(error.NotSupported, supportedTerm(null));
+    try testing.expectError(error.NotSupported, supportedTerm("screen-256color"));
+    try testing.expectError(error.NotSupported, supportedTerm("tmux-256color"));
+    try testing.expectError(error.NotSupported, supportedTerm("dumb"));
 }
 
 test "timeoutIndexes supports linux and macos" {
     const linux = try timeoutIndexes(.linux);
-    try std.testing.expectEqual(@as(u8, @intFromEnum(std.os.linux.V.MIN)), linux.vmin);
-    try std.testing.expectEqual(@as(u8, @intFromEnum(std.os.linux.V.TIME)), linux.vtime);
+    try testing.expectEqual(@as(u8, @intFromEnum(std.os.linux.V.MIN)), linux.vmin);
+    try testing.expectEqual(@as(u8, @intFromEnum(std.os.linux.V.TIME)), linux.vtime);
 
     const macos = try timeoutIndexes(.macos);
-    try std.testing.expectEqual(@as(u8, 16), macos.vmin);
-    try std.testing.expectEqual(@as(u8, 17), macos.vtime);
+    try testing.expectEqual(@as(u8, 16), macos.vmin);
+    try testing.expectEqual(@as(u8, 17), macos.vtime);
 
-    try std.testing.expectError(error.NotSupported, timeoutIndexes(.windows));
+    try testing.expectError(error.NotSupported, timeoutIndexes(.windows));
 }
 
 test "isOsc11Response distinguishes osc and csi" {
-    try std.testing.expect(isOsc11Response("\x1b]11;rgb:ffff/ffff/ffff\x07"));
-    try std.testing.expect(!isOsc11Response(""));
-    try std.testing.expect(!isOsc11Response("\x1b[1;1R"));
+    try testing.expect(isOsc11Response("\x1b]11;rgb:ffff/ffff/ffff\x07"));
+    try testing.expect(!isOsc11Response(""));
+    try testing.expect(!isOsc11Response("\x1b[1;1R"));
 }
 
 test "isDarkWith returns parsed darkness and restores tty state" {
@@ -218,21 +228,25 @@ test "isDarkWith returns parsed darkness and restores tty state" {
         second: ?[]const u8 = null,
         reads: usize = 0,
 
+        // Return the current fake termios state.
         fn tcgetattr(self: *@This()) !std.posix.termios {
             return self.tio;
         }
 
+        // Record the last requested termios state.
         fn tcsetattr(self: *@This(), tio: std.posix.termios) !void {
             if (self.set_count == 0) self.configured = tio;
             self.tio = tio;
             self.set_count += 1;
         }
 
+        // Record the bytes written during probing.
         fn writeAll(self: *@This(), bytes: []const u8) !void {
             @memcpy(self.write_buf[0..bytes.len], bytes);
             self.write_len = bytes.len;
         }
 
+        // Return the scripted fake terminal responses.
         fn readResponse(self: *@This(), alloc: std.mem.Allocator) ![]u8 {
             defer self.reads += 1;
             return switch (self.reads) {
@@ -247,29 +261,33 @@ test "isDarkWith returns parsed darkness and restores tty state" {
         .first = "\x1b]11;rgb:0000/0000/0000\x07",
         .second = "\x1b[1;1R",
     };
-    try std.testing.expect(try isDarkWith(std.testing.allocator, "xterm-256color", .linux, &tty));
-    try std.testing.expectEqualStrings(ansi.esc ++ "]11;?\x07" ++ ansi.esc ++ "[6n", tty.write_buf[0..tty.write_len]);
-    try std.testing.expectEqual(@as(usize, 2), tty.set_count);
-    try std.testing.expectEqual(@as(u8, 1), tty.configured.cc[@intFromEnum(std.os.linux.V.TIME)]);
+    try testing.expect(try isDarkWith(testing.allocator, "xterm-256color", .linux, &tty));
+    try testing.expectEqualStrings(ansi.esc ++ "]11;?\x07" ++ ansi.esc ++ "[6n", tty.write_buf[0..tty.write_len]);
+    try testing.expectEqual(@as(usize, 2), tty.set_count);
+    try testing.expectEqual(@as(u8, 1), tty.configured.cc[@intFromEnum(std.os.linux.V.TIME)]);
 }
 
 test "isDarkWith returns not supported when osc11 is ignored" {
     const FakeTty = struct {
+        // Return a zeroed fake termios state.
         fn tcgetattr(_: *@This()) !std.posix.termios {
             return std.mem.zeroes(std.posix.termios);
         }
 
+        // Ignore terminal mode updates in this fake tty.
         fn tcsetattr(_: *@This(), _: std.posix.termios) !void {}
 
+        // Ignore writes in this fake tty.
         fn writeAll(_: *@This(), _: []const u8) !void {}
 
+        // Return a CSI response to simulate ignored OSC 11 support.
         fn readResponse(_: *@This(), alloc: std.mem.Allocator) ![]u8 {
             return try alloc.dupe(u8, "\x1b[1;1R");
         }
     };
 
     var tty = FakeTty{};
-    try std.testing.expectError(error.NotSupported, isDarkWith(std.testing.allocator, "xterm-256color", .linux, &tty));
+    try testing.expectError(error.NotSupported, isDarkWith(testing.allocator, "xterm-256color", .linux, &tty));
 }
 
 test "readResponse reads csi response" {
@@ -278,9 +296,9 @@ test "readResponse reads csi response" {
     defer std.posix.close(fds[1]);
 
     _ = try std.posix.write(fds[1], "junk\x1b[12;34R");
-    const out = try termReadResponse(std.testing.allocator, fds[0]);
-    defer std.testing.allocator.free(out);
-    try std.testing.expectEqualStrings("\x1b[12;34R", out);
+    const out = try termReadResponse(testing.allocator, fds[0]);
+    defer testing.allocator.free(out);
+    try testing.expectEqualStrings("\x1b[12;34R", out);
 }
 
 test "readResponse reads osc bel response" {
@@ -289,9 +307,9 @@ test "readResponse reads osc bel response" {
     defer std.posix.close(fds[1]);
 
     _ = try std.posix.write(fds[1], "\x1b]11;rgb:ffff/ffff/ffff\x07");
-    const out = try termReadResponse(std.testing.allocator, fds[0]);
-    defer std.testing.allocator.free(out);
-    try std.testing.expectEqualStrings("\x1b]11;rgb:ffff/ffff/ffff\x07", out);
+    const out = try termReadResponse(testing.allocator, fds[0]);
+    defer testing.allocator.free(out);
+    try testing.expectEqualStrings("\x1b]11;rgb:ffff/ffff/ffff\x07", out);
 }
 
 test "readResponse rejects invalid response type" {
@@ -300,11 +318,12 @@ test "readResponse rejects invalid response type" {
     defer std.posix.close(fds[1]);
 
     _ = try std.posix.write(fds[1], "\x1bXoops");
-    try std.testing.expectError(error.InvalidData, termReadResponse(std.testing.allocator, fds[0]));
+    try testing.expectError(error.InvalidData, termReadResponse(testing.allocator, fds[0]));
 }
 
 const ansi = @import("ansi.zig");
 const builtin = @import("builtin");
 const Color = @import("color.zig").Color;
 const std = @import("std");
+const testing = std.testing;
 const util = @import("util.zig");

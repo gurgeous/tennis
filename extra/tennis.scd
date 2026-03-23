@@ -14,7 +14,8 @@ https://github.com/gurgeous/tennis
 
 *tennis* is a small CLI for printing stylish CSV tables in your terminal.
 Rows will be truncated to fit and it'll automatically pick nice colors
-to match your terminal. Written in Zig.
+to match your terminal. Works with all CSV variants as well as
+*JSON/NDJSON*. Written in zig.
 
 # DEMO
 
@@ -104,6 +105,10 @@ Render with a different border:
 Render a tab-delimited file:
 
 	$ tennis --delimiter tab data.tsv
+
+Render a JSON file:
+
+	$ tennis data.json
 
 # SIMILAR TOOLS
 
