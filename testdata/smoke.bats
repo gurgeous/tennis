@@ -200,6 +200,14 @@ setup() {
   [[ "$output" != *"│  1 │"* ]]
 }
 
+@test "sorts rows before head" {
+  run "$TENNIS_BIN" --color=off --width 80 --sort name --head 2 "$REPO_ROOT/testdata/test.json"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alice"* ]]
+  [[ "$output" == *"bob"* ]]
+  [[ "$output" != *"cara"* ]]
+}
+
 @test "rejects head and tail together" {
   run "$TENNIS_BIN" --head 2 --tail 2 "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 1 ]

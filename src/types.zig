@@ -7,6 +7,7 @@ pub const Config = struct {
     digits: usize = 3,
     head: usize = 0,
     row_numbers: bool = false,
+    sort: []const u8 = "",
     tail: usize = 0,
     theme: Theme = .auto,
     title: []const u8 = "",

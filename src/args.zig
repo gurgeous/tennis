@@ -20,6 +20,7 @@ pub const Args = struct {
         \\      --delimiter <char>    CSV delim (can be any char or "tab")
         \\      --digits <int>        Digits after decimal for float columns (1-6)
         \\      --head <int>          Show first N rows
+        \\      --sort <headers>      Sort by one or more comma-separated headers
         \\      --tail <int>          Show last N rows
         \\      --theme <theme>       Select color theme (auto|dark|light)
         \\      --vanilla             Disable numeric formatting entirely
@@ -34,6 +35,7 @@ pub const Args = struct {
         \\    --color <COLOR>
         \\    --completion <SHELL>
         \\    --head <INT>
+        \\    --sort <STRING>
         \\    --tail <INT>
         \\    --theme <THEME>
         \\-d, --delimiter <CHAR>
@@ -143,6 +145,7 @@ pub const Args = struct {
             if (v == 0) return error.InvalidHeadValue;
             config.head = v;
         }
+        if (res.args.sort) |v| config.sort = v;
         if (res.args.tail) |v| {
             if (v == 0) return error.InvalidTailValue;
             config.tail = v;
@@ -225,6 +228,8 @@ test "parse option cases" {
         "4",
         "--head",
         "5",
+        "--sort",
+        "score,name",
         "--theme",
         "light",
         "--title",
@@ -241,6 +246,7 @@ test "parse option cases" {
     try testing.expectEqual(types.Color.off, out.config.color);
     try testing.expectEqual(@as(usize, 4), out.config.digits);
     try testing.expectEqual(@as(usize, 5), out.config.head);
+    try testing.expectEqualStrings("score,name", out.config.sort);
     try testing.expectEqual(types.Theme.light, out.config.theme);
     try testing.expectEqualStrings("foo", out.config.title);
     try testing.expect(out.config.vanilla);
@@ -259,6 +265,7 @@ test "parse option cases" {
         .{ .argv = &.{ "--delimiter", "tab", "-" }, .delimiter = '\t' },
         .{ .argv = &.{ "--delimiter", "\\t", "-" }, .delimiter = '\t' },
         .{ .argv = &.{ "--border", "compact_double", "-" }, .border_name = .compact_double },
+        .{ .argv = &.{ "--sort", "score,name", "-" } },
         .{ .argv = &.{ "--completion", "zsh" }, .action = .completion, .completion = .zsh },
         .{ .argv = &.{"--help"}, .action = .help },
         .{ .argv = &.{"--version"}, .action = .version },

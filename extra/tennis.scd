@@ -61,6 +61,10 @@ $ tennis diamonds.csv
 *--head* <int>
 	Show the first _N_ data rows.
 
+*--sort* <headers>
+	Sort rows by one or more comma-separated headers before applying *--head*
+	or *--tail*.
+
 *--tail* <int>
 	Show the last _N_ data rows.
 

@@ -5,6 +5,7 @@ pub const Table = struct {
     columns: []Column,
     config: types.Config = .{},
     empty: bool = false,
+    row_order: []usize,
     visible_row_count: usize = 0,
     // memoized
     _style: ?Style = null,
@@ -27,12 +28,17 @@ pub const Table = struct {
             .columns = &.{},
             .config = config,
             .data = data,
+            .row_order = try alloc.alloc(usize, if (data.rows.len > 0) data.rows.len - 1 else 0),
         };
+        errdefer alloc.free(table.row_order);
 
         // Input with zero data rows is intentionally rendered as "empty".
         table.empty = data.rows.len < 2;
 
         if (!table.empty) {
+            for (table.row_order, 0..) |*slot, ii| slot.* = ii;
+            if (config.sort.len > 0) try table.sortRows();
+
             var n: usize = table.nrows();
             if (config.head > 0) n = @min(config.head, n);
             if (config.tail > 0) n = @min(config.tail, n);
@@ -56,6 +62,7 @@ pub const Table = struct {
     pub fn deinit(self: *Self) void {
         for (self.columns) |col| col.deinit(self.alloc);
         self.alloc.free(self.columns);
+        self.alloc.free(self.row_order);
         self.data.deinit(self.alloc);
         self.alloc.destroy(self);
     }
@@ -107,7 +114,7 @@ pub const Table = struct {
 
     // Return one loaded data row.
     pub fn row(self: *const Self, index: usize) Row {
-        return self.data.row(index + 1);
+        return self.data.row(self.row_order[index] + 1);
     }
 
     // Return the number of visible rows after head/tail clipping.
@@ -169,7 +176,67 @@ pub const Table = struct {
         }
         return columns;
     }
+
+    fn sortRows(self: *Self) !void {
+        // main validates sort specs before Table.init, so this path can trust header resolution.
+        const sort_cols = try parseSortColumns(self.alloc, self.headers(), self.config.sort);
+        defer self.alloc.free(sort_cols);
+
+        std.sort.block(usize, self.row_order, SortCtx{
+            .table = self,
+            .sort_cols = sort_cols,
+        }, SortCtx.lessThan);
+    }
+
+    pub fn firstInvalidSortColumn(row_headers: Row, spec: []const u8) ?[]const u8 {
+        var it = std.mem.splitScalar(u8, spec, ',');
+        while (it.next()) |raw| {
+            const name = util.strip(u8, raw);
+            if (name.len == 0) return raw;
+            for (row_headers) |header| {
+                if (std.ascii.eqlIgnoreCase(header, name)) break;
+            } else return name;
+        }
+        return null;
+    }
 };
+
+const SortCtx = struct {
+    table: *const Table,
+    sort_cols: []const usize,
+
+    fn lessThan(ctx: @This(), lhs: usize, rhs: usize) bool {
+        const a = ctx.table.data.row(lhs + 1);
+        const b = ctx.table.data.row(rhs + 1);
+        for (ctx.sort_cols) |col| {
+            switch (std.mem.order(u8, a[col], b[col])) {
+                .lt => return true,
+                .gt => return false,
+                .eq => {},
+            }
+        }
+        return lhs < rhs;
+    }
+};
+
+fn parseSortColumns(alloc: std.mem.Allocator, headers: Row, spec: []const u8) ![]usize {
+    var cols: std.ArrayList(usize) = .empty;
+    defer cols.deinit(alloc);
+
+    var it = std.mem.splitScalar(u8, spec, ',');
+    while (it.next()) |raw| {
+        const name = util.strip(u8, raw);
+        if (name.len == 0) unreachable;
+        for (headers, 0..) |header, ii| {
+            if (std.ascii.eqlIgnoreCase(header, name)) {
+                try cols.append(alloc, ii);
+                break;
+            }
+        } else unreachable;
+    }
+
+    return try cols.toOwnedSlice(alloc);
+}
 
 //
 // testing
@@ -235,6 +302,65 @@ test "visible rows support head and tail" {
         try testing.expectEqual(tc.want_count, table.visibleRowCount());
         for (tc.rows, 0..) |want, ii| try testing.expectEqual(want, table.visibleRow(ii));
     }
+}
+
+test "table sorts rows by one column" {
+    const table = try Table.initCsv(testing.allocator, .{ .sort = "name" }, "name,score\nbob,2\nalice,1\ncara,3\n");
+    defer table.deinit();
+
+    try test_support.expectStrings(&.{ "alice", "1" }, table.row(0));
+    try test_support.expectStrings(&.{ "bob", "2" }, table.row(1));
+    try test_support.expectStrings(&.{ "cara", "3" }, table.row(2));
+}
+
+test "table sorts rows by multiple columns" {
+    const table = try Table.initCsv(testing.allocator, .{ .sort = "city,name" }, "name,city\nbob,denver\ncara,boston\nalice,boston\n");
+    defer table.deinit();
+
+    try test_support.expectStrings(&.{ "alice", "boston" }, table.row(0));
+    try test_support.expectStrings(&.{ "cara", "boston" }, table.row(1));
+    try test_support.expectStrings(&.{ "bob", "denver" }, table.row(2));
+}
+
+test "table sorts with case insensitive header match" {
+    const table = try Table.initCsv(testing.allocator, .{ .sort = "NAME" }, "name,score\nbob,2\nalice,1\n");
+    defer table.deinit();
+
+    try test_support.expectStrings(&.{ "alice", "1" }, table.row(0));
+    try test_support.expectStrings(&.{ "bob", "2" }, table.row(1));
+}
+
+test "table sorts before head and tail" {
+    const head = try Table.initCsv(testing.allocator, .{ .sort = "name", .head = 2 }, "name,score\ncara,3\nbob,2\nalice,1\n");
+    defer head.deinit();
+    try testing.expectEqual(@as(usize, 2), head.visibleRowCount());
+    try test_support.expectStrings(&.{ "alice", "1" }, head.row(head.visibleRow(0)));
+    try test_support.expectStrings(&.{ "bob", "2" }, head.row(head.visibleRow(1)));
+
+    const tail = try Table.initCsv(testing.allocator, .{ .sort = "name", .tail = 2 }, "name,score\ncara,3\nbob,2\nalice,1\n");
+    defer tail.deinit();
+    try testing.expectEqual(@as(usize, 2), tail.visibleRowCount());
+    try test_support.expectStrings(&.{ "bob", "2" }, tail.row(tail.visibleRow(0)));
+    try test_support.expectStrings(&.{ "cara", "3" }, tail.row(tail.visibleRow(1)));
+}
+
+test "firstInvalidSortColumn reports unknown header" {
+    try testing.expectEqualStrings("bogus", Table.firstInvalidSortColumn(&.{ "name", "score" }, "score,bogus").?);
+    try testing.expect(Table.firstInvalidSortColumn(&.{ "name", "score" }, "NAME,score") == null);
+}
+
+test "table sort preserves original order for equal values" {
+    const table = try Table.initCsv(testing.allocator, .{ .sort = "score" }, "name,score\nalice,1\nbob,1\ncara,2\n");
+    defer table.deinit();
+
+    try test_support.expectStrings(&.{ "alice", "1" }, table.row(0));
+    try test_support.expectStrings(&.{ "bob", "1" }, table.row(1));
+    try test_support.expectStrings(&.{ "cara", "2" }, table.row(2));
+}
+
+test "firstInvalidSortColumn handles whitespace and trailing commas" {
+    try testing.expect(Table.firstInvalidSortColumn(&.{ "name", "score" }, " name , score ") == null);
+    try testing.expect(Table.firstInvalidSortColumn(&.{ "name", "score" }, "name,") != null);
 }
 
 test "visible rows clamp oversized head and tail" {

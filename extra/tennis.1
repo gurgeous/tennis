@@ -5,7 +5,7 @@
 .nh
 .ad l
 .\" Begin generated content:
-.TH "tennis" "1" "2026-03-20"
+.TH "tennis" "1" "2026-03-23"
 .P
 .SH NAME
 .P
@@ -21,8 +21,8 @@ https://github.\&com/gurgeous/tennis
 .P
 \fBtennis\fR is a small CLI for printing stylish CSV tables in your terminal.\&
 Rows will be truncated to fit and it'\&ll automatically pick nice colors
-to match your terminal.\& Works with all csv variants as well as \fB.\&json\fR and
-\fBndjson\fR.\& Written in zig.\&
+to match your terminal.\& Works with all CSV variants as well as
+\fBJSON/NDJSON\fR.\& Written in zig.\&
 .P
 .SH DEMO
 .P
@@ -82,6 +82,12 @@ Set the number of digits after the decimal for float columns.\& Valid values:
 \fB--head\fR <int>
 .RS 4
 Show the first \fIN\fR data rows.\&
+.P
+.RE
+\fB--sort\fR <headers>
+.RS 4
+Sort rows by one or more comma-separated headers before applying \fB--head\fR
+or \fB--tail\fR.\&
 .P
 .RE
 \fB--tail\fR <int>

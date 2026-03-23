@@ -80,7 +80,7 @@ fn main0() !u8 {
     const input_bytes = try input.readToEndAlloc(alloc, std.math.maxInt(usize));
     defer alloc.free(input_bytes);
 
-    const table = initTable(alloc, args.filename, args.config, input_bytes) catch |err| {
+    var loaded = loadData(alloc, args.filename, args.config, input_bytes) catch |err| {
         const err_str = switch (err) {
             error.OutOfMemory => return err,
             error.InvalidJsonShape => "JSON input must be an array of objects",
@@ -90,6 +90,19 @@ fn main0() !u8 {
         try printBanner(err_str);
         return 1;
     };
+    errdefer loaded.data.deinit(alloc);
+
+    if (args.config.sort.len > 0) {
+        validateSort(headersOf(loaded.data), args.config.sort) catch |err| {
+            const maybe_err_str = sortErrorString(alloc, headersOf(loaded.data), args.config.sort, err) catch null;
+            defer if (maybe_err_str) |msg| alloc.free(msg);
+            try printBanner(maybe_err_str orelse "That sort doesn't look right");
+            return 1;
+        };
+    }
+
+    const table = try Table.init(alloc, loaded.config, loaded.data);
+    loaded.data = undefined;
     defer table.deinit();
     util.benchmark("table.init", timer.read());
 
@@ -100,7 +113,12 @@ fn main0() !u8 {
 }
 
 // Load input into a table using the detected format and delimiter.
-fn initTable(alloc: std.mem.Allocator, filename: ?[]const u8, config_in: types.Config, bytes_in: []const u8) !*Table {
+const LoadResult = struct {
+    config: types.Config,
+    data: Data,
+};
+
+fn loadData(alloc: std.mem.Allocator, filename: ?[]const u8, config_in: types.Config, bytes_in: []const u8) anyerror!LoadResult {
     // skip bom
     var bytes = bytes_in;
     if (std.mem.startsWith(u8, bytes, "\xef\xbb\xbf")) {
@@ -116,7 +134,44 @@ fn initTable(alloc: std.mem.Allocator, filename: ?[]const u8, config_in: types.C
     } else {
         data = try json.load(alloc, bytes);
     }
-    return Table.init(alloc, config, data);
+    return .{ .config = config, .data = data };
+}
+
+// Load input into a table using the detected format and delimiter.
+fn initTable(alloc: std.mem.Allocator, filename: ?[]const u8, config_in: types.Config, bytes_in: []const u8) !*Table {
+    const loaded = try loadData(alloc, filename, config_in, bytes_in);
+    return Table.init(alloc, loaded.config, loaded.data);
+}
+
+fn headersOf(data: Data) []const []const u8 {
+    return if (data.rows.len > 0) data.row(0) else &.{};
+}
+
+fn validateSort(headers: []const []const u8, spec: []const u8) !void {
+    if (Table.firstInvalidSortColumn(headers, spec)) |bad| {
+        if (util.strip(u8, bad).len == 0) {
+            return error.InvalidSortSpec;
+        }
+        return error.InvalidSortColumn;
+    }
+}
+
+fn sortErrorString(alloc: std.mem.Allocator, headers: []const []const u8, spec: []const u8, err: anyerror) ![]u8 {
+    var columns: std.ArrayList(u8) = .empty;
+    defer columns.deinit(alloc);
+    for (headers, 0..) |header, ii| {
+        if (ii > 0) try columns.appendSlice(alloc, ", ");
+        try columns.appendSlice(alloc, header);
+    }
+
+    return switch (err) {
+        error.InvalidSortSpec => std.fmt.allocPrint(alloc, "Invalid sort spec '{s}'. Empty sort columns are not allowed. Columns: {s}", .{ spec, columns.items }),
+        error.InvalidSortColumn => blk: {
+            const bad = Table.firstInvalidSortColumn(headers, spec) orelse unreachable;
+            break :blk std.fmt.allocPrint(alloc, "Unknown sort column '{s}'. Columns: {s}", .{ util.strip(u8, bad), columns.items });
+        },
+        else => unreachable,
+    };
 }
 
 // Print the startup banner to the shared app writers.
