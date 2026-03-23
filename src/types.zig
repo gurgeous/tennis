@@ -22,6 +22,8 @@ pub const Config = struct {
     theme: Theme = .auto,
     title: []const u8 = "",
     owned_title: ?[]const u8 = null,
+    footer: []const u8 = "",
+    owned_footer: ?[]const u8 = null,
     vanilla: bool = false,
     width: usize = 0,
     zebra: bool = false,
@@ -44,6 +46,7 @@ pub const Config = struct {
     // Release any resolved config slices owned by a bound config.
     pub fn deinit(self: Config, alloc: std.mem.Allocator) void {
         if (self.owned_title) |title| alloc.free(title);
+        if (self.owned_footer) |footer| alloc.free(footer);
         alloc.free(self.select_cols);
         alloc.free(self.sort_cols);
     }

@@ -21,6 +21,12 @@ fn buildSampleTable(alloc: std.mem.Allocator, table: *Table) !*Table {
     config.owned_title = title;
 
     const n = @min(@as(usize, 5), table.nrows());
+    if (table.nrows() > n) {
+        const more = table.nrows() - n;
+        const footer = try sampleFooter(alloc, more);
+        config.footer = footer;
+        config.owned_footer = footer;
+    }
     var rows: std.ArrayList(DataRow) = .empty;
     defer {
         for (rows.items) |row| row.deinit(alloc);
@@ -97,6 +103,7 @@ fn formatCount(alloc: std.mem.Allocator, n: usize) ![]u8 {
 fn sampleConfig(config: Config) Config {
     var out = config;
     out.filter = "";
+    out.footer = "";
     out.head = 0;
     out.peek = false;
     out.reverse = false;
@@ -106,6 +113,7 @@ fn sampleConfig(config: Config) Config {
     out.sort = "";
     out.sort_cols = &.{};
     out.tail = 0;
+    out.owned_footer = null;
     out.owned_title = null;
     out.srand = 0;
     return out;
@@ -117,6 +125,13 @@ fn statsConfig(config: Config) Config {
     out.row_numbers = false;
     out.title = "stats";
     return out;
+}
+
+// Format the centered sample footer when the sample omits visible rows.
+fn sampleFooter(alloc: std.mem.Allocator, nmore: usize) ![]u8 {
+    const more = try formatCount(alloc, nmore);
+    defer alloc.free(more);
+    return std.fmt.allocPrint(alloc, "… {s} more {s} …", .{ more, util.plural(nmore, "row", "rows") });
 }
 
 // Format fill as the percent of non-empty visible cells in a column.
@@ -255,6 +270,16 @@ test "shapeTitle includes optional title and visible shape" {
     const singular = try shapeTitle(testing.allocator, "", 1, 1);
     defer testing.allocator.free(singular);
     try testing.expectEqualStrings("1 row × 1 col", singular);
+}
+
+test "sampleFooter pluralizes row count" {
+    const one = try sampleFooter(testing.allocator, 1);
+    defer testing.allocator.free(one);
+    try testing.expectEqualStrings("… 1 more row …", one);
+
+    const many = try sampleFooter(testing.allocator, 12);
+    defer testing.allocator.free(many);
+    try testing.expectEqualStrings("… 12 more rows …", many);
 }
 
 test "buildStatsTable reports basic visible stats" {

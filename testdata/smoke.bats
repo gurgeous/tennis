@@ -243,6 +243,14 @@ setup() {
   [[ "$output" == *"│ meta   │ string │ 33%  │    1 │ 11 chars │ 11 chars"* ]]
 }
 
+@test "renders peek footer when sample omits rows" {
+  run "$TENNIS_BIN" --color=off --width 80 --peek "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"14 rows × 10 cols"* ]]
+  [[ "$output" == *"… 9 more rows …"* ]]
+  [[ "$output" == *"stats"* ]]
+}
+
 @test "reverses rows before head" {
   run "$TENNIS_BIN" --color=off --width 80 --reverse --head 2 "$REPO_ROOT/testdata/test.json"
   [ "$status" -eq 0 ]

@@ -36,7 +36,7 @@ pub const Render = struct {
 
         // top rule
         if (self.border.top != .none) {
-            const top = if (self.table.config.title.len > 0) spanRule(self.border.top) else self.border.top;
+            const top = if (self.table.config.title.len > 0 or self.table.config.footer.len > 0) spanRule(self.border.top) else self.border.top;
             try self.renderRule(top);
         }
 
@@ -58,8 +58,21 @@ pub const Render = struct {
             }
         }
 
+        // footer and footer rule
+        if (self.table.config.footer.len > 0) {
+            const footer_top = if (self.border.row != .none)
+                footerRule(self.border.row, self.border.bottom)
+            else
+                spanRule(self.border.header);
+            if (footer_top != .none) try self.renderRule(footer_top);
+            try self.renderFooter();
+        }
+
         // bottom rule
-        if (self.border.bottom != .none) try self.renderRule(self.border.bottom);
+        if (self.border.bottom != .none) {
+            const bottom = if (self.table.config.footer.len > 0) spanRule(self.border.bottom) else self.border.bottom;
+            try self.renderRule(bottom);
+        }
     }
 
     //
@@ -107,6 +120,20 @@ pub const Render = struct {
         try self.writeChrome(self.border.left);
         try out.writeByte(' ');
         try fill(out, self.table.style().title, "", self.table.config.title, width, .center);
+        try out.writeByte(' ');
+        try self.writeChrome(self.border.right);
+        try self.newline();
+    }
+
+    // Render the optional full-width footer row.
+    fn renderFooter(self: *Render) !void {
+        const out = &self.buf.writer;
+        const chromeWidth = doomicode.displayWidth(self.border.left) + doomicode.displayWidth(self.border.right) + 2;
+        const width = self.layout.tableWidth() - chromeWidth;
+
+        try self.writeChrome(self.border.left);
+        try out.writeByte(' ');
+        try fill(out, self.table.style().chrome, "", self.table.config.footer, width, .center);
         try out.writeByte(' ');
         try self.writeChrome(self.border.right);
         try self.newline();
@@ -274,6 +301,23 @@ fn titleRule(top: border.BorderRule, header: border.BorderRule) border.BorderRul
                 .right = h.right,
             } },
             else => header,
+        },
+    };
+}
+
+// Choose the footer separator rule between the last row rule and the bottom rule.
+fn footerRule(row: border.BorderRule, bottom: border.BorderRule) border.BorderRule {
+    return switch (row) {
+        .none => .none,
+        .continuous => row,
+        .segmented => |r| switch (bottom) {
+            .segmented => |b| .{ .segmented = .{
+                .left = r.left,
+                .fill = r.fill,
+                .mid = b.mid,
+                .right = r.right,
+            } },
+            else => row,
         },
     };
 }
