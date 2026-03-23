@@ -55,10 +55,8 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
             try completion.write(alloc, shell);
             return null;
         },
-        .fatal => |fatal| {
-            // arg/setup failures are already fully formed Failures
-            return fatal;
-        },
+        // arg/setup failures are already fully formed Failures
+        .fatal => return event.takeFailure(),
         .help => {
             // help text bypasses the rest of the CLI
             try util.stdout.writeAll(Args.help);

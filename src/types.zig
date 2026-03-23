@@ -78,6 +78,13 @@ pub const MainEvent = union(enum) {
             else => {},
         }
     }
+
+    // Move the owned failure out of this event and disarm later cleanup.
+    pub fn takeFailure(self: *MainEvent) failure.Failure {
+        const fatal = self.fatal;
+        self.* = .banner;
+        return fatal;
+    }
 };
 
 // Rows/Row/Field plus a simple two-field entry pair.
