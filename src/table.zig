@@ -38,6 +38,7 @@ pub const Table = struct {
         if (!table.empty) {
             for (table.row_order, 0..) |*slot, ii| slot.* = ii;
             if (config.sort.len > 0) try table.sortRows();
+            if (config.reverse) reverseRows(table.row_order);
 
             var n: usize = table.nrows();
             if (config.head > 0) n = @min(config.head, n);
@@ -182,6 +183,11 @@ pub const Table = struct {
         defer sorter.deinit(self.alloc);
         sorter.apply(self.data, self.row_order);
     }
+
+    // Reverse the display order of the loaded data rows in place.
+    fn reverseRows(row_order: []usize) void {
+        std.mem.reverse(usize, row_order);
+    }
 };
 
 //
@@ -288,6 +294,29 @@ test "table sorts before head and tail" {
     try testing.expectEqual(@as(usize, 2), tail.visibleRowCount());
     try test_support.expectStrings(&.{ "bob", "2" }, tail.row(tail.visibleRow(0)));
     try test_support.expectStrings(&.{ "cara", "3" }, tail.row(tail.visibleRow(1)));
+}
+
+test "table reverses rows before head and tail" {
+    const head = try Table.initCsv(testing.allocator, .{ .reverse = true, .head = 2 }, "name,score\nalice,1\nbob,2\ncara,3\n");
+    defer head.deinit();
+    try testing.expectEqual(@as(usize, 2), head.visibleRowCount());
+    try test_support.expectStrings(&.{ "cara", "3" }, head.row(head.visibleRow(0)));
+    try test_support.expectStrings(&.{ "bob", "2" }, head.row(head.visibleRow(1)));
+
+    const tail = try Table.initCsv(testing.allocator, .{ .reverse = true, .tail = 2 }, "name,score\nalice,1\nbob,2\ncara,3\n");
+    defer tail.deinit();
+    try testing.expectEqual(@as(usize, 2), tail.visibleRowCount());
+    try test_support.expectStrings(&.{ "bob", "2" }, tail.row(tail.visibleRow(0)));
+    try test_support.expectStrings(&.{ "alice", "1" }, tail.row(tail.visibleRow(1)));
+}
+
+test "table reverses sorted rows" {
+    const table = try Table.initCsv(testing.allocator, .{ .sort = "name", .reverse = true }, "name,score\nbob,2\nalice,1\ncara,3\n");
+    defer table.deinit();
+
+    try test_support.expectStrings(&.{ "cara", "3" }, table.row(0));
+    try test_support.expectStrings(&.{ "bob", "2" }, table.row(1));
+    try test_support.expectStrings(&.{ "alice", "1" }, table.row(2));
 }
 
 test "visible rows clamp oversized head and tail" {

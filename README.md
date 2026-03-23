@@ -44,6 +44,7 @@ $ zig build
         tennis [options...]                # print csv from stdin
 
   -n, --row-numbers         Turn on row numbers
+  -r, --reverse             Reverse row order before head or tail
   -t, --title <string>      Add a title to the table
 
       --border <border>     Table border style (rounded|thin|double|...)
@@ -96,6 +97,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 - `--completion` for auto-generating bash/zsh completions
 - `.json`, `.jsonl`, and `.ndjson` support
 - `--head` and `--tail` for clipping large tables
+- `--reverse` for reversing row order before clipping
 - `--sort` for sorting rows by one or more headers
 - `doomicode`, best-effort Unicode width for emojis, etc
 - auto-detect csv vs tsv (or semis, or pipes)

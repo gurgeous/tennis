@@ -6,6 +6,7 @@ pub const Config = struct {
     delimiter: u8 = ',',
     digits: usize = 3,
     head: usize = 0,
+    reverse: bool = false,
     row_numbers: bool = false,
     sort: []const u8 = "",
     tail: usize = 0,

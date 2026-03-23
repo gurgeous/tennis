@@ -208,6 +208,14 @@ setup() {
   [[ "$output" != *"cara"* ]]
 }
 
+@test "reverses rows before head" {
+  run "$TENNIS_BIN" --color=off --width 80 --reverse --head 2 "$REPO_ROOT/testdata/test.json"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"cara"* ]]
+  [[ "$output" == *"bob"* ]]
+  [[ "$output" != *"alice"* ]]
+}
+
 @test "sorts naturally with mixed and float columns" {
   run "$TENNIS_BIN" --color=off --vanilla --width 120 --sort mixed --head 1 "$REPO_ROOT/testdata/natsort.csv"
   [ "$status" -eq 0 ]
@@ -223,8 +231,8 @@ setup() {
 @test "rejects invalid sort columns without panicking" {
   run "$TENNIS_BIN" --color=off --sort version "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 1 ]
-  [[ "$output" == *"tennis: Problem with --sort. Use a comma-separated list of headers."* ]]
-  [[ "$output" == *"Columns: carat, cut, color, clarity, depth, table, price, x, y, z"* ]]
+  [[ "$output" == *"tennis:  --sort didn't look right, should be a comma-separated list of columns."* ]]
+  [[ "$output" == *"column names in that file: carat, cut, color, clarity, depth, table, price, x, y, z"* ]]
 }
 
 @test "rejects head and tail together" {

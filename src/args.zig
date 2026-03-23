@@ -12,6 +12,7 @@ pub const Args = struct {
         \\        tennis [options...]                # print csv from stdin
         \\
         \\  -n, --row-numbers         Turn on row numbers
+        \\  -r, --reverse             Reverse row order before head or tail
         \\  -t, --title <string>      Add a title to the table
         \\
         \\      --border <border>     Table border style (rounded|thin|double|...)
@@ -40,6 +41,7 @@ pub const Args = struct {
         \\    --theme <THEME>
         \\-d, --delimiter <CHAR>
         \\-n, --row-numbers
+        \\-r, --reverse
         \\-t, --title <STRING>
         \\-w, --width <INT>
         \\    --digits <INT>
@@ -145,6 +147,7 @@ pub const Args = struct {
             if (v == 0) return error.InvalidHeadValue;
             config.head = v;
         }
+        config.reverse = res.args.reverse > 0;
         if (res.args.sort) |v| config.sort = v;
         if (res.args.tail) |v| {
             if (v == 0) return error.InvalidTailValue;
@@ -228,6 +231,7 @@ test "parse option cases" {
         "4",
         "--head",
         "5",
+        "--reverse",
         "--sort",
         "score,name",
         "--theme",
@@ -246,6 +250,7 @@ test "parse option cases" {
     try testing.expectEqual(types.Color.off, out.config.color);
     try testing.expectEqual(@as(usize, 4), out.config.digits);
     try testing.expectEqual(@as(usize, 5), out.config.head);
+    try testing.expect(out.config.reverse);
     try testing.expectEqualStrings("score,name", out.config.sort);
     try testing.expectEqual(types.Theme.light, out.config.theme);
     try testing.expectEqualStrings("foo", out.config.title);

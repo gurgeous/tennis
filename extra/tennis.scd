@@ -40,6 +40,9 @@ $ tennis diamonds.csv
 *-n*, *--row-numbers*
 	Show row numbers.
 
+*-r*, *--reverse*
+	Reverse row order before applying *--head* or *--tail*.
+
 *-t*, *--title* <string>
 	Add a title above the table.
 
