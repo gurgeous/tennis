@@ -45,17 +45,21 @@ $ zig build
 
   -n, --row-numbers         Turn on row numbers
   -t, --title <string>      Add a title to the table
+  -r, --reverse             Reverse row order (helpful when sorting)
 
       --border <border>     Table border style (rounded|thin|double|...)
       --color <color>       Turn color off and on (on|off|auto)
-      --completion <shell>  Print a shell completion script (bash|zsh)
       --delimiter <char>    CSV delim (can be any char or "tab")
       --digits <int>        Digits after decimal for float columns (1-6)
-      --head <int>          Show first N rows
-      --tail <int>          Show last N rows
       --theme <theme>       Select color theme (auto|dark|light)
       --vanilla             Disable numeric formatting entirely
       --width <int>         Set max table width in chars
+
+      --sort <headers>      Sort by one or more comma-separated headers
+      --head <int>          Show first N rows
+      --tail <int>          Show last N rows
+
+      --completion <shell>  Print a shell completion script (bash|zsh)
       --help                Get help
       --version             Show version number and exit
 ```
@@ -69,7 +73,8 @@ Note that color defaults to `on`. Tennis likes to be colorful.
 ### Future Work
 
 - select cols - `--only` or `--col` or `--columns` or `--select`
-- sort and filter - `--sort` and `--filter`
+- `--shuffle` and `--sample`
+- filter - `--filter`
 - add zebra stripes - `--zebra`
 - briefly summarize each col `--summary` or `--peek`
 - sample some rows `--sample`
@@ -95,6 +100,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 - `--completion` for auto-generating bash/zsh completions
 - `.json`, `.jsonl`, and `.ndjson` support
 - `--head` and `--tail` for clipping large tables
+- `--sort` and `--reverse` for sorting rows by header
 - `doomicode`, best-effort Unicode width for emojis, etc
 - auto-detect csv vs tsv (or semis, or pipes)
 

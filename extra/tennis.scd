@@ -40,6 +40,9 @@ $ tennis diamonds.csv
 *-n*, *--row-numbers*
 	Show row numbers.
 
+*-r*, *--reverse*
+	Reverse row order. Helpful when sorting.
+
 *-t*, *--title* <string>
 	Add a title above the table.
 
@@ -60,6 +63,10 @@ $ tennis diamonds.csv
 
 *--head* <int>
 	Show the first _N_ data rows.
+
+*--sort* <headers>
+	Sort rows by one or more comma-separated headers before applying *--head*
+	or *--tail*.
 
 *--tail* <int>
 	Show the last _N_ data rows.

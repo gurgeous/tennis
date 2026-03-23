@@ -13,17 +13,21 @@ pub const Args = struct {
         \\
         \\  -n, --row-numbers         Turn on row numbers
         \\  -t, --title <string>      Add a title to the table
+        \\  -r, --reverse             Reverse row order (helpful when sorting)
         \\
         \\      --border <border>     Table border style (rounded|thin|double|...)
         \\      --color <color>       Turn color off and on (on|off|auto)
-        \\      --completion <shell>  Print a shell completion script (bash|zsh)
         \\      --delimiter <char>    CSV delim (can be any char or "tab")
         \\      --digits <int>        Digits after decimal for float columns (1-6)
-        \\      --head <int>          Show first N rows
-        \\      --tail <int>          Show last N rows
         \\      --theme <theme>       Select color theme (auto|dark|light)
         \\      --vanilla             Disable numeric formatting entirely
         \\      --width <int>         Set max table width in chars
+        \\
+        \\      --sort <headers>      Sort by one or more comma-separated headers
+        \\      --head <int>          Show first N rows
+        \\      --tail <int>          Show last N rows
+        \\
+        \\      --completion <shell>  Print a shell completion script (bash|zsh)
         \\      --help                Get help
         \\      --version             Show version number and exit
         \\
@@ -34,10 +38,12 @@ pub const Args = struct {
         \\    --color <COLOR>
         \\    --completion <SHELL>
         \\    --head <INT>
+        \\    --sort <STRING>
         \\    --tail <INT>
         \\    --theme <THEME>
         \\-d, --delimiter <CHAR>
         \\-n, --row-numbers
+        \\-r, --reverse
         \\-t, --title <STRING>
         \\-w, --width <INT>
         \\    --digits <INT>
@@ -143,6 +149,8 @@ pub const Args = struct {
             if (v == 0) return error.InvalidHeadValue;
             config.head = v;
         }
+        config.reverse = res.args.reverse > 0;
+        if (res.args.sort) |v| config.sort = v;
         if (res.args.tail) |v| {
             if (v == 0) return error.InvalidTailValue;
             config.tail = v;
@@ -225,6 +233,9 @@ test "parse option cases" {
         "4",
         "--head",
         "5",
+        "--reverse",
+        "--sort",
+        "score,name",
         "--theme",
         "light",
         "--title",
@@ -241,6 +252,8 @@ test "parse option cases" {
     try testing.expectEqual(types.Color.off, out.config.color);
     try testing.expectEqual(@as(usize, 4), out.config.digits);
     try testing.expectEqual(@as(usize, 5), out.config.head);
+    try testing.expect(out.config.reverse);
+    try testing.expectEqualStrings("score,name", out.config.sort);
     try testing.expectEqual(types.Theme.light, out.config.theme);
     try testing.expectEqualStrings("foo", out.config.title);
     try testing.expect(out.config.vanilla);
@@ -259,6 +272,7 @@ test "parse option cases" {
         .{ .argv = &.{ "--delimiter", "tab", "-" }, .delimiter = '\t' },
         .{ .argv = &.{ "--delimiter", "\\t", "-" }, .delimiter = '\t' },
         .{ .argv = &.{ "--border", "compact_double", "-" }, .border_name = .compact_double },
+        .{ .argv = &.{ "--sort", "score,name", "-" } },
         .{ .argv = &.{ "--completion", "zsh" }, .action = .completion, .completion = .zsh },
         .{ .argv = &.{"--help"}, .action = .help },
         .{ .argv = &.{"--version"}, .action = .version },

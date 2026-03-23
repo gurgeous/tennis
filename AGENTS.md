@@ -38,6 +38,7 @@
 
 - Keep files and APIs small and direct.
 - Prefer straightforward Zig control flow.
+- In `src/*.zig`, add a one-line comment to each struct and function.
 - Keep imports sorted at the bottom of each file.
 - When the user says `commit`, commit all current changes by default, including unrelated local edits.
 - With `gh pr create`, never use unescaped backticks; prefer `--body-file`.

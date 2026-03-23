@@ -5,6 +5,7 @@ pub const Table = struct {
     columns: []Column,
     config: types.Config = .{},
     empty: bool = false,
+    row_order: []usize,
     visible_row_count: usize = 0,
     // memoized
     _style: ?Style = null,
@@ -27,12 +28,18 @@ pub const Table = struct {
             .columns = &.{},
             .config = config,
             .data = data,
+            .row_order = try alloc.alloc(usize, if (data.rows.len > 0) data.rows.len - 1 else 0),
         };
+        errdefer alloc.free(table.row_order);
 
         // Input with zero data rows is intentionally rendered as "empty".
         table.empty = data.rows.len < 2;
 
         if (!table.empty) {
+            for (table.row_order, 0..) |*slot, ii| slot.* = ii;
+            if (config.sort.len > 0) try table.sortRows();
+            if (config.reverse) std.mem.reverse(usize, table.row_order);
+
             var n: usize = table.nrows();
             if (config.head > 0) n = @min(config.head, n);
             if (config.tail > 0) n = @min(config.tail, n);
@@ -56,6 +63,7 @@ pub const Table = struct {
     pub fn deinit(self: *Self) void {
         for (self.columns) |col| col.deinit(self.alloc);
         self.alloc.free(self.columns);
+        self.alloc.free(self.row_order);
         self.data.deinit(self.alloc);
         self.alloc.destroy(self);
     }
@@ -107,7 +115,7 @@ pub const Table = struct {
 
     // Return one loaded data row.
     pub fn row(self: *const Self, index: usize) Row {
-        return self.data.row(index + 1);
+        return self.data.row(self.row_order[index] + 1);
     }
 
     // Return the number of visible rows after head/tail clipping.
@@ -168,6 +176,14 @@ pub const Table = struct {
             ii += 1;
         }
         return columns;
+    }
+
+    fn sortRows(self: *Self) !void {
+        if (self.config.sort.len > 0) {
+            const sorter = try sort.Sort.init(self.alloc, self.headers(), self.config.sort);
+            defer sorter.deinit(self.alloc);
+            sorter.apply(self.data, self.row_order);
+        }
     }
 };
 
@@ -237,6 +253,69 @@ test "visible rows support head and tail" {
     }
 }
 
+test "table sorts rows by one column" {
+    const table = try Table.initCsv(testing.allocator, .{ .sort = "name" }, "name,score\nbob,2\nalice,1\ncara,3\n");
+    defer table.deinit();
+
+    try test_support.expectStrings(&.{ "alice", "1" }, table.row(0));
+    try test_support.expectStrings(&.{ "bob", "2" }, table.row(1));
+    try test_support.expectStrings(&.{ "cara", "3" }, table.row(2));
+}
+
+test "table sorts rows by multiple columns" {
+    const table = try Table.initCsv(testing.allocator, .{ .sort = "city,name" }, "name,city\nbob,denver\ncara,boston\nalice,boston\n");
+    defer table.deinit();
+
+    try test_support.expectStrings(&.{ "alice", "boston" }, table.row(0));
+    try test_support.expectStrings(&.{ "cara", "boston" }, table.row(1));
+    try test_support.expectStrings(&.{ "bob", "denver" }, table.row(2));
+}
+
+test "table sorts with case insensitive header match" {
+    const table = try Table.initCsv(testing.allocator, .{ .sort = "NAME" }, "name,score\nbob,2\nalice,1\n");
+    defer table.deinit();
+
+    try test_support.expectStrings(&.{ "alice", "1" }, table.row(0));
+    try test_support.expectStrings(&.{ "bob", "2" }, table.row(1));
+}
+
+test "table sorts before head and tail" {
+    const head = try Table.initCsv(testing.allocator, .{ .sort = "name", .head = 2 }, "name,score\ncara,3\nbob,2\nalice,1\n");
+    defer head.deinit();
+    try testing.expectEqual(@as(usize, 2), head.visibleRowCount());
+    try test_support.expectStrings(&.{ "alice", "1" }, head.row(head.visibleRow(0)));
+    try test_support.expectStrings(&.{ "bob", "2" }, head.row(head.visibleRow(1)));
+
+    const tail = try Table.initCsv(testing.allocator, .{ .sort = "name", .tail = 2 }, "name,score\ncara,3\nbob,2\nalice,1\n");
+    defer tail.deinit();
+    try testing.expectEqual(@as(usize, 2), tail.visibleRowCount());
+    try test_support.expectStrings(&.{ "bob", "2" }, tail.row(tail.visibleRow(0)));
+    try test_support.expectStrings(&.{ "cara", "3" }, tail.row(tail.visibleRow(1)));
+}
+
+test "table reverses rows before head and tail" {
+    const head = try Table.initCsv(testing.allocator, .{ .reverse = true, .head = 2 }, "name,score\nalice,1\nbob,2\ncara,3\n");
+    defer head.deinit();
+    try testing.expectEqual(@as(usize, 2), head.visibleRowCount());
+    try test_support.expectStrings(&.{ "cara", "3" }, head.row(head.visibleRow(0)));
+    try test_support.expectStrings(&.{ "bob", "2" }, head.row(head.visibleRow(1)));
+
+    const tail = try Table.initCsv(testing.allocator, .{ .reverse = true, .tail = 2 }, "name,score\nalice,1\nbob,2\ncara,3\n");
+    defer tail.deinit();
+    try testing.expectEqual(@as(usize, 2), tail.visibleRowCount());
+    try test_support.expectStrings(&.{ "bob", "2" }, tail.row(tail.visibleRow(0)));
+    try test_support.expectStrings(&.{ "alice", "1" }, tail.row(tail.visibleRow(1)));
+}
+
+test "table reverses sorted rows" {
+    const table = try Table.initCsv(testing.allocator, .{ .sort = "name", .reverse = true }, "name,score\nbob,2\nalice,1\ncara,3\n");
+    defer table.deinit();
+
+    try test_support.expectStrings(&.{ "cara", "3" }, table.row(0));
+    try test_support.expectStrings(&.{ "bob", "2" }, table.row(1));
+    try test_support.expectStrings(&.{ "alice", "1" }, table.row(2));
+}
+
 test "visible rows clamp oversized head and tail" {
     const head = try Table.initCsv(testing.allocator, .{ .head = 100 }, "a,b\n1,2\n3,4\n");
     defer head.deinit();
@@ -284,9 +363,10 @@ const Layout = @import("layout.zig").Layout;
 const Render = @import("render.zig").Render;
 const Row = @import("types.zig").Row;
 const Rows = @import("types.zig").Rows;
+const sort = @import("sort.zig");
 const std = @import("std");
-const testing = std.testing;
 const Style = @import("style.zig").Style;
+const testing = std.testing;
 const test_support = @import("test_support.zig");
 const types = @import("types.zig");
 const util = @import("util.zig");
