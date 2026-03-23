@@ -44,12 +44,12 @@ pub const Table = struct {
 
         if (!table.empty) {
             for (table.col_order, 0..) |*slot, ii| slot.* = ii;
-            if (config.select.len > 0) try table.selectCols();
+            if (config.select_cols.len > 0) table.selectCols();
             table.header_row = try table.buildHeaderRow();
             errdefer alloc.free(table.header_row);
 
             for (table.row_order, 0..) |*slot, ii| slot.* = ii;
-            if (config.sort.len > 0) try table.sortRows();
+            if (config.sort_cols.len > 0) table.sortRows();
             if (config.reverse) std.mem.reverse(usize, table.row_order);
 
             var n: usize = table.nrows();
@@ -68,7 +68,10 @@ pub const Table = struct {
     pub fn initCsv(alloc: std.mem.Allocator, config: types.Config, bytes: []const u8) !*Table {
         const data = try csv.load(alloc, bytes, config.delimiter);
         errdefer data.deinit(alloc);
-        return init(alloc, config, data);
+        var bound = config;
+        defer bound.deinit(alloc);
+        try bound.bind(alloc, data.headers());
+        return init(alloc, bound, data);
     }
 
     // Release the table, columns, style cache, and stored rows.
@@ -192,12 +195,9 @@ pub const Table = struct {
         return columns;
     }
 
-    fn sortRows(self: *Self) !void {
-        if (self.config.sort.len > 0) {
-            const sorter = try sort.Sort.init(self.alloc, self.data.headers(), self.config.sort);
-            defer sorter.deinit(self.alloc);
-            sorter.apply(self.data, self.row_order);
-        }
+    fn sortRows(self: *Self) void {
+        const sorter: sort.Sort = .{ .cols = self.config.sort_cols };
+        sorter.apply(self.data, self.row_order);
     }
 
     // Return the source column index for one visible column.
@@ -206,11 +206,10 @@ pub const Table = struct {
     }
 
     // Resolve selected visible columns against the source header row.
-    fn selectCols(self: *Self) !void {
-        var select = try sort.Select.init(self.alloc, self.data.headers(), self.config.select);
+    fn selectCols(self: *Self) void {
+        const out = self.alloc.dupe(usize, self.config.select_cols) catch unreachable;
         self.alloc.free(self.col_order);
-        self.col_order = select.cols;
-        select.cols = &.{};
+        self.col_order = out;
     }
 
     // Build the visible header row in selected display order.

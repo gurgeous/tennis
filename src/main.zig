@@ -10,15 +10,16 @@ fn main0() !u8 {
     defer util.stdout.flush() catch {};
     defer util.stderr.flush() catch {};
 
+    // BENCHMARK=1 sanity check
+    if (util.hasenv("BENCHMARK") and builtin.mode == .Debug) {
+        const fatal: failure.Failure = .{ .code = .benchmark_requires_release };
+        try fatal.print();
+        return 1;
+    }
+
     // timer
     var total = try std.time.Timer.start();
     defer util.benchmark("total", total.read());
-
-    // BENCHMARK=1 sanity check
-    if (util.hasenv("BENCHMARK") and builtin.mode == .Debug) {
-        try util.stderr.writeAll("tennis: BENCHMARK=1 requires `just benchmark` or a release build\n");
-        std.process.exit(1);
-    }
 
     // allocators
     var gpa: std.heap.DebugAllocator(.{}) = .init;
@@ -35,27 +36,37 @@ fn main0() !u8 {
     var timer = try std.time.Timer.start();
     const argv = try std.process.argsAlloc(alloc);
     defer std.process.argsFree(alloc, argv);
-    var args = try Args.init(alloc, argv[1..]);
-    defer args.deinit(alloc);
+    const event = try Args.init(alloc, argv[1..]);
+    defer event.deinit(alloc);
     util.benchmark("args", timer.read());
 
     //
     // handle early exits ("actions")
     //
 
-    if (args.action) |action| {
-        switch (action) {
-            .banner => try printBanner(null),
-            .completion => try completion.write(alloc, args.completion.?),
-            .help => try util.stdout.writeAll(Args.help),
-            .version => try util.stdout.print("tennis: {s}\n", .{version}),
-            .fatal => {
-                try printBanner(args.err_str);
-                return 1;
-            },
-        }
-        return 0;
-    }
+    var config = switch (event) {
+        .banner => {
+            try failure.printBanner(util.stdout, null);
+            return 0;
+        },
+        .completion => |shell| {
+            try completion.write(alloc, shell);
+            return 0;
+        },
+        .help => {
+            try util.stdout.writeAll(Args.help);
+            return 0;
+        },
+        .version => {
+            try util.stdout.print("tennis: {s}\n", .{version});
+            return 0;
+        },
+        .fatal => |fatal| {
+            try fatal.print();
+            return 1;
+        },
+        .run => |run| run,
+    };
 
     //
     // where are we reading from?
@@ -64,7 +75,7 @@ fn main0() !u8 {
     timer = try std.time.Timer.start();
     var needs_close = false;
     var input = std.fs.File.stdin();
-    const filename = args.filename;
+    const filename = config.filename;
     if (filename) |path| {
         if (!std.mem.eql(u8, path, "-")) {
             input = try std.fs.cwd().openFile(path, .{});
@@ -86,40 +97,27 @@ fn main0() !u8 {
     // bytes => data
     //
 
-    var data = load(alloc, &args, input_bytes) catch |err| {
-        const err_str = switch (err) {
-            error.JaggedCsv => "All csv rows must have same number of columns",
-            error.OutOfMemory => return err,
-            error.SyntaxError => "That JSON/JSONL file doesn't look right",
-            else => "That CSV file doesn't look right",
-        };
-        try printBanner(err_str);
+    var data = load(alloc, config, input_bytes) catch |err| {
+        if (err == error.OutOfMemory) return err;
+        try (failure.Failure.fromError(err) orelse return err).print();
         return 1;
     };
     var data_moved = false;
     defer if (!data_moved) data.deinit(alloc);
 
+    config.bind(alloc, data.headers()) catch |err| {
+        const fatal = try failure.Failure.fromTableError(alloc, err, data.headers());
+        defer fatal.deinit(alloc);
+        try fatal.print();
+        return 1;
+    };
+    defer config.deinit(alloc);
+
     //
     // data => table
     //
 
-    const table = Table.init(alloc, args.config, data) catch |err| {
-        switch (err) {
-            error.InvalidSelect => {
-                const maybe_err_str = sort.selectErrorString(alloc, data.headers()) catch null;
-                defer if (maybe_err_str) |msg| alloc.free(msg);
-                try printBanner(maybe_err_str orelse "That select doesn't look right");
-                return 1;
-            },
-            error.InvalidSort => {
-                const maybe_err_str = sort.sortErrorString(alloc, data.headers()) catch null;
-                defer if (maybe_err_str) |msg| alloc.free(msg);
-                try printBanner(maybe_err_str orelse "That sort doesn't look right");
-                return 1;
-            },
-            else => return err,
-        }
-    };
+    const table = try Table.init(alloc, config, data);
     data_moved = true;
     defer table.deinit();
     util.benchmark("table.init", timer.read());
@@ -134,30 +132,21 @@ fn main0() !u8 {
     return 0;
 }
 
-fn load(alloc: std.mem.Allocator, args: *Args, bytes_in: []const u8) !Data {
+fn load(alloc: std.mem.Allocator, config: types.Config, bytes_in: []const u8) !Data {
     // skip bom
     var bytes = bytes_in;
     if (std.mem.startsWith(u8, bytes, "\xef\xbb\xbf")) {
         bytes = bytes[3..];
     }
 
-    const format = try detect.detectFormat(alloc, args.filename, bytes);
+    const format = try detect.detectFormat(alloc, config.filename, bytes);
     if (format == .json) {
         return try json.load(alloc, bytes);
     }
 
-    var delimiter = args.config.delimiter;
+    var delimiter = config.delimiter;
     if (delimiter == 0) delimiter = sniffer.sniff(bytes) orelse ',';
     return try csv.load(alloc, bytes, delimiter);
-}
-
-// Print the startup banner to the shared app writers.
-fn printBanner(err_str: ?[]const u8) !void {
-    const writer = if (err_str != null) util.stderr else util.stdout;
-    if (err_str) |s| {
-        try writer.print("tennis: {s}\n", .{s});
-    }
-    try writer.writeAll("tennis: try 'tennis --help' for more information\n");
 }
 
 //
@@ -173,6 +162,7 @@ test {
     _ = @import("csv.zig");
     _ = @import("detect.zig");
     _ = @import("doomicode.zig");
+    _ = @import("failure.zig");
     _ = @import("float.zig");
     _ = @import("json.zig");
     _ = @import("json_to_string.zig");
@@ -190,13 +180,13 @@ test {
 
 test "load strips UTF-8 BOM before parsing csv and jsonl" {
     const cases = [_]struct {
-        args: Args,
+        config: types.Config,
         input: []const u8,
         nrows: usize,
         checks: []const struct { row: usize, fields: []const []const u8 },
     }{
         .{
-            .args = .{ .filename = null, .config = .{} },
+            .config = .{ .filename = null },
             .input = "\xef\xbb\xbfa,b\nc,d\n",
             .nrows = 2,
             .checks = &.{
@@ -205,7 +195,7 @@ test "load strips UTF-8 BOM before parsing csv and jsonl" {
             },
         },
         .{
-            .args = .{ .filename = "data.jsonl", .config = .{} },
+            .config = .{ .filename = "data.jsonl" },
             .input = "\xef\xbb\xbf{\"name\":\"alice\"}\r\n{\"name\":\"bob\"}",
             .nrows = 3,
             .checks = &.{
@@ -217,8 +207,7 @@ test "load strips UTF-8 BOM before parsing csv and jsonl" {
     };
 
     for (cases) |tc| {
-        var args = tc.args;
-        const data = try load(testing.allocator, &args, tc.input);
+        const data = try load(testing.allocator, tc.config, tc.input);
         defer data.deinit(testing.allocator);
 
         try testing.expectEqual(tc.nrows, data.rows.len);
@@ -235,9 +224,9 @@ const completion = @import("completion.zig");
 const csv = @import("csv.zig");
 const Data = @import("data.zig").Data;
 const detect = @import("detect.zig");
+const failure = @import("failure.zig");
 const json = @import("json.zig");
 const sniffer = @import("sniffer.zig");
-const sort = @import("sort.zig");
 const std = @import("std");
 const testing = std.testing;
 const Table = @import("table.zig").Table;

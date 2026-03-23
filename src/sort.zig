@@ -1,18 +1,8 @@
-// Parse and apply stable row sorting plus column selection from header specs.
+// Apply stable row sorting from already-resolved header indexes.
 
 // Resolved sort columns ready to apply to table row indexes.
 pub const Sort = struct {
     cols: []usize,
-
-    // Parse a comma-separated sort spec into resolved header indexes.
-    pub fn init(alloc: std.mem.Allocator, headers: Row, spec: []const u8) !Sort {
-        return .{ .cols = resolveColumns(alloc, headers, spec) catch return error.InvalidSort };
-    }
-
-    // Release the resolved sort column list.
-    pub fn deinit(self: Sort, alloc: std.mem.Allocator) void {
-        alloc.free(self.cols);
-    }
 
     // Apply the configured stable row ordering to the display index list.
     pub fn apply(self: Sort, data: Data, row_order: []usize) void {
@@ -22,66 +12,6 @@ pub const Sort = struct {
         }, SortCtx.lessThan);
     }
 };
-
-// Resolved visible columns ready to apply to table headers and cells.
-pub const Select = struct {
-    cols: []usize,
-
-    // Parse a comma-separated select spec into resolved header indexes.
-    pub fn init(alloc: std.mem.Allocator, headers: Row, spec: []const u8) !Select {
-        return .{ .cols = resolveColumns(alloc, headers, spec) catch return error.InvalidSelect };
-    }
-
-    // Release the resolved select column list.
-    pub fn deinit(self: Select, alloc: std.mem.Allocator) void {
-        alloc.free(self.cols);
-    }
-};
-
-// Resolve a comma-separated column spec into header indexes.
-fn resolveColumns(alloc: std.mem.Allocator, headers: Row, spec: []const u8) ![]usize {
-    var cols: std.ArrayList(usize) = .empty;
-    defer cols.deinit(alloc);
-
-    var it = std.mem.splitScalar(u8, spec, ',');
-    while (it.next()) |raw| {
-        const name = util.strip(u8, raw);
-        if (name.len == 0) return error.InvalidColumns;
-        for (headers, 0..) |header, ii| {
-            if (std.ascii.eqlIgnoreCase(header, name)) {
-                try cols.append(alloc, ii);
-                break;
-            }
-        } else return error.InvalidColumns;
-    }
-
-    return cols.toOwnedSlice(alloc);
-}
-
-// Build the user-facing error text for invalid sort specs.
-pub fn sortErrorString(alloc: std.mem.Allocator, headers: Row) ![]u8 {
-    return errorString(alloc, headers, "sort");
-}
-
-// Build the user-facing error text for invalid select specs.
-pub fn selectErrorString(alloc: std.mem.Allocator, headers: Row) ![]u8 {
-    return errorString(alloc, headers, "select");
-}
-
-// Build the user-facing error text for invalid column specs.
-fn errorString(alloc: std.mem.Allocator, headers: Row, flag: []const u8) ![]u8 {
-    var columns: std.ArrayList(u8) = .empty;
-    defer columns.deinit(alloc);
-    for (headers, 0..) |header, ii| {
-        if (ii > 0) try columns.appendSlice(alloc, ", ");
-        try columns.appendSlice(alloc, header);
-    }
-
-    return std.fmt.allocPrint(alloc,
-        \\--{s} didn't look right, should be a comma-separated list of columns.
-        \\column names: {s}
-    , .{ flag, columns.items });
-}
 
 // Comparator context for sorting row indexes against loaded data.
 const SortCtx = struct {
@@ -107,40 +37,6 @@ const SortCtx = struct {
 // testing
 //
 
-test "Sort.init resolves case insensitive header names" {
-    const sort = try Sort.init(testing.allocator, &.{ "name", "score" }, " NAME , score ");
-    defer sort.deinit(testing.allocator);
-
-    try testing.expectEqual(@as(usize, 2), sort.cols.len);
-    try testing.expectEqual(@as(usize, 0), sort.cols[0]);
-    try testing.expectEqual(@as(usize, 1), sort.cols[1]);
-}
-
-test "Select.init supports reordering and duplicates" {
-    const select = try Select.init(testing.allocator, &.{ "name", "score" }, "score,name,score");
-    defer select.deinit(testing.allocator);
-
-    try testing.expectEqualSlices(usize, &.{ 1, 0, 1 }, select.cols);
-}
-
-test "column specs reject bad input" {
-    try testing.expectError(error.InvalidSort, Sort.init(testing.allocator, &.{ "name", "score" }, ""));
-    try testing.expectError(error.InvalidSort, Sort.init(testing.allocator, &.{ "name", "score" }, "name,"));
-    try testing.expectError(error.InvalidSelect, Select.init(testing.allocator, &.{ "name", "score" }, "bogus"));
-}
-
-test "error strings include headers" {
-    const sort_msg = try sortErrorString(testing.allocator, &.{ "name", "score" });
-    defer testing.allocator.free(sort_msg);
-    try testing.expect(std.mem.indexOf(u8, sort_msg, "name, score") != null);
-    try testing.expect(std.mem.indexOf(u8, sort_msg, "--sort") != null);
-
-    const select_msg = try selectErrorString(testing.allocator, &.{ "name", "score" });
-    defer testing.allocator.free(select_msg);
-    try testing.expect(std.mem.indexOf(u8, select_msg, "name, score") != null);
-    try testing.expect(std.mem.indexOf(u8, select_msg, "--select") != null);
-}
-
 test "Sort.apply preserves original order for equal values" {
     const alloc = testing.allocator;
     const rows = try alloc.alloc(DataRow, 4);
@@ -158,8 +54,8 @@ test "Sort.apply preserves original order for equal values" {
     defer data.deinit(alloc);
 
     var order = [_]usize{ 0, 1, 2 };
-    const sort = try Sort.init(alloc, data.headers(), "score");
-    defer sort.deinit(alloc);
+    var cols = [_]usize{1};
+    const sort: Sort = .{ .cols = cols[0..] };
     sort.apply(data, &order);
 
     try testing.expectEqualSlices(usize, &.{ 0, 1, 2 }, &order);
@@ -184,8 +80,8 @@ test "Sort.apply uses natural ordering for numeric strings and fractions" {
     defer data.deinit(alloc);
 
     var order = [_]usize{ 0, 1, 2, 3 };
-    const sort = try Sort.init(alloc, data.headers(), "score");
-    defer sort.deinit(alloc);
+    var cols = [_]usize{1};
+    const sort: Sort = .{ .cols = cols[0..] };
     sort.apply(data, &order);
 
     try testing.expectEqualSlices(usize, &.{ 3, 2, 1, 0 }, &order);
@@ -194,7 +90,5 @@ test "Sort.apply uses natural ordering for numeric strings and fractions" {
 const Data = @import("data.zig").Data;
 const DataRow = @import("data.zig").DataRow;
 const natsort = @import("natsort.zig");
-const Row = @import("types.zig").Row;
 const std = @import("std");
 const testing = std.testing;
-const util = @import("util.zig");
