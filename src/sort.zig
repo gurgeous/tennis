@@ -1,4 +1,4 @@
-// Parse and apply stable row sorting from a comma-separated header list.
+// Parse and apply stable row sorting plus column selection from header specs.
 
 // Resolved sort columns ready to apply to table row indexes.
 pub const Sort = struct {
@@ -6,23 +6,7 @@ pub const Sort = struct {
 
     // Parse a comma-separated sort spec into resolved header indexes.
     pub fn init(alloc: std.mem.Allocator, headers: Row, spec: []const u8) !Sort {
-        var cols: std.ArrayList(usize) = .empty;
-        defer cols.deinit(alloc);
-
-        var it = std.mem.splitScalar(u8, spec, ',');
-        while (it.next()) |raw| {
-            const name = util.strip(u8, raw);
-            if (name.len == 0) return error.InvalidSort;
-            for (headers, 0..) |header, ii| {
-                if (std.ascii.eqlIgnoreCase(header, name)) {
-                    try cols.append(alloc, ii);
-                    break;
-                }
-            } else return error.InvalidSort;
-        }
-
-        if (cols.items.len == 0) return error.InvalidSort;
-        return .{ .cols = try cols.toOwnedSlice(alloc) };
+        return .{ .cols = resolveColumns(alloc, headers, spec) catch return error.InvalidSort };
     }
 
     // Release the resolved sort column list.
@@ -39,14 +23,53 @@ pub const Sort = struct {
     }
 };
 
-// Validate a sort spec against the current header row.
-pub fn validate(alloc: std.mem.Allocator, headers: Row, spec: []const u8) !void {
-    const sort = try Sort.init(alloc, headers, spec);
-    defer sort.deinit(alloc);
+// Resolved visible columns ready to apply to table headers and cells.
+pub const Select = struct {
+    cols: []usize,
+
+    // Parse a comma-separated select spec into resolved header indexes.
+    pub fn init(alloc: std.mem.Allocator, headers: Row, spec: []const u8) !Select {
+        return .{ .cols = resolveColumns(alloc, headers, spec) catch return error.InvalidSelect };
+    }
+
+    // Release the resolved select column list.
+    pub fn deinit(self: Select, alloc: std.mem.Allocator) void {
+        alloc.free(self.cols);
+    }
+};
+
+// Resolve a comma-separated column spec into header indexes.
+fn resolveColumns(alloc: std.mem.Allocator, headers: Row, spec: []const u8) ![]usize {
+    var cols: std.ArrayList(usize) = .empty;
+    defer cols.deinit(alloc);
+
+    var it = std.mem.splitScalar(u8, spec, ',');
+    while (it.next()) |raw| {
+        const name = util.strip(u8, raw);
+        if (name.len == 0) return error.InvalidColumns;
+        for (headers, 0..) |header, ii| {
+            if (std.ascii.eqlIgnoreCase(header, name)) {
+                try cols.append(alloc, ii);
+                break;
+            }
+        } else return error.InvalidColumns;
+    }
+
+    return cols.toOwnedSlice(alloc);
 }
 
 // Build the user-facing error text for invalid sort specs.
-pub fn errorString(alloc: std.mem.Allocator, headers: Row) ![]u8 {
+pub fn sortErrorString(alloc: std.mem.Allocator, headers: Row) ![]u8 {
+    return errorString(alloc, headers, "sort");
+}
+
+// Build the user-facing error text for invalid select specs.
+pub fn selectErrorString(alloc: std.mem.Allocator, headers: Row) ![]u8 {
+    return errorString(alloc, headers, "select");
+}
+
+// Build the user-facing error text for invalid column specs.
+fn errorString(alloc: std.mem.Allocator, headers: Row, flag: []const u8) ![]u8 {
     var columns: std.ArrayList(u8) = .empty;
     defer columns.deinit(alloc);
     for (headers, 0..) |header, ii| {
@@ -55,9 +78,9 @@ pub fn errorString(alloc: std.mem.Allocator, headers: Row) ![]u8 {
     }
 
     return std.fmt.allocPrint(alloc,
-        \\ --sort didn't look right, should be a comma-separated list of columns.
-        \\ column names in that file: {s}
-    , .{columns.items});
+        \\--{s} didn't look right, should be a comma-separated list of columns.
+        \\column names: {s}
+    , .{ flag, columns.items });
 }
 
 // Comparator context for sorting row indexes against loaded data.
@@ -93,17 +116,29 @@ test "Sort.init resolves case insensitive header names" {
     try testing.expectEqual(@as(usize, 1), sort.cols[1]);
 }
 
-test "Sort.init rejects bad sort specs" {
-    try testing.expectError(error.InvalidSort, Sort.init(testing.allocator, &.{ "name", "score" }, ""));
-    try testing.expectError(error.InvalidSort, Sort.init(testing.allocator, &.{ "name", "score" }, "name,"));
-    try testing.expectError(error.InvalidSort, Sort.init(testing.allocator, &.{ "name", "score" }, "bogus"));
+test "Select.init supports reordering and duplicates" {
+    const select = try Select.init(testing.allocator, &.{ "name", "score" }, "score,name,score");
+    defer select.deinit(testing.allocator);
+
+    try testing.expectEqualSlices(usize, &.{ 1, 0, 1 }, select.cols);
 }
 
-test "Sort.errorString includes headers" {
-    const msg = try errorString(testing.allocator, &.{ "name", "score" });
-    defer testing.allocator.free(msg);
+test "column specs reject bad input" {
+    try testing.expectError(error.InvalidSort, Sort.init(testing.allocator, &.{ "name", "score" }, ""));
+    try testing.expectError(error.InvalidSort, Sort.init(testing.allocator, &.{ "name", "score" }, "name,"));
+    try testing.expectError(error.InvalidSelect, Select.init(testing.allocator, &.{ "name", "score" }, "bogus"));
+}
 
-    try testing.expect(std.mem.indexOf(u8, msg, "name, score") != null);
+test "error strings include headers" {
+    const sort_msg = try sortErrorString(testing.allocator, &.{ "name", "score" });
+    defer testing.allocator.free(sort_msg);
+    try testing.expect(std.mem.indexOf(u8, sort_msg, "name, score") != null);
+    try testing.expect(std.mem.indexOf(u8, sort_msg, "--sort") != null);
+
+    const select_msg = try selectErrorString(testing.allocator, &.{ "name", "score" });
+    defer testing.allocator.free(select_msg);
+    try testing.expect(std.mem.indexOf(u8, select_msg, "name, score") != null);
+    try testing.expect(std.mem.indexOf(u8, select_msg, "--select") != null);
 }
 
 test "Sort.apply preserves original order for equal values" {

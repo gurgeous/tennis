@@ -8,6 +8,7 @@ pub const Config = struct {
     head: usize = 0,
     reverse: bool = false,
     row_numbers: bool = false,
+    select: []const u8 = "",
     sort: []const u8 = "",
     tail: usize = 0,
     theme: Theme = .auto,

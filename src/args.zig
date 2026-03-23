@@ -23,6 +23,7 @@ pub const Args = struct {
         \\      --vanilla             Disable numeric formatting entirely
         \\      --width <int>         Set max table width in chars
         \\
+        \\      --select <headers>    Show one or more comma-separated headers
         \\      --sort <headers>      Sort by one or more comma-separated headers
         \\      --head <int>          Show first N rows
         \\      --tail <int>          Show last N rows
@@ -47,6 +48,7 @@ pub const Args = struct {
         \\-t, --title <STRING>
         \\-w, --width <INT>
         \\    --digits <INT>
+        \\    --select <STRING>
         \\    --vanilla
         \\-h, --help
         \\    --version
@@ -150,6 +152,7 @@ pub const Args = struct {
             config.head = v;
         }
         config.reverse = res.args.reverse > 0;
+        if (res.args.select) |v| config.select = v;
         if (res.args.sort) |v| config.sort = v;
         if (res.args.tail) |v| {
             if (v == 0) return error.InvalidTailValue;
@@ -234,6 +237,8 @@ test "parse option cases" {
         "--head",
         "5",
         "--reverse",
+        "--select",
+        "name,score",
         "--sort",
         "score,name",
         "--theme",
@@ -253,6 +258,7 @@ test "parse option cases" {
     try testing.expectEqual(@as(usize, 4), out.config.digits);
     try testing.expectEqual(@as(usize, 5), out.config.head);
     try testing.expect(out.config.reverse);
+    try testing.expectEqualStrings("name,score", out.config.select);
     try testing.expectEqualStrings("score,name", out.config.sort);
     try testing.expectEqual(types.Theme.light, out.config.theme);
     try testing.expectEqualStrings("foo", out.config.title);

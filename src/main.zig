@@ -100,23 +100,26 @@ fn main0() !u8 {
     defer if (!data_moved) data.deinit(alloc);
 
     //
-    // sort
-    //
-
-    if (args.config.sort.len > 0) {
-        sort.validate(alloc, data.headers(), args.config.sort) catch {
-            const maybe_err_str = sort.errorString(alloc, data.headers()) catch null;
-            defer if (maybe_err_str) |msg| alloc.free(msg);
-            try printBanner(maybe_err_str orelse "That sort doesn't look right");
-            return 1;
-        };
-    }
-
-    //
     // data => table
     //
 
-    const table = try Table.init(alloc, args.config, data);
+    const table = Table.init(alloc, args.config, data) catch |err| {
+        switch (err) {
+            error.InvalidSelect => {
+                const maybe_err_str = sort.selectErrorString(alloc, data.headers()) catch null;
+                defer if (maybe_err_str) |msg| alloc.free(msg);
+                try printBanner(maybe_err_str orelse "That select doesn't look right");
+                return 1;
+            },
+            error.InvalidSort => {
+                const maybe_err_str = sort.sortErrorString(alloc, data.headers()) catch null;
+                defer if (maybe_err_str) |msg| alloc.free(msg);
+                try printBanner(maybe_err_str orelse "That sort doesn't look right");
+                return 1;
+            },
+            else => return err,
+        }
+    };
     data_moved = true;
     defer table.deinit();
     util.benchmark("table.init", timer.read());

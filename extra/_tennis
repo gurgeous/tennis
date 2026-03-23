@@ -15,6 +15,7 @@ _tennis() {
     '--theme[Select color theme (auto|dark|light)]:theme:(auto dark light)' \
     '--vanilla[Disable numeric formatting entirely]' \
     '--width[Set max table width in chars]:int:' \
+    '--select[Show one or more comma-separated headers]:headers:' \
     '--sort[Sort by one or more comma-separated headers]:headers:' \
     '--head[Show first N rows]:int:' \
     '--tail[Show last N rows]:int:' \

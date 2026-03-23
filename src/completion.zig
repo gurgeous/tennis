@@ -12,7 +12,7 @@ const Option = struct {
 
 // Fixed-capacity collection of parsed completion options.
 const Options = struct {
-    items: [16]Option,
+    items: [20]Option,
     len: usize,
 };
 
