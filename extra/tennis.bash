@@ -21,7 +21,7 @@ _tennis() {
   esac
 
   if [[ "${cur}" == -* ]]; then
-    COMPREPLY=($(compgen -W "-n --row-numbers -t --title -r --reverse --shuffle --shuf --border --color --delimiter --digits --filter --theme --vanilla --width --select --sort --head --tail --completion --help --version " -- "${cur}"))
+    COMPREPLY=($(compgen -W "-n --row-numbers -t --title -r --reverse --zebra --shuffle --shuf --border --color --delimiter --digits --filter --theme --vanilla --width --select --sort --head --tail --completion --help --version " -- "${cur}"))
   else
     _filedir csv
     [[ ${#COMPREPLY[@]} -eq 0 ]] && _filedir

@@ -89,7 +89,7 @@ pub const Render = struct {
             },
         }
         if (style.chrome.len > 0) try out.writeAll(ansi.reset);
-        try self.newline();
+        try self.newline(false);
     }
 
     // Render the optional table title row and its surrounding rules.
@@ -103,7 +103,7 @@ pub const Render = struct {
         try fill(out, self.table.style().title, self.table.config.title, width, .center);
         try out.writeByte(' ');
         try self.writeChrome(self.border.right);
-        try self.newline();
+        try self.newline(false);
     }
 
     // Render the header row.
@@ -117,7 +117,7 @@ pub const Render = struct {
         for (self.table.columns) |column| {
             try self.renderHeaderField(&col, column.name);
         }
-        try self.newline();
+        try self.newline(false);
     }
 
     // Render one header cell and advance the output column.
@@ -130,6 +130,8 @@ pub const Render = struct {
 
     // Render one visible data row.
     fn renderRow(self: *Render, visible_index: usize) !void {
+        const style = self.table.style();
+        const zebra = self.table.config.zebra and visible_index % 2 == 0 and style.zebra.len > 0;
         try self.writeChrome(self.border.left);
 
         var col: usize = 0;
@@ -137,15 +139,17 @@ pub const Render = struct {
             var num_buf: [32]u8 = undefined;
             const label = try std.fmt.bufPrint(&num_buf, "{d}", .{visible_index + 1});
             const sep = if (col + 1 == self.layout.widths.len) self.border.right else self.border.mid;
-            try self.renderField(self.table.style().chrome, label, col, sep, .right);
+            try self.renderField(style.chrome, label, col, sep, .right);
             col += 1;
         }
 
         for (self.table.columns) |column| {
             const raw = column.field(visible_index);
             const is_placeholder = raw.len == 0;
-            const style = self.table.style();
-            const cell_style = if (is_placeholder) style.chrome else style.field;
+            const cell_style = if (is_placeholder)
+                style.chrome
+            else
+                style.field;
             const field = if (is_placeholder) placeholder else raw;
             const sep = if (col + 1 == self.layout.widths.len) self.border.right else self.border.mid;
             const al: Align = switch (column.type) {
@@ -155,7 +159,8 @@ pub const Render = struct {
             try self.renderField(cell_style, field, col, sep, al);
             col += 1;
         }
-        try self.newline();
+        if (zebra) try self.applyLineStyle(style.zebra);
+        try self.newline(zebra);
     }
 
     //
@@ -185,7 +190,7 @@ pub const Render = struct {
         try fill(out, text_style, text, width, .center);
         try out.writeByte(' ');
         try self.writeChrome(self.border.right);
-        try self.newline();
+        try self.newline(false);
     }
 
     //
@@ -215,10 +220,29 @@ pub const Render = struct {
     }
 
     // Finish the buffered line and flush it to the real writer.
-    fn newline(self: *Render) !void {
+    fn newline(self: *Render, needs_reset: bool) !void {
+        if (needs_reset) try self.buf.writer.writeAll(ansi.reset);
         try self.buf.writer.writeByte('\n');
         try self.writer.writeAll(self.buf.written());
         self.buf.clearRetainingCapacity();
+    }
+
+    // Re-apply a row style after each reset so it spans the full rendered line.
+    fn applyLineStyle(self: *Render, line_style: []const u8) !void {
+        var out: std.ArrayList(u8) = .empty;
+        defer out.deinit(self.table.alloc);
+        try out.appendSlice(self.table.alloc, line_style);
+
+        var rest = self.buf.written();
+        while (std.mem.indexOf(u8, rest, ansi.reset)) |ii| {
+            try out.appendSlice(self.table.alloc, rest[0..ii]);
+            try out.appendSlice(self.table.alloc, ansi.reset);
+            try out.appendSlice(self.table.alloc, line_style);
+            rest = rest[ii + ansi.reset.len ..];
+        }
+        try out.appendSlice(self.table.alloc, rest);
+        self.buf.clearRetainingCapacity();
+        try self.buf.writer.writeAll(out.items);
     }
 };
 
@@ -425,6 +449,15 @@ test "render content cases" {
     }
 }
 
+test "render zebra uses alternating row background" {
+    const out = try renderTest("a,b\nc,d\ne,f\n", .{ .zebra = true, .theme = .dark });
+    defer testing.allocator.free(out);
+    const zebra = "\x1b[38;2;255;255;255;48;2;34;34;34m";
+    try testing.expect(std.mem.containsAtLeast(u8, out, 1, zebra));
+    try testing.expect(std.mem.containsAtLeast(u8, out, 1, zebra ++ "\x1b[38;2;107;114;128m"));
+    try testing.expect(std.mem.containsAtLeast(u8, out, 1, ansi.reset ++ zebra));
+}
+
 fn renderTest(input: []const u8, config: types.Config) ![]u8 {
     var test_table: test_support.TestTable = undefined;
     try test_table.init(testing.allocator, input);
@@ -445,6 +478,7 @@ fn applyRenderConfig(table: *Table, config: types.Config) void {
     table.config.theme = config.theme;
     table.config.row_numbers = config.row_numbers;
     table.config.title = config.title;
+    table.config.zebra = config.zebra;
     if (config.width > 0) table.config.width = config.width;
 }
 

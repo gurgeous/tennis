@@ -5,7 +5,7 @@ pub const Table = struct {
     header: ?DataRow = null,
     rows: []DataRow = &.{},
     columns: []Column,
-    config: types.Config = .{},
+    config: Config = .{},
     empty: bool = false,
     _style: ?Style = null,
     _term_width: ?usize = null,
@@ -17,7 +17,7 @@ pub const Table = struct {
     //
 
     // Build a table from pre-parsed stored rows.
-    pub fn init(alloc: std.mem.Allocator, config: types.Config, data: Data) !*Table {
+    pub fn init(alloc: std.mem.Allocator, config: Config, data: Data) !*Table {
         const table = try alloc.create(Table);
         errdefer alloc.destroy(table);
 
@@ -45,7 +45,7 @@ pub const Table = struct {
     }
 
     // This is just for testing at the moment
-    pub fn initCsv(alloc: std.mem.Allocator, config: types.Config, bytes: []const u8) !*Table {
+    pub fn initCsv(alloc: std.mem.Allocator, config: Config, bytes: []const u8) !*Table {
         const data = try csv.load(alloc, bytes, config.delimiter);
         errdefer data.deinit(alloc);
         var bound = config;
@@ -476,3 +476,4 @@ const testing = std.testing;
 const test_support = @import("test_support.zig");
 const types = @import("types.zig");
 const util = @import("util.zig");
+const Config = types.Config;

@@ -22,6 +22,7 @@ pub const Config = struct {
     title: []const u8 = "",
     vanilla: bool = false,
     width: usize = 0,
+    zebra: bool = false,
     // Bound header indexes populated after data load for select/sort.
     select_cols: []usize = &.{},
     sort_cols: []usize = &.{},
