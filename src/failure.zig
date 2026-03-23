@@ -155,6 +155,8 @@ test "fromError covers direct mapped cases" {
     }{
         .{ .err = error.InvalidDigits, .want = .invalid_digits },
         .{ .err = error.CouldNotReadStdin, .want = .could_not_read_stdin },
+        .{ .err = error.SyntaxError, .want = .invalid_json },
+        .{ .err = error.UnexpectedEndOfInput, .want = .invalid_json },
         .{ .err = error.Windows, .want = .windows },
         .{ .err = error.JaggedCsv, .want = .jagged_csv },
     };
@@ -163,6 +165,23 @@ test "fromError covers direct mapped cases" {
         const fatal = Failure.fromError(tc.err).?;
         try testing.expectEqual(tc.want, fatal.code);
     }
+}
+
+test "fromError returns null for unmapped errors" {
+    try testing.expectEqual(@as(?Failure, null), Failure.fromError(error.OutOfMemory));
+}
+
+test "printBanner prints banner with and without failure" {
+    var empty_buf: [128]u8 = undefined;
+    var empty_writer = std.Io.Writer.fixed(&empty_buf);
+    try printBanner(&empty_writer, null);
+    try testing.expectEqualStrings("tennis: try 'tennis --help' for more information\n", empty_writer.buffered());
+
+    var fatal_buf: [256]u8 = undefined;
+    var fatal_writer = std.Io.Writer.fixed(&fatal_buf);
+    try printBanner(&fatal_writer, .{ .code = .invalid_json });
+    try testing.expect(std.mem.indexOf(u8, fatal_writer.buffered(), "tennis: That JSON/JSONL file doesn't look right\n") != null);
+    try testing.expect(std.mem.indexOf(u8, fatal_writer.buffered(), "tennis: try 'tennis --help' for more information\n") != null);
 }
 
 test "write includes column headers" {
