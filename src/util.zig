@@ -97,6 +97,20 @@ pub fn lowerAscii(dest: []u8, src: []const u8) []const u8 {
     return dest[0..src.len];
 }
 
+// Report whether `needle` appears in `haystack` with ASCII case folded.
+pub fn containsIgnoreCase(haystack: []const u8, needle: []const u8) bool {
+    if (needle.len == 0) return true;
+    if (needle.len > haystack.len) return false;
+
+    var ii: usize = 0;
+    while (ii + needle.len <= haystack.len) : (ii += 1) {
+        for (needle, 0..) |want, jj| {
+            if (std.ascii.toLower(haystack[ii + jj]) != std.ascii.toLower(want)) break;
+        } else return true;
+    }
+    return false;
+}
+
 // Replace any item found in `find` with `replace`. O(N^2) but doesn't matter for our purposes.
 pub fn replaceAny(comptime T: type, alloc: std.mem.Allocator, input: []const T, find: []const T, replace: []const T) ![]T {
     var out: std.ArrayList(T) = .empty;
@@ -223,6 +237,13 @@ test "inspect" {
     });
     defer testing.allocator.free(s2);
     try testing.expectEqualStrings("\"\\\"\\\\\\t\\e\\r\\n\\x08\\x0c\\x0b\\xff\"", s2);
+}
+
+test "containsIgnoreCase" {
+    try testing.expect(containsIgnoreCase("Hello", "ell"));
+    try testing.expect(containsIgnoreCase("Hello", "EL"));
+    try testing.expect(!containsIgnoreCase("Hello", "world"));
+    try testing.expect(containsIgnoreCase("Hello", ""));
 }
 
 test "readByte" {

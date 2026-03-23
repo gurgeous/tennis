@@ -7,6 +7,7 @@ pub const Table = struct {
     empty: bool = false,
     col_order: []usize,
     row_order: []usize,
+    row_count: usize = 0,
     visible_row_count: usize = 0,
     // memoized
     _headers: ?Row = null,
@@ -109,7 +110,7 @@ pub const Table = struct {
     // Return the number of loaded data rows.
     pub fn nrows(self: *const Self) usize {
         if (self.empty) return 0;
-        return self.data.rows.len - 1;
+        return self.row_count;
     }
 
     // note: does not include row-number column
@@ -188,7 +189,7 @@ pub const Table = struct {
         return columns;
     }
 
-    // --select, --sort, --shuffle, --head, etc
+    // Apply display transforms such as select, filter, sort, and clipping.
     fn transforms(self: *Self) !void {
         // --select
         for (self.col_order, 0..) |*slot, ii| slot.* = ii;
@@ -197,24 +198,43 @@ pub const Table = struct {
             self.alloc.free(self.col_order);
             self.col_order = out;
         }
-        // --sort, --shuffle, --reverse
+
+        // --filter, --sort, --shuffle, --reverse
         for (self.row_order, 0..) |*slot, ii| slot.* = ii;
+        self.row_count = self.row_order.len;
+        if (self.config.filter.len > 0) self.filterRows();
         if (self.config.sort_cols.len > 0) {
             const sorter: sort.Sort = .{ .cols = self.config.sort_cols };
-            sorter.apply(self.data, self.row_order);
+            sorter.apply(self.data, self.row_order[0..self.row_count]);
         }
         if (self.config.shuffle) {
             const seed = if (self.config.srand != 0) self.config.srand else std.crypto.random.int(u64);
             var prng = std.Random.DefaultPrng.init(seed);
-            prng.random().shuffle(usize, self.row_order);
+            prng.random().shuffle(usize, self.row_order[0..self.row_count]);
         }
-        if (self.config.reverse) std.mem.reverse(usize, self.row_order);
+        if (self.config.reverse) std.mem.reverse(usize, self.row_order[0..self.row_count]);
 
         // set visible_row_count
         var n: usize = self.nrows();
         if (self.config.head > 0) n = @min(self.config.head, n);
         if (self.config.tail > 0) n = @min(self.config.tail, n);
         self.visible_row_count = n;
+    }
+
+    // Keep only rows where any field contains the case-insensitive filter text.
+    fn filterRows(self: *Self) void {
+        var out: usize = 0;
+        for (self.row_order[0..self.row_count]) |row_index| {
+            const data_row = self.data.row(row_index + 1);
+            for (data_row) |field| {
+                if (util.containsIgnoreCase(field, self.config.filter)) {
+                    self.row_order[out] = row_index;
+                    out += 1;
+                    break;
+                }
+            }
+        }
+        self.row_count = out;
     }
 
     // Build the visible header row in selected display order.
@@ -327,6 +347,25 @@ test "table selects a subset of columns" {
     try testing.expectEqualStrings("bob", table.column(1).field(0));
     try testing.expectEqualStrings("1", table.column(0).field(1));
     try testing.expectEqualStrings("alice", table.column(1).field(1));
+}
+
+test "table filters rows by case insensitive substring" {
+    const table = try Table.initCsv(testing.allocator, .{ .filter = "ali" }, "name,score,city\nbob,2,denver\nAlice,1,boston\nmali,3,paris\n");
+    defer table.deinit();
+
+    try testing.expectEqual(@as(usize, 2), table.nrows());
+    try testing.expectEqual(@as(usize, 2), table.visibleRowCount());
+    try test_support.expectStrings(&.{ "Alice", "1", "boston" }, table.row(0));
+    try test_support.expectStrings(&.{ "mali", "3", "paris" }, table.row(1));
+}
+
+test "table filters before sort and head" {
+    const table = try Table.initCsv(testing.allocator, .{ .filter = "bo", .sort = "score", .head = 1 }, "name,score,city\nbob,2,denver\nAlice,1,boston\nmali,3,paris\nboris,4,rome\n");
+    defer table.deinit();
+
+    try testing.expectEqual(@as(usize, 3), table.nrows());
+    try testing.expectEqual(@as(usize, 1), table.visibleRowCount());
+    try test_support.expectStrings(&.{ "Alice", "1", "boston" }, table.row(table.visibleRow(0)));
 }
 
 test "table select supports duplicates" {

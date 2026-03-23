@@ -215,6 +215,14 @@ setup() {
   [[ "$output" != *"city"* ]]
 }
 
+@test "filters rows by case insensitive substring" {
+  run "$TENNIS_BIN" --color=off --width 80 --filter ali "$REPO_ROOT/testdata/test.json"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alice"* ]]
+  [[ "$output" != *"bob"* ]]
+  [[ "$output" != *"cara"* ]]
+}
+
 @test "reverses rows before head" {
   run "$TENNIS_BIN" --color=off --width 80 --reverse --head 2 "$REPO_ROOT/testdata/test.json"
   [ "$status" -eq 0 ]

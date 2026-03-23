@@ -52,6 +52,7 @@ $ zig build
       --color <color>       Turn color off and on (on|off|auto)
       --delimiter <char>    CSV delim (can be any char or "tab")
       --digits <int>        Digits after decimal for float columns (1-6)
+      --filter <string>     Keep rows where any field contains this text
       --theme <theme>       Select color theme (auto|dark|light)
       --vanilla             Disable numeric formatting entirely
       --width <int>         Set max table width in chars
@@ -74,7 +75,6 @@ Note that color defaults to `on`. Tennis likes to be colorful.
 
 ### Future Work
 
-- filter - `--filter`
 - add zebra stripes - `--zebra`
 - briefly summarize each col `--summary` or `--peek`
 
@@ -87,22 +87,20 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 - [miller](https://github.com/johnkerl/miller) - csv processing and transformation
 - [nushell](https://www.nushell.sh) - modern shell with first-class structured table data
 - [qsv](https://github.com/dathere/qsv) - filter, sort, combine, join... (a fork of [xsv](https://github.com/BurntSushi/xsv))
+- [table_tennis](https://github.com/gurgeous/table_tennis) - my own project, the basis for this one
 - [Terminal::Table](https://github.com/tj/terminal-table) - wonderful rubygem for pretty printing tables, great for non-hash data like confusion matrices
 - [visidata](https://www.visidata.org) - the best for poking around large files, it does everything
-- [table_tennis](https://github.com/gurgeous/table_tennis) - my own project, the basis for this one
 
 ### Changelog
 
 #### 0.0.4 (unreleased)
 
 - `--border` styles based on Nushell / `tabled` crate.
-- `--completion` for auto-generating bash/zsh completions
-- `.json`, `.jsonl`, and `.ndjson` support
-- `--head` and `--tail` for clipping large tables
-- `--select` for selecting, reordering, or duplicating columns
-- `--sort`, `--reverse`, and `--shuffle` for reordering rows
+- JSON! Works with json array, jsonl, or even just a single json object
+- auto-detect csv vs tsv delims (or semis, or pipes)
+- `--filter`, `--sort`, `--reverse`, `--shuffle`, `--head` and `--tail`
+- `--select` for selecting columns
 - `doomicode`, best-effort Unicode width for emojis, etc
-- auto-detect csv vs tsv (or semis, or pipes)
 
 #### 0.0.3 (Mar '26)
 
