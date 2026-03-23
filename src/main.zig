@@ -35,7 +35,7 @@ fn main0() !u8 {
     var timer = try std.time.Timer.start();
     const argv = try std.process.argsAlloc(alloc);
     defer std.process.argsFree(alloc, argv);
-    const args = try Args.init(alloc, argv[1..]);
+    var args = try Args.init(alloc, argv[1..]);
     defer args.deinit(alloc);
     util.benchmark("args", timer.read());
 
@@ -86,7 +86,7 @@ fn main0() !u8 {
     // bytes => data
     //
 
-    const data = load(alloc, args, input_bytes) catch |err| {
+    const data = load(alloc, &args, input_bytes) catch |err| {
         const err_str = switch (err) {
             error.JaggedCsv => "All csv rows must have same number of columns",
             error.OutOfMemory => return err,
@@ -135,7 +135,7 @@ fn load(alloc: std.mem.Allocator, args: *Args, bytes_in: []const u8) !Data {
         bytes = bytes[3..];
     }
 
-    const format = try detect.detectFormat(alloc, args.config.filename, bytes);
+    const format = try detect.detectFormat(alloc, args.filename, bytes);
     if (format == .json) {
         return try json.load(alloc, bytes);
     }
@@ -211,30 +211,46 @@ test {
     _ = @import("util.zig");
 }
 
-// test "initTable strips UTF-8 BOM before CSV parsing" {
-//     const table = try initTable(testing.allocator, null, .{}, "\xef\xbb\xbfa,b\nc,d\n");
-//     defer table.deinit();
+test "load strips UTF-8 BOM before parsing csv and jsonl" {
+    const cases = [_]struct {
+        args: Args,
+        input: []const u8,
+        nrows: usize,
+        checks: []const struct { row: usize, fields: []const []const u8 },
+    }{
+        .{
+            .args = .{ .filename = null, .config = .{} },
+            .input = "\xef\xbb\xbfa,b\nc,d\n",
+            .nrows = 2,
+            .checks = &.{
+                .{ .row = 0, .fields = &.{ "a", "b" } },
+                .{ .row = 1, .fields = &.{ "c", "d" } },
+            },
+        },
+        .{
+            .args = .{ .filename = "data.jsonl", .config = .{} },
+            .input = "\xef\xbb\xbf{\"name\":\"alice\"}\r\n{\"name\":\"bob\"}",
+            .nrows = 3,
+            .checks = &.{
+                .{ .row = 0, .fields = &.{"name"} },
+                .{ .row = 1, .fields = &.{"alice"} },
+                .{ .row = 2, .fields = &.{"bob"} },
+            },
+        },
+    };
 
-//     try testing.expectEqualStrings("a", table.headers()[0]);
-//     try testing.expectEqualStrings("b", table.headers()[1]);
-//     try testing.expectEqualStrings("c", table.row(0)[0]);
-//     try testing.expectEqualStrings("d", table.row(0)[1]);
-// }
+    for (cases) |tc| {
+        var args = tc.args;
+        const data = try load(testing.allocator, &args, tc.input);
+        defer data.deinit(testing.allocator);
 
-// test "initTable strips UTF-8 BOM before JSONL parsing" {
-//     const table = try initTable(
-//         testing.allocator,
-//         "data.jsonl",
-//         .{},
-//         "\xef\xbb\xbf{\"name\":\"alice\"}\r\n{\"name\":\"bob\"}",
-//     );
-//     defer table.deinit();
-
-//     try testing.expectEqual(@as(usize, 2), table.nrows());
-//     try testing.expectEqualStrings("name", table.headers()[0]);
-//     try testing.expectEqualStrings("alice", table.row(0)[0]);
-//     try testing.expectEqualStrings("bob", table.row(1)[0]);
-// }
+        try testing.expectEqual(tc.nrows, data.rows.len);
+        for (tc.checks) |check| {
+            try testing.expectEqual(check.fields.len, data.row(check.row).len);
+            for (check.fields, data.row(check.row)) |want, got| try testing.expectEqualStrings(want, got);
+        }
+    }
+}
 
 const Args = @import("args.zig").Args;
 const builtin = @import("builtin");
