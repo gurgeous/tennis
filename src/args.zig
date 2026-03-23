@@ -5,36 +5,36 @@
 // CLI parsing and help text for the app entry point.
 pub const Args = struct {
     pub const help =
-        \\ Usage: tennis [options...] <file.csv>     # print file.csv
-        \\        tennis [options...]                # print csv from stdin
+        \\ Usage: tennis [options...] <file.csv>
+        \\        also supports stdin, json/jsonl files, etc.
         \\
         \\ Popular options:
-        \\  -n, --row-numbers         Turn on row numbers
-        \\  -t, --title <string>      Add a title to the table
-        \\      --border <border>     Table border style (rounded|thin|double|...)
-        \\      --peek                Show csv shape, sample, and handy stats
-        \\      --zebra               Turn on zebra stripes
+        \\  -n, --row-numbers          Turn on row numbers
+        \\  -t, --title <string>       Add a title to the table
+        \\      --border <border>      Table border style (rounded|thin|double|...)
+        \\      --peek                 Show csv shape, sample, and handy stats
+        \\      --zebra                Turn on zebra stripes
         \\
         \\ Sort, filter, etc:
-        \\      --select <headers>    Show one or more comma-separated headers
-        \\      --sort <headers>      Sort by one or more comma-separated headers
-        \\  -r, --reverse             Reverse row order (helpful when sorting)
-        \\      --shuffle, --shuf     Shuffle row order before head or tail
-        \\      --filter <string>     Keep rows where any field contains this text
-        \\      --head <int>          Show first N rows
-        \\      --tail <int>          Show last N rows
+        \\      --select <headers>     Only show these comma-separated headers
+        \\      --sort <headers>       Sort rows by one or more comma-separated headers
+        \\  -r, --reverse              Reverse rows (helpful for sorting)
+        \\      --shuffle, --shuf      Shuffle rows into random order
+        \\      --head <int>           Show first or last rows
+        \\      --tail <int>           Show first or last rows
+        \\      --filter <string>      Only show rows that contain this text
         \\
         \\ Other options:
-        \\      --color <color>       Turn color off and on (on|off|auto)
-        \\      --delimiter <char>    CSV delim (can be any char or "tab")
-        \\      --digits <int>        Digits after decimal for float columns (1-6)
-        \\      --theme <theme>       Select color theme (auto|dark|light)
-        \\      --vanilla             Disable numeric formatting
-        \\      --width <int>         Set max table width in chars
+        \\      --color <color>        Turn color off and on (on|off|auto)
+        \\      --delimiter <char>     Set CSV delim (can be any char or "tab")
+        \\      --digits <int>         Digits after decimal for float columns
+        \\      --theme <theme>        Select color theme (auto|dark|light)
+        \\      --vanilla              Disable numeric formatting
+        \\      --width <int>          Set max table width in chars
         \\
-        \\      --completion <shell>  Print a shell completion script (bash|zsh)
-        \\      --help                Get help
-        \\      --version             Show version number and exit
+        \\      --completion <shell>   Print shell completion (bash|zsh)
+        \\      --help                 Get help
+        \\      --version              Show version number and exit
         \\
     ;
 

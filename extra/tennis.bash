@@ -7,21 +7,21 @@ _tennis() {
   case "${prev}" in
     -t|--title) COMPREPLY=() ; return ;;
     --border) COMPREPLY=($(compgen -W "ascii_rounded basic basic_compact compact compact_double dots double heavy light markdown none psql reinforced restructured rounded single thin with_love" -- "${cur}")) ; return ;;
-    --color) COMPREPLY=($(compgen -W "auto off on" -- "${cur}")) ; return ;;
-    --delimiter) COMPREPLY=($(compgen -W ", ; | tab" -- "${cur}")) ; return ;;
-    --digits) COMPREPLY=($(compgen -W "1 2 3 4 5 6" -- "${cur}")) ; return ;;
-    --filter) COMPREPLY=() ; return ;;
-    --theme) COMPREPLY=($(compgen -W "auto dark light" -- "${cur}")) ; return ;;
-    --width) COMPREPLY=() ; return ;;
     --select) COMPREPLY=() ; return ;;
     --sort) COMPREPLY=() ; return ;;
     --head) COMPREPLY=() ; return ;;
     --tail) COMPREPLY=() ; return ;;
+    --filter) COMPREPLY=() ; return ;;
+    --color) COMPREPLY=($(compgen -W "auto off on" -- "${cur}")) ; return ;;
+    --delimiter) COMPREPLY=($(compgen -W ", ; | tab" -- "${cur}")) ; return ;;
+    --digits) COMPREPLY=($(compgen -W "1 2 3 4 5 6" -- "${cur}")) ; return ;;
+    --theme) COMPREPLY=($(compgen -W "auto dark light" -- "${cur}")) ; return ;;
+    --width) COMPREPLY=() ; return ;;
     --completion) COMPREPLY=($(compgen -W "bash zsh" -- "${cur}")) ; return ;;
   esac
 
   if [[ "${cur}" == -* ]]; then
-    COMPREPLY=($(compgen -W "-n --row-numbers --peek -t --title -r --reverse --zebra --shuffle --shuf --border --color --delimiter --digits --filter --theme --vanilla --width --select --sort --head --tail --completion --help --version " -- "${cur}"))
+    COMPREPLY=($(compgen -W "-n --row-numbers -t --title --border --peek --zebra --select --sort -r --reverse --shuffle --shuf --head --tail --filter --color --delimiter --digits --theme --vanilla --width --completion --help --version " -- "${cur}"))
   else
     _filedir csv
     [[ ${#COMPREPLY[@]} -eq 0 ]] && _filedir

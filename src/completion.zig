@@ -245,7 +245,7 @@ test "writes zsh completion" {
     const out = try renderForTest(testing.allocator, .zsh);
     defer testing.allocator.free(out);
     try testing.expect(std.mem.indexOf(u8, out, "_arguments -s") != null);
-    try testing.expect(std.mem.indexOf(u8, out, "--completion[Print a shell completion script") != null);
+    try testing.expect(std.mem.indexOf(u8, out, "--completion[Print shell completion") != null);
 }
 
 // Render one completion script into an owned buffer for tests.
