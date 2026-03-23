@@ -41,8 +41,8 @@ pub const Failure = struct {
     // Table error => failure.
     pub fn fromTableError(alloc: std.mem.Allocator, err: anyerror, headers: []const []const u8) !Failure {
         return switch (err) {
-            error.InvalidSelect => .{ .code = .invalid_select, .detail = try formatColumnSpec(alloc, "--select", headers) },
-            error.InvalidSort => .{ .code = .invalid_sort, .detail = try formatColumnSpec(alloc, "--sort", headers) },
+            error.InvalidSelect => .{ .code = .invalid_select, .detail = try formatColumns(alloc, "--select", headers) },
+            error.InvalidSort => .{ .code = .invalid_sort, .detail = try formatColumns(alloc, "--sort", headers) },
             else => unreachable,
         };
     }
@@ -118,21 +118,16 @@ fn formatClap(alloc: std.mem.Allocator, err: anyerror, diag: *clap.Diagnostic) !
     return std.fmt.allocPrint(alloc, "Error while parsing arguments: {s}", .{@errorName(err)});
 }
 
-// Write one invalid column-spec error with the list of available headers.
-fn writeColumns(writer: *std.Io.Writer, flag: []const u8, row: []const []const u8) !void {
-    try writer.print("{s} didn't look right, should be a comma-separated list of columns.\n", .{flag});
-    try writer.writeAll("tennis: column names: ");
-    for (row, 0..) |header, ii| {
-        if (ii > 0) try writer.writeAll(", ");
-        try writer.writeAll(header);
-    }
-}
-
 // Render one invalid column-spec error into an owned string.
-fn formatColumnSpec(alloc: std.mem.Allocator, flag: []const u8, row: []const []const u8) ![]u8 {
+fn formatColumns(alloc: std.mem.Allocator, flag: []const u8, row: []const []const u8) ![]u8 {
     var out = std.Io.Writer.Allocating.init(alloc);
     errdefer out.deinit();
-    try writeColumns(&out.writer, flag, row);
+    try out.writer.print("{s} didn't look right, should be a comma-separated list of columns.\n", .{flag});
+    try out.writer.writeAll("tennis: column names: ");
+    for (row, 0..) |header, ii| {
+        if (ii > 0) try out.writer.writeAll(", ");
+        try out.writer.writeAll(header);
+    }
     return out.toOwnedSlice();
 }
 

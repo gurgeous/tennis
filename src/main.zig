@@ -1,27 +1,5 @@
 // Owns process flow, input detection, loading, and top-level CLI behavior.
 pub fn main() !void {
-    const code = try main0();
-    std.process.exit(code);
-}
-
-// Run the CLI and return the process exit code.
-fn main0() !u8 {
-    // always flush
-    defer util.stdout.flush() catch {};
-    defer util.stderr.flush() catch {};
-
-    // BENCHMARK=1 sanity check
-    if (util.hasenv("BENCHMARK") and builtin.mode == .Debug) {
-        const fatal: failure.Failure = .{ .code = .benchmark_requires_release };
-        try fatal.print();
-        return 1;
-    }
-
-    // timer
-    var total = try std.time.Timer.start();
-    defer util.benchmark("total", total.read());
-
-    // allocators
     var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer {
         const check = gpa.deinit();
@@ -29,16 +7,38 @@ fn main0() !u8 {
     }
     const alloc = gpa.allocator();
 
+    if (try main0(alloc)) |fatal| {
+        defer fatal.deinit(alloc);
+        try fatal.print();
+        try util.stdout.flush();
+        try util.stderr.flush();
+        std.process.exit(1);
+    }
+    try util.stdout.flush();
+    try util.stderr.flush();
+    std.process.exit(0);
+}
+
+// Run the CLI and return a printable failure when the command should fail.
+fn main0(alloc: std.mem.Allocator) !?failure.Failure {
+    // timer
+    var total = try std.time.Timer.start();
+    defer util.benchmark("total", total.read());
+
+    // sanity checks
+    if (util.hasenv("BENCHMARK") and builtin.mode == .Debug) {
+        return .{ .code = .benchmark_requires_release };
+    }
+
     //
-    // args
+    // parse args
     //
 
     var timer = try std.time.Timer.start();
     const argv = try std.process.argsAlloc(alloc);
     defer std.process.argsFree(alloc, argv);
-    const event = try Args.init(alloc, argv[1..]);
+    var event = try Args.init(alloc, argv[1..]);
     defer event.deinit(alloc);
-    util.benchmark("args", timer.read());
 
     //
     // handle early exits ("actions")
@@ -46,26 +46,31 @@ fn main0() !u8 {
 
     var config = switch (event) {
         .banner => {
+            // plain `tennis` with no file/stdin prints the banner
             try failure.printBanner(util.stdout, null);
-            return 0;
+            return null;
         },
         .completion => |shell| {
+            // shell completion is generated immediately
             try completion.write(alloc, shell);
-            return 0;
-        },
-        .help => {
-            try util.stdout.writeAll(Args.help);
-            return 0;
-        },
-        .version => {
-            try util.stdout.print("tennis: {s}\n", .{version});
-            return 0;
+            return null;
         },
         .fatal => |fatal| {
-            try fatal.print();
-            return 1;
+            // arg/setup failures are already fully formed Failures
+            return fatal;
         },
-        .run => |run| run,
+        .help => {
+            // help text bypasses the rest of the CLI
+            try util.stdout.writeAll(Args.help);
+            return null;
+        },
+        .version => {
+            // version is another direct early exit
+            try util.stdout.print("tennis: {s}\n", .{version});
+            return null;
+        },
+        // otherwise keep the parsed config and continue
+        .run => |cfg| cfg,
     };
 
     //
@@ -73,10 +78,9 @@ fn main0() !u8 {
     //
 
     timer = try std.time.Timer.start();
-    var needs_close = false;
     var input = std.fs.File.stdin();
-    const filename = config.filename;
-    if (filename) |path| {
+    var needs_close = false;
+    if (config.filename) |path| {
         if (!std.mem.eql(u8, path, "-")) {
             input = try std.fs.cwd().openFile(path, .{});
             needs_close = true;
@@ -86,30 +90,24 @@ fn main0() !u8 {
     util.benchmark("input", timer.read());
 
     //
-    // read all bytes
+    // read input => input_bytes
     //
 
-    timer = try std.time.Timer.start();
     const input_bytes = try input.readToEndAlloc(alloc, std.math.maxInt(usize));
     defer alloc.free(input_bytes);
 
     //
-    // bytes => data
+    // input_bytes => data rows
     //
 
     var data = load(alloc, config, input_bytes) catch |err| {
-        if (err == error.OutOfMemory) return err;
-        try (failure.Failure.fromError(err) orelse return err).print();
-        return 1;
+        return failure.Failure.fromError(err) orelse return err;
     };
-    var data_moved = false;
-    defer if (!data_moved) data.deinit(alloc);
+    errdefer data.deinit(alloc);
 
+    // plug data headers into config, for validation
     config.bind(alloc, data.headers()) catch |err| {
-        const fatal = try failure.Failure.fromTableError(alloc, err, data.headers());
-        defer fatal.deinit(alloc);
-        try fatal.print();
-        return 1;
+        return try failure.Failure.fromTableError(alloc, err, data.headers());
     };
     defer config.deinit(alloc);
 
@@ -118,7 +116,6 @@ fn main0() !u8 {
     //
 
     const table = try Table.init(alloc, config, data);
-    data_moved = true;
     defer table.deinit();
     util.benchmark("table.init", timer.read());
 
@@ -129,7 +126,7 @@ fn main0() !u8 {
     timer = try std.time.Timer.start();
     try table.renderTable(util.stdout);
     util.benchmark("table.render", timer.read());
-    return 0;
+    return null;
 }
 
 fn load(alloc: std.mem.Allocator, config: types.Config, bytes_in: []const u8) !Data {
@@ -140,9 +137,7 @@ fn load(alloc: std.mem.Allocator, config: types.Config, bytes_in: []const u8) !D
     }
 
     const format = try detect.detectFormat(alloc, config.filename, bytes);
-    if (format == .json) {
-        return try json.load(alloc, bytes);
-    }
+    if (format == .json) return try json.load(alloc, bytes);
 
     var delimiter = config.delimiter;
     if (delimiter == 0) delimiter = sniffer.sniff(bytes) orelse ',';
