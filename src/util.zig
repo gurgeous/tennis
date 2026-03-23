@@ -55,6 +55,17 @@ pub fn sum(comptime T: type, slice: []const T) T {
     return total;
 }
 
+// Return an owned slice containing only the items kept by `keep`.
+pub fn filter(comptime T: type, alloc: std.mem.Allocator, input: []const T, comptime keep: fn (T) bool) ![]T {
+    var out: std.ArrayList(T) = .empty;
+    defer out.deinit(alloc);
+
+    for (input) |item| {
+        if (keep(item)) try out.append(alloc, item);
+    }
+    return out.toOwnedSlice(alloc);
+}
+
 //
 // string
 //
@@ -214,6 +225,30 @@ test "digits" {
     try testing.expectEqual(@as(usize, 1), digits(usize, 0));
     try testing.expectEqual(@as(usize, 1), digits(usize, 7));
     try testing.expectEqual(@as(usize, 3), digits(usize, 123));
+}
+
+test "filter keeps matching items" {
+    const items = [_]usize{ 1, 2, 3, 4, 5 };
+    const got = try filter(usize, testing.allocator, &items, struct {
+        fn keep(n: usize) bool {
+            return n % 2 == 0;
+        }
+    }.keep);
+    defer testing.allocator.free(got);
+
+    try testing.expectEqualSlices(usize, &.{ 2, 4 }, got);
+}
+
+test "filter handles empty result" {
+    const items = [_][]const u8{ "a", "bb", "ccc" };
+    const got = try filter([]const u8, testing.allocator, &items, struct {
+        fn keep(s: []const u8) bool {
+            return s.len > 10;
+        }
+    }.keep);
+    defer testing.allocator.free(got);
+
+    try testing.expectEqual(@as(usize, 0), got.len);
 }
 
 test "fileExists" {

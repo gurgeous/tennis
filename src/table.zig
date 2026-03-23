@@ -5,8 +5,8 @@ pub const Table = struct {
     columns: []Column,
     config: types.Config = .{},
     empty: bool = false,
-    col_order: []usize,
-    row_order: []usize,
+    col_view: []usize,
+    row_view: []usize,
     row_count: usize = 0,
     visible_row_count: usize = 0,
     // memoized
@@ -25,19 +25,21 @@ pub const Table = struct {
         const table = try alloc.create(Table);
         errdefer alloc.destroy(table);
 
-        const col_order = try alloc.alloc(usize, if (data.rows.len > 1) data.headers().len else 0);
-        errdefer alloc.free(col_order);
-        const row_order = try alloc.alloc(usize, if (data.rows.len > 0) data.rows.len - 1 else 0);
-        errdefer alloc.free(row_order);
+        const col_view = try alloc.alloc(usize, if (data.rows.len > 1) data.headers().len else 0);
+        errdefer alloc.free(col_view);
+        const row_view = try alloc.alloc(usize, if (data.rows.len > 0) data.rows.len - 1 else 0);
+        errdefer alloc.free(row_view);
 
+        const empty = data.rows.len < 2;
         table.* = .{
             .alloc = alloc,
             .columns = &.{},
-            .col_order = col_order,
+            .col_view = col_view,
             .config = config,
             .data = data,
-            .empty = data.rows.len < 2,
-            .row_order = row_order,
+            .empty = empty,
+            .row_count = row_view.len,
+            .row_view = row_view,
         };
 
         var timer = try std.time.Timer.start();
@@ -65,8 +67,8 @@ pub const Table = struct {
         for (self.columns) |col| col.deinit(self.alloc);
         self.alloc.free(self.columns);
         if (self._headers) |cached| self.alloc.free(cached);
-        self.alloc.free(self.col_order);
-        self.alloc.free(self.row_order);
+        self.alloc.free(self.col_view);
+        self.alloc.free(self.row_view);
         self.data.deinit(self.alloc);
         self.alloc.destroy(self);
     }
@@ -101,56 +103,46 @@ pub const Table = struct {
     // Return the header row.
     pub fn headers(self: *Self) Row {
         if (self.empty) return &.{};
-        if (self._headers == null) {
-            self._headers = self.buildHeaderRow() catch unreachable;
-        }
+        if (self._headers == null) self._headers = self.buildHeaders() catch unreachable;
         return self._headers.?;
     }
 
-    // Return the number of loaded data rows.
+    // Return the number of visible rows after clipping.
     pub fn nrows(self: *const Self) usize {
-        if (self.empty) return 0;
-        return self.row_count;
+        return self.visible_row_count;
     }
 
     // note: does not include row-number column
     // Return the number of columns in the table.
     pub fn ncols(self: *const Self) usize {
-        return self.col_order.len;
+        return self.col_view.len;
     }
 
-    // Return one loaded data row.
-    pub fn row(self: *const Self, index: usize) Row {
-        return self.data.row(self.row_order[index] + 1);
-    }
-
-    // Return the number of visible rows after head/tail clipping.
-    pub fn visibleRowCount(self: *const Self) usize {
-        return self.visible_row_count;
-    }
-
-    // Map a visible row index back to the loaded row index.
-    pub fn visibleRow(self: *const Self, index: usize) usize {
-        const n = self.nrows();
-        if (self.config.tail > 0) return n - self.visibleRowCount() + index;
-        return index;
-    }
-
-    // Return the last visible 1-based row number for row-number layout.
-    pub fn visibleLastRowNumber(self: *const Self) usize {
-        const count = self.visibleRowCount();
-        if (count == 0) return 0; // REVIEW: should we check empty here?
-        return self.visibleRow(count - 1) + 1;
+    // Return one visible data row.
+    pub fn row(self: *const Self, visible_index: usize) Row {
+        return self.data.row(self.row_view[self.sourceRow(visible_index)] + 1);
     }
 
     // Return one built column view.
-    pub fn column(self: *const Self, index: usize) Column {
-        return self.columns[index];
+    pub fn column(self: *const Self, visible_index: usize) Column {
+        return self.columns[visible_index];
+    }
+
+    // Return one source row index for one visible row.
+    pub fn sourceRow(self: *const Self, visible_index: usize) usize {
+        if (self.config.tail > 0) return self.row_view.len - self.visible_row_count + visible_index;
+        return visible_index;
     }
 
     // Return the source column index for one visible column.
-    pub fn sourceCol(self: *const Self, index: usize) usize {
-        return self.col_order[index];
+    pub fn sourceCol(self: *const Self, visible_index: usize) usize {
+        return self.col_view[visible_index];
+    }
+
+    // Return the last visible 1-based row number for row-number layout.
+    pub fn lastRowNumber(self: *const Self) usize {
+        if (self.empty) return 0;
+        return self.sourceRow(self.nrows() - 1) + 1;
     }
 
     //
@@ -173,6 +165,13 @@ pub const Table = struct {
         return self._term_width.?;
     }
 
+    // Build the visible header row in selected display order.
+    fn buildHeaders(self: *const Self) !Row {
+        const out = try self.alloc.alloc(Field, self.col_view.len);
+        for (self.col_view, 0..) |col, ii| out[ii] = self.data.headers()[col];
+        return out;
+    }
+
     // Build every column for this table.
     fn buildColumns(self: *Self) ![]Column {
         const columns = try self.alloc.alloc(Column, self.ncols());
@@ -192,30 +191,29 @@ pub const Table = struct {
     // Apply display transforms such as select, filter, sort, and clipping.
     fn transforms(self: *Self) !void {
         // --select
-        for (self.col_order, 0..) |*slot, ii| slot.* = ii;
+        for (self.col_view, 0..) |*slot, ii| slot.* = ii;
         if (self.config.select_cols.len > 0) {
             const out = self.alloc.dupe(usize, self.config.select_cols) catch unreachable;
-            self.alloc.free(self.col_order);
-            self.col_order = out;
+            self.alloc.free(self.col_view);
+            self.col_view = out;
         }
 
         // --filter, --sort, --shuffle, --reverse
-        for (self.row_order, 0..) |*slot, ii| slot.* = ii;
-        self.row_count = self.row_order.len;
+        for (self.row_view, 0..) |*slot, ii| slot.* = ii;
         if (self.config.filter.len > 0) self.filterRows();
         if (self.config.sort_cols.len > 0) {
             const sorter: sort.Sort = .{ .cols = self.config.sort_cols };
-            sorter.apply(self.data, self.row_order[0..self.row_count]);
+            sorter.apply(self.data, self.row_view);
         }
         if (self.config.shuffle) {
             const seed = if (self.config.srand != 0) self.config.srand else std.crypto.random.int(u64);
             var prng = std.Random.DefaultPrng.init(seed);
-            prng.random().shuffle(usize, self.row_order[0..self.row_count]);
+            prng.random().shuffle(usize, self.row_view);
         }
-        if (self.config.reverse) std.mem.reverse(usize, self.row_order[0..self.row_count]);
+        if (self.config.reverse) std.mem.reverse(usize, self.row_view);
 
         // set visible_row_count
-        var n: usize = self.nrows();
+        var n: usize = self.row_count;
         if (self.config.head > 0) n = @min(self.config.head, n);
         if (self.config.tail > 0) n = @min(self.config.tail, n);
         self.visible_row_count = n;
@@ -224,24 +222,17 @@ pub const Table = struct {
     // Keep only rows where any field contains the case-insensitive filter text.
     fn filterRows(self: *Self) void {
         var out: usize = 0;
-        for (self.row_order[0..self.row_count]) |row_index| {
+        for (self.row_view) |row_index| {
             const data_row = self.data.row(row_index + 1);
             for (data_row) |field| {
                 if (util.containsIgnoreCase(field, self.config.filter)) {
-                    self.row_order[out] = row_index;
+                    self.row_view[out] = row_index;
                     out += 1;
                     break;
                 }
             }
         }
         self.row_count = out;
-    }
-
-    // Build the visible header row in selected display order.
-    fn buildHeaderRow(self: *const Self) !Row {
-        const out = try self.alloc.alloc(Field, self.col_order.len);
-        for (self.col_order, 0..) |col, ii| out[ii] = self.data.headers()[col];
-        return out;
     }
 };
 
@@ -292,22 +283,22 @@ test "row returns data rows only" {
     try testing.expectEqualStrings("f", row2[1]);
 }
 
-test "visible rows support head and tail" {
+test "nrows and row reflect head and tail" {
     const cases = [_]struct {
         config: types.Config,
         want_count: usize,
-        rows: []const usize,
+        rows: []const []const []const u8,
     }{
-        .{ .config = .{ .head = 2 }, .want_count = 2, .rows = &.{ 0, 1 } },
-        .{ .config = .{ .tail = 2 }, .want_count = 2, .rows = &.{ 1, 2 } },
+        .{ .config = .{ .head = 2 }, .want_count = 2, .rows = &.{ &.{ "1", "2" }, &.{ "3", "4" } } },
+        .{ .config = .{ .tail = 2 }, .want_count = 2, .rows = &.{ &.{ "3", "4" }, &.{ "5", "6" } } },
     };
 
     for (cases) |tc| {
         const table = try Table.initCsv(testing.allocator, tc.config, "a,b\n1,2\n3,4\n5,6\n");
         defer table.deinit();
 
-        try testing.expectEqual(tc.want_count, table.visibleRowCount());
-        for (tc.rows, 0..) |want, ii| try testing.expectEqual(want, table.visibleRow(ii));
+        try testing.expectEqual(tc.want_count, table.nrows());
+        for (tc.rows, 0..) |want, ii| try test_support.expectStrings(want, table.row(ii));
     }
 }
 
@@ -354,7 +345,6 @@ test "table filters rows by case insensitive substring" {
     defer table.deinit();
 
     try testing.expectEqual(@as(usize, 2), table.nrows());
-    try testing.expectEqual(@as(usize, 2), table.visibleRowCount());
     try test_support.expectStrings(&.{ "Alice", "1", "boston" }, table.row(0));
     try test_support.expectStrings(&.{ "mali", "3", "paris" }, table.row(1));
 }
@@ -363,9 +353,8 @@ test "table filters before sort and head" {
     const table = try Table.initCsv(testing.allocator, .{ .filter = "bo", .sort = "score", .head = 1 }, "name,score,city\nbob,2,denver\nAlice,1,boston\nmali,3,paris\nboris,4,rome\n");
     defer table.deinit();
 
-    try testing.expectEqual(@as(usize, 3), table.nrows());
-    try testing.expectEqual(@as(usize, 1), table.visibleRowCount());
-    try test_support.expectStrings(&.{ "Alice", "1", "boston" }, table.row(table.visibleRow(0)));
+    try testing.expectEqual(@as(usize, 1), table.nrows());
+    try test_support.expectStrings(&.{ "Alice", "1", "boston" }, table.row(0));
 }
 
 test "table select supports duplicates" {
@@ -392,29 +381,29 @@ test "table sorts using hidden columns after select" {
 test "table sorts before head and tail" {
     const head = try Table.initCsv(testing.allocator, .{ .sort = "name", .head = 2 }, "name,score\ncara,3\nbob,2\nalice,1\n");
     defer head.deinit();
-    try testing.expectEqual(@as(usize, 2), head.visibleRowCount());
-    try test_support.expectStrings(&.{ "alice", "1" }, head.row(head.visibleRow(0)));
-    try test_support.expectStrings(&.{ "bob", "2" }, head.row(head.visibleRow(1)));
+    try testing.expectEqual(@as(usize, 2), head.nrows());
+    try test_support.expectStrings(&.{ "alice", "1" }, head.row(0));
+    try test_support.expectStrings(&.{ "bob", "2" }, head.row(1));
 
     const tail = try Table.initCsv(testing.allocator, .{ .sort = "name", .tail = 2 }, "name,score\ncara,3\nbob,2\nalice,1\n");
     defer tail.deinit();
-    try testing.expectEqual(@as(usize, 2), tail.visibleRowCount());
-    try test_support.expectStrings(&.{ "bob", "2" }, tail.row(tail.visibleRow(0)));
-    try test_support.expectStrings(&.{ "cara", "3" }, tail.row(tail.visibleRow(1)));
+    try testing.expectEqual(@as(usize, 2), tail.nrows());
+    try test_support.expectStrings(&.{ "bob", "2" }, tail.row(0));
+    try test_support.expectStrings(&.{ "cara", "3" }, tail.row(1));
 }
 
 test "table reverses rows before head and tail" {
     const head = try Table.initCsv(testing.allocator, .{ .reverse = true, .head = 2 }, "name,score\nalice,1\nbob,2\ncara,3\n");
     defer head.deinit();
-    try testing.expectEqual(@as(usize, 2), head.visibleRowCount());
-    try test_support.expectStrings(&.{ "cara", "3" }, head.row(head.visibleRow(0)));
-    try test_support.expectStrings(&.{ "bob", "2" }, head.row(head.visibleRow(1)));
+    try testing.expectEqual(@as(usize, 2), head.nrows());
+    try test_support.expectStrings(&.{ "cara", "3" }, head.row(0));
+    try test_support.expectStrings(&.{ "bob", "2" }, head.row(1));
 
     const tail = try Table.initCsv(testing.allocator, .{ .reverse = true, .tail = 2 }, "name,score\nalice,1\nbob,2\ncara,3\n");
     defer tail.deinit();
-    try testing.expectEqual(@as(usize, 2), tail.visibleRowCount());
-    try test_support.expectStrings(&.{ "bob", "2" }, tail.row(tail.visibleRow(0)));
-    try test_support.expectStrings(&.{ "alice", "1" }, tail.row(tail.visibleRow(1)));
+    try testing.expectEqual(@as(usize, 2), tail.nrows());
+    try test_support.expectStrings(&.{ "bob", "2" }, tail.row(0));
+    try test_support.expectStrings(&.{ "alice", "1" }, tail.row(1));
 }
 
 test "table reverses sorted rows" {
@@ -430,7 +419,7 @@ test "table shuffles rows with a seeded config" {
     const table = try Table.initCsv(testing.allocator, .{ .shuffle = true, .srand = 1 }, "name,score\nalice,1\nbob,2\ncara,3\ndina,4\n");
     defer table.deinit();
 
-    try testing.expectEqualSlices(usize, &.{ 3, 0, 2, 1 }, table.row_order);
+    try testing.expectEqualSlices(usize, &.{ 3, 0, 2, 1 }, table.row_view);
     try test_support.expectStrings(&.{ "dina", "4" }, table.row(0));
     try test_support.expectStrings(&.{ "alice", "1" }, table.row(1));
     try test_support.expectStrings(&.{ "cara", "3" }, table.row(2));
@@ -440,27 +429,27 @@ test "table shuffles rows with a seeded config" {
 test "table shuffles before head and tail" {
     const head = try Table.initCsv(testing.allocator, .{ .shuffle = true, .srand = 1, .head = 2 }, "name,score\nalice,1\nbob,2\ncara,3\ndina,4\n");
     defer head.deinit();
-    try testing.expectEqual(@as(usize, 2), head.visibleRowCount());
-    try test_support.expectStrings(&.{ "dina", "4" }, head.row(head.visibleRow(0)));
-    try test_support.expectStrings(&.{ "alice", "1" }, head.row(head.visibleRow(1)));
+    try testing.expectEqual(@as(usize, 2), head.nrows());
+    try test_support.expectStrings(&.{ "dina", "4" }, head.row(0));
+    try test_support.expectStrings(&.{ "alice", "1" }, head.row(1));
 
     const tail = try Table.initCsv(testing.allocator, .{ .shuffle = true, .srand = 1, .tail = 2 }, "name,score\nalice,1\nbob,2\ncara,3\ndina,4\n");
     defer tail.deinit();
-    try testing.expectEqual(@as(usize, 2), tail.visibleRowCount());
-    try test_support.expectStrings(&.{ "cara", "3" }, tail.row(tail.visibleRow(0)));
-    try test_support.expectStrings(&.{ "bob", "2" }, tail.row(tail.visibleRow(1)));
+    try testing.expectEqual(@as(usize, 2), tail.nrows());
+    try test_support.expectStrings(&.{ "cara", "3" }, tail.row(0));
+    try test_support.expectStrings(&.{ "bob", "2" }, tail.row(1));
 }
 
-test "visible rows clamp oversized head and tail" {
+test "nrows clamps oversized head and tail" {
     const head = try Table.initCsv(testing.allocator, .{ .head = 100 }, "a,b\n1,2\n3,4\n");
     defer head.deinit();
-    try testing.expectEqual(@as(usize, 2), head.visibleRowCount());
-    try testing.expectEqual(@as(usize, 2), head.visibleLastRowNumber());
+    try testing.expectEqual(@as(usize, 2), head.nrows());
+    try testing.expectEqual(@as(usize, 2), head.lastRowNumber());
 
     const tail = try Table.initCsv(testing.allocator, .{ .tail = 100 }, "a,b\n1,2\n3,4\n");
     defer tail.deinit();
-    try testing.expectEqual(@as(usize, 2), tail.visibleRowCount());
-    try testing.expectEqual(@as(usize, 2), tail.visibleLastRowNumber());
+    try testing.expectEqual(@as(usize, 2), tail.nrows());
+    try testing.expectEqual(@as(usize, 2), tail.lastRowNumber());
 }
 
 test "table builds columns from headers" {
