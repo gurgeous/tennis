@@ -20,6 +20,26 @@ pub const Data = struct {
     }
 };
 
+// Clone a header row plus up to `limit` data rows into owned storage.
+pub fn cloneRows(alloc: std.mem.Allocator, headers: Row, rows: []const Row, limit: ?usize) !Data {
+    const n = if (limit) |max_rows| @min(max_rows, rows.len) else rows.len;
+    const out = try alloc.alloc(DataRow, n + 1);
+    errdefer alloc.free(out);
+
+    var ii: usize = 0;
+    errdefer {
+        for (out[0..ii]) |row| row.deinit(alloc);
+    }
+
+    out[ii] = try DataRow.init(alloc, headers);
+    ii += 1;
+    for (rows[0..n]) |row| {
+        out[ii] = try DataRow.init(alloc, row);
+        ii += 1;
+    }
+    return .{ .rows = out };
+}
+
 // One row and the backing bytes referenced by its fields.
 pub const DataRow = struct {
     row: Row,
@@ -161,6 +181,25 @@ test "Data.headers returns first row or empty" {
     var empty: Data = .{ .rows = empty_rows };
     defer empty.deinit(alloc);
     try testing.expectEqual(@as(usize, 0), empty.headers().len);
+}
+
+test "cloneRows clones headers and respects optional limit" {
+    const alloc = testing.allocator;
+    const data = try cloneRows(alloc, &.{ "a", "b" }, &.{ &.{ "1", "2" }, &.{ "3", "4" } }, 1);
+    defer data.deinit(alloc);
+
+    try testing.expectEqual(@as(usize, 2), data.rows.len);
+    try testing.expectEqualStrings("a", data.row(0)[0]);
+    try testing.expectEqualStrings("1", data.row(1)[0]);
+}
+
+test "cloneRows clones all rows when limit is null" {
+    const alloc = testing.allocator;
+    const data = try cloneRows(alloc, &.{"a"}, &.{ &.{"1"}, &.{"2"} }, null);
+    defer data.deinit(alloc);
+
+    try testing.expectEqual(@as(usize, 3), data.rows.len);
+    try testing.expectEqualStrings("2", data.row(2)[0]);
 }
 
 test "DataRow.init strips and escapes newlines" {

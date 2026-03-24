@@ -55,6 +55,18 @@ pub fn sum(comptime T: type, slice: []const T) T {
     return total;
 }
 
+// Return the min and max value in a non-empty slice.
+pub fn minmax(comptime T: type, slice: []const T) ?struct { min: T, max: T } {
+    if (slice.len == 0) return null;
+    var min = slice[0];
+    var max = slice[0];
+    for (slice[1..]) |value| {
+        if (value < min) min = value;
+        if (value > max) max = value;
+    }
+    return .{ .min = min, .max = max };
+}
+
 // Return an owned slice filled with ascending indexes from 0 to len - 1.
 pub fn range(alloc: std.mem.Allocator, len: usize) ![]usize {
     const out = try alloc.alloc(usize, len);
@@ -141,9 +153,18 @@ pub fn strip(comptime T: type, slice: []const T) []const T {
     return std.mem.trim(T, slice, &std.ascii.whitespace);
 }
 
-// Return the singular or plural form for `n`.
-pub fn plural(n: usize, singular: []const u8, plural_form: []const u8) []const u8 {
-    return if (n == 1) singular else plural_form;
+// Return the singular form or the singular form plus `s`.
+pub fn plural(n: usize, comptime singular: []const u8) []const u8 {
+    return if (n == 1) singular else singular ++ "s";
+}
+
+// Format one counted noun with thousands separators and pluralization.
+pub fn pluralCount(alloc: std.mem.Allocator, n: usize, comptime singular: []const u8) ![]u8 {
+    var buf: [32]u8 = undefined;
+    const raw = try std.fmt.bufPrint(&buf, "{d}", .{n});
+    const count = try int.intFormat(alloc, raw);
+    defer alloc.free(count);
+    return std.fmt.allocPrint(alloc, "{s} {s}", .{ count, plural(n, singular) });
 }
 
 // Borrow the bytes associated with a scalar JSON token.
@@ -228,9 +249,34 @@ test "digits" {
     try testing.expectEqual(@as(usize, 3), digits(usize, 123));
 }
 
+test "minmax handles ints and empty slices" {
+    const ints = [_]i64{ 4, -2, 9, 0 };
+    const got = minmax(i64, &ints).?;
+    try testing.expectEqual(@as(i64, -2), got.min);
+    try testing.expectEqual(@as(i64, 9), got.max);
+    try testing.expect(minmax(i64, &.{}) == null);
+}
+
+test "minmax handles floats" {
+    const floats = [_]f64{ 1.5, 9.25, -3.0 };
+    const got = minmax(f64, &floats).?;
+    try testing.expectEqual(@as(f64, -3.0), got.min);
+    try testing.expectEqual(@as(f64, 9.25), got.max);
+}
+
 test "plural returns the right form" {
-    try testing.expectEqualStrings("row", plural(1, "row", "rows"));
-    try testing.expectEqualStrings("rows", plural(2, "row", "rows"));
+    try testing.expectEqualStrings("row", plural(1, "row"));
+    try testing.expectEqualStrings("rows", plural(2, "row"));
+}
+
+test "pluralCount formats counts with separators and pluralization" {
+    const one = try pluralCount(testing.allocator, 1, "row");
+    defer testing.allocator.free(one);
+    try testing.expectEqualStrings("1 row", one);
+
+    const many = try pluralCount(testing.allocator, 1234, "row");
+    defer testing.allocator.free(many);
+    try testing.expectEqualStrings("1,234 rows", many);
 }
 
 test "fileExists" {
@@ -341,6 +387,7 @@ test "termWidth returns a positive width" {
     try testing.expect(termWidth() > 0);
 }
 
+const int = @import("int.zig");
 const mibu = @import("mibu");
 const std = @import("std");
 const testing = std.testing;

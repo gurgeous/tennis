@@ -12,28 +12,54 @@ pub fn render(alloc: std.mem.Allocator, table: *Table, writer: *std.Io.Writer) !
     try stats.renderTable(writer);
 }
 
+//
+// sample
+//
+
 // Build a small visible-row sample table with shape embedded in the title.
 fn buildSampleTable(alloc: std.mem.Allocator, table: *Table) !*Table {
     var config = sampleConfig(table.config);
-    // REVIEW: change shapeTitle to take table as param
-    config.title = try shapeTitle(alloc, table.config.title, table.nrows(), table.ncols());
+    config.title = try sampleTitle(alloc, table);
 
-    // REVIEW: can we use config.head here?
-    const n = @min(@as(usize, 5), table.nrows());
+    config.head = 5;
+    const n = @min(config.head, table.nrows());
     if (table.nrows() > n) {
         config.footer = try sampleFooter(alloc, table.nrows() - n);
     }
-    var rows: std.ArrayList(DataRow) = .empty;
-    defer {
-        for (rows.items) |row| row.deinit(alloc);
-        rows.deinit(alloc);
-    }
-    try rows.ensureTotalCapacity(alloc, n + 1);
-    try rows.append(alloc, try DataRow.init(alloc, table.headers()));
-    for (0..n) |ii| try rows.append(alloc, try DataRow.init(alloc, table.row(ii)));
-
-    return try Table.init(alloc, config, .{ .rows = try rows.toOwnedSlice(alloc) });
+    const rows = try alloc.alloc(Row, table.nrows());
+    defer alloc.free(rows);
+    for (rows, 0..) |*row, ii| row.* = table.row(ii);
+    return try Table.init(alloc, config, try cloneRows(alloc, table.headers(), rows, config.head));
 }
+
+// Derive a config for the sample table without reapplying row/col transforms.
+fn sampleConfig(c: Config) Config {
+    return .{ .border = c.border, .color = c.color, .theme = c.theme, .width = c.width };
+}
+
+// Format the sample/stats title with the current visible shape.
+fn sampleTitle(alloc: std.mem.Allocator, table: *Table) ![]u8 {
+    const rows = try util.pluralCount(alloc, table.nrows(), "row");
+    defer alloc.free(rows);
+    const cols = try util.pluralCount(alloc, table.ncols(), "col");
+    defer alloc.free(cols);
+
+    if (table.config.title.len > 0) {
+        return std.fmt.allocPrint(alloc, "{s} ({s} × {s})", .{ table.config.title, rows, cols });
+    }
+    return std.fmt.allocPrint(alloc, "{s} × {s}", .{ rows, cols });
+}
+
+// Format the centered sample footer when the sample omits visible rows.
+fn sampleFooter(alloc: std.mem.Allocator, nmore: usize) ![]u8 {
+    const more = try util.pluralCount(alloc, nmore, "more row");
+    defer alloc.free(more);
+    return std.fmt.allocPrint(alloc, "… {s} …", .{more});
+}
+
+//
+// stats
+//
 
 // Build one visible-column stats table for the current visible table.
 fn buildStatsTable(alloc: std.mem.Allocator, table: *Table) !*Table {
@@ -43,7 +69,6 @@ fn buildStatsTable(alloc: std.mem.Allocator, table: *Table) !*Table {
         for (rows.items) |row| row.deinit(alloc);
         rows.deinit(alloc);
     }
-    try rows.ensureTotalCapacity(alloc, table.ncols() + 1);
     try rows.append(alloc, try DataRow.init(alloc, &headers));
     for (0..table.ncols()) |ii| try rows.append(alloc, try buildStatsRow(alloc, table, ii));
 
@@ -53,214 +78,146 @@ fn buildStatsTable(alloc: std.mem.Allocator, table: *Table) !*Table {
 // Build one owned stats row for one visible column.
 fn buildStatsRow(alloc: std.mem.Allocator, table: *Table, c: usize) !DataRow {
     const column = table.column(c);
-
-    const fill = try formatFill(alloc, table, c);
-    defer alloc.free(fill);
-    const uniq = try formatUniq(alloc, table, c);
-    defer alloc.free(uniq);
-    const min = try formatMin(alloc, table, c);
-    defer alloc.free(min);
-    const max = try formatMax(alloc, table, c);
-    defer alloc.free(max);
-
-    const row = [_]Field{ table.headers()[c], @tagName(column.type), fill, uniq, min, max };
+    const s = try columnStats(alloc, table, c, column.type);
+    defer s.deinit(alloc);
+    const row = [_]Field{ table.headers()[c], @tagName(column.type), s.fill, s.uniq, s.min, s.max };
     return try DataRow.init(alloc, &row);
-}
-
-// Format the sample/stats title with the current visible shape.
-fn shapeTitle(alloc: std.mem.Allocator, title: []const u8, nrows: usize, ncols: usize) ![]u8 {
-    // REVIEW: add util.pluralCount() that does this (takes a count and a string
-    // that gets pluralized). That means we can get rid of formatCount
-    const rows = try formatCount(alloc, nrows);
-    defer alloc.free(rows);
-    const cols = try formatCount(alloc, ncols);
-    defer alloc.free(cols);
-    const row_word = util.plural(nrows, "row", "rows");
-    const col_word = util.plural(ncols, "col", "cols");
-
-    if (title.len > 0) {
-        return std.fmt.allocPrint(alloc, "{s} ({s} {s} × {s} {s})", .{ title, rows, row_word, cols, col_word });
-    }
-    return std.fmt.allocPrint(alloc, "{s} {s} × {s} {s}", .{ rows, row_word, cols, col_word });
-}
-
-// Format one count with thousands separators for titles and stats.
-fn formatCount(alloc: std.mem.Allocator, n: usize) ![]u8 {
-    var buf: [32]u8 = undefined;
-    const raw = try std.fmt.bufPrint(&buf, "{d}", .{n});
-    return int.intFormat(alloc, raw);
-}
-
-// Derive a config for the sample table without reapplying row/col transforms.
-fn sampleConfig(config: Config) Config {
-    // REVIEW: can't we start with a blank config?
-    var out = config;
-    out.title = "";
-    out.filter = "";
-    out.footer = "";
-    out.head = 0;
-    out.peek = false;
-    out.reverse = false;
-    out.select = "";
-    out.select_cols = &.{};
-    out.shuffle = false;
-    out.sort = "";
-    out.sort_cols = &.{};
-    out.tail = 0;
-    out.srand = 0;
-    return out;
 }
 
 // Derive a config for the stats table.
 fn statsConfig(alloc: std.mem.Allocator, config: Config) !Config {
-    // REVIEW: can't we start with a blank config?
     var out = sampleConfig(config);
     out.row_numbers = false;
     out.title = try alloc.dupe(u8, "stats");
     return out;
 }
 
-// Format the centered sample footer when the sample omits visible rows.
-fn sampleFooter(alloc: std.mem.Allocator, nmore: usize) ![]u8 {
-    const more = try formatCount(alloc, nmore);
-    defer alloc.free(more);
-    return std.fmt.allocPrint(alloc, "… {s} more {s} …", .{ more, util.plural(nmore, "row", "rows") });
-}
+const dash = "—";
 
-// Format fill as the percent of non-empty visible cells in a column.
-fn formatFill(alloc: std.mem.Allocator, table: *Table, c: usize) ![]u8 {
-    if (table.nrows() == 0) return alloc.dupe(u8, "0%");
+const Edge = enum { min, max };
 
-    var fill: usize = 0;
-    for (0..table.nrows()) |r| {
-        if (table.row(r)[c].len > 0) fill += 1;
+const Stats = struct {
+    fill: []u8,
+    uniq: []u8,
+    min: []u8,
+    max: []u8,
+
+    fn deinit(self: Stats, alloc: std.mem.Allocator) void {
+        alloc.free(self.fill);
+        alloc.free(self.uniq);
+        alloc.free(self.min);
+        alloc.free(self.max);
     }
-    const pct = (fill * 100 + table.nrows() / 2) / table.nrows();
-    return std.fmt.allocPrint(alloc, "{d}%", .{pct});
-}
+};
 
-// Format the exact count of unique non-empty visible values in a column.
-fn formatUniq(alloc: std.mem.Allocator, table: *Table, c: usize) ![]u8 {
+fn columnStats(alloc: std.mem.Allocator, table: *Table, c: usize, t: ColumnType) !Stats {
+    // non-empty values
+    var fields: std.ArrayList(Field) = .empty;
+    defer fields.deinit(alloc);
+
+    // unique values
     var seen: std.StringHashMap(void) = .init(alloc);
     defer seen.deinit();
 
     for (0..table.nrows()) |r| {
         const field = table.row(r)[c];
         if (field.len == 0) continue;
+        try fields.append(alloc, field);
         try seen.put(field, {});
     }
-    return std.fmt.allocPrint(alloc, "{d}", .{seen.count()});
-}
 
-// Format one visible column's minimum value using its inferred type.
-fn formatMin(alloc: std.mem.Allocator, table: *Table, c: usize) ![]u8 {
-    return switch (table.column(c).type) {
-        .int => try formatIntEdge(alloc, table, c, .min),
-        .float => try formatFloatEdge(alloc, table, c, .min),
-        .string => try formatStringEdge(alloc, table, c, .min),
-    };
-}
+    const fill = try fmtFill(alloc, fields.items.len, table.nrows());
+    const uniq = try std.fmt.allocPrint(alloc, "{d}", .{seen.count()});
 
-// Format one visible column's maximum value using its inferred type.
-fn formatMax(alloc: std.mem.Allocator, table: *Table, c: usize) ![]u8 {
-    return switch (table.column(c).type) {
-        .int => try formatIntEdge(alloc, table, c, .max),
-        .float => try formatFloatEdge(alloc, table, c, .max),
-        .string => try formatStringEdge(alloc, table, c, .max),
-    };
-}
-
-// Pick the lower or upper edge of a visible column.
-const Edge = enum { min, max };
-
-// Format one integer edge for an inferred integer column.
-fn formatIntEdge(alloc: std.mem.Allocator, table: *Table, c: usize, edge: Edge) ![]u8 {
-    var seen = false;
-    var min_value: i64 = 0;
-    var max_value: i64 = 0;
-    var min_text: []const u8 = "";
-    var max_text: []const u8 = "";
-
-    for (0..table.nrows()) |r| {
-        const field = table.row(r)[c];
-        if (field.len == 0) continue;
-        const value = std.fmt.parseInt(i64, field, 10) catch continue;
-        if (!seen or value < min_value) {
-            min_value = value;
-            min_text = field;
-        }
-        if (!seen or value > max_value) {
-            max_value = value;
-            max_text = field;
-        }
-        seen = true;
+    switch (t) {
+        .int => {
+            var values: std.ArrayList(i64) = .empty;
+            defer values.deinit(alloc);
+            for (fields.items) |f| try values.append(alloc, try std.fmt.parseInt(i64, f, 10));
+            return .{
+                .fill = fill,
+                .uniq = uniq,
+                .min = try fmtInt(alloc, values.items, .min),
+                .max = try fmtInt(alloc, values.items, .max),
+            };
+        },
+        .float => {
+            var values: std.ArrayList(f64) = .empty;
+            defer values.deinit(alloc);
+            for (fields.items) |f| try values.append(alloc, try std.fmt.parseFloat(f64, f));
+            return .{
+                .fill = fill,
+                .uniq = uniq,
+                .min = try fmtFloat(alloc, values.items, .min),
+                .max = try fmtFloat(alloc, values.items, .max),
+            };
+        },
+        .string => {
+            var values: std.ArrayList(usize) = .empty;
+            defer values.deinit(alloc);
+            for (fields.items) |f| try values.append(alloc, f.len);
+            return .{
+                .fill = fill,
+                .uniq = uniq,
+                .min = try fmtLen(alloc, values.items, .min),
+                .max = try fmtLen(alloc, values.items, .max),
+            };
+        },
     }
-
-    if (!seen) return alloc.dupe(u8, dash);
-    return alloc.dupe(u8, if (edge == .min) min_text else max_text);
 }
 
-// Format one float edge for an inferred float column.
-fn formatFloatEdge(alloc: std.mem.Allocator, table: *Table, c: usize, edge: Edge) ![]u8 {
-    var seen = false;
-    var min_value: f64 = 0;
-    var max_value: f64 = 0;
-    var min_text: []const u8 = "";
-    var max_text: []const u8 = "";
+//
+// stats helpers
+//
 
-    for (0..table.nrows()) |r| {
-        const field = table.row(r)[c];
-        if (field.len == 0) continue;
-        const value = std.fmt.parseFloat(f64, field) catch continue;
-        if (!seen or value < min_value) {
-            min_value = value;
-            min_text = field;
-        }
-        if (!seen or value > max_value) {
-            max_value = value;
-            max_text = field;
-        }
-        seen = true;
-    }
-
-    if (!seen) return alloc.dupe(u8, dash);
-    return float.floatFormat(alloc, if (edge == .min) min_text else max_text, 3);
+fn fmtFill(alloc: std.mem.Allocator, fill: usize, nrows: usize) ![]u8 {
+    if (nrows == 0) return alloc.dupe(u8, "0%");
+    const pct = (fill * 100 / nrows);
+    return std.fmt.allocPrint(alloc, "{d}%", .{pct});
 }
 
-// Format one string-length edge for one visible string column.
-fn formatStringEdge(alloc: std.mem.Allocator, table: *Table, c: usize, edge: Edge) ![]u8 {
-    var seen = false;
-    var min_len: usize = 0;
-    var max_len: usize = 0;
+fn fmtInt(alloc: std.mem.Allocator, values: []const i64, edge: Edge) ![]u8 {
+    const mm = util.minmax(i64, values) orelse return alloc.dupe(u8, dash);
+    var buf: [32]u8 = undefined;
+    const raw = try std.fmt.bufPrint(&buf, "{d}", .{if (edge == .min) mm.min else mm.max});
+    return int.intFormat(alloc, raw);
+}
 
-    for (0..table.nrows()) |r| {
-        const field = table.row(r)[c];
-        if (field.len == 0) continue;
-        const len = doomicode.displayWidth(field);
-        if (!seen or len < min_len) min_len = len;
-        if (!seen or len > max_len) max_len = len;
-        seen = true;
-    }
+fn fmtFloat(alloc: std.mem.Allocator, values: []const f64, edge: Edge) ![]u8 {
+    const mm = util.minmax(f64, values) orelse return alloc.dupe(u8, dash);
+    const raw = try std.fmt.allocPrint(alloc, "{d}", .{if (edge == .min) mm.min else mm.max});
+    defer alloc.free(raw);
+    return float.floatFormat(alloc, raw, 3);
+}
 
-    if (!seen) return alloc.dupe(u8, dash);
-    const len = if (edge == .min) min_len else max_len;
-    return std.fmt.allocPrint(alloc, "{d} {s}", .{ len, util.plural(len, "char", "chars") });
+fn fmtLen(alloc: std.mem.Allocator, lens: []const usize, edge: Edge) ![]u8 {
+    const mm = util.minmax(usize, lens) orelse return alloc.dupe(u8, dash);
+    const len = if (edge == .min) mm.min else mm.max;
+    return std.fmt.allocPrint(alloc, "{d} {s}", .{ len, util.plural(len, "char") });
 }
 
 //
 // testing
 //
 
-test "shapeTitle includes optional title and visible shape" {
-    const titled = try shapeTitle(testing.allocator, "foo", 1234, 5);
+test "sampleTitle includes optional title and visible shape" {
+    var config: Config = .{ .title = try testing.allocator.dupe(u8, "foo") };
+    defer config.deinit(testing.allocator);
+    const titled_table = try Table.initCsv(testing.allocator, config, "a,b\nc,d\n");
+    defer titled_table.deinit();
+    const titled = try sampleTitle(testing.allocator, titled_table);
     defer testing.allocator.free(titled);
-    try testing.expectEqualStrings("foo (1,234 rows × 5 cols)", titled);
+    try testing.expectEqualStrings("foo (1 row × 2 cols)", titled);
 
-    const bare = try shapeTitle(testing.allocator, "", 3, 2);
+    const bare_table = try Table.initCsv(testing.allocator, .{}, "a,b\nc,d\ne,f\ng,h\n");
+    defer bare_table.deinit();
+    const bare = try sampleTitle(testing.allocator, bare_table);
     defer testing.allocator.free(bare);
     try testing.expectEqualStrings("3 rows × 2 cols", bare);
 
-    const singular = try shapeTitle(testing.allocator, "", 1, 1);
+    const singular_table = try Table.initCsv(testing.allocator, .{}, "a\nx\n");
+    defer singular_table.deinit();
+    const singular = try sampleTitle(testing.allocator, singular_table);
     defer testing.allocator.free(singular);
     try testing.expectEqualStrings("1 row × 1 col", singular);
 }
@@ -285,7 +242,7 @@ test "buildStatsTable reports basic visible stats" {
     try test_support.expectEqualRows(&.{ "column", "type", "fill", "uniq", "min", "max" }, stats.headers());
     try test_support.expectEqualRows(&.{ "name", "string", "100%", "3", "3 chars", "5 chars" }, stats.row(0));
     try test_support.expectEqualRows(&.{ "score", "int", "100%", "2", "10", "20" }, stats.row(1));
-    try test_support.expectEqualRows(&.{ "city", "string", "67%", "2", "6 chars", "7 chars" }, stats.row(2));
+    try test_support.expectEqualRows(&.{ "city", "string", "66%", "2", "6 chars", "7 chars" }, stats.row(2));
 }
 
 test "buildStatsTable truncates float min and max to three digits" {
@@ -298,15 +255,17 @@ test "buildStatsTable truncates float min and max to three digits" {
     try test_support.expectEqualRows(&.{ "score", "float", "100%", "2", "1.234", "20.999" }, stats.row(0));
 }
 
+const cloneRows = @import("data.zig").cloneRows;
+const ColumnType = @import("column.zig").ColumnType;
 const Config = @import("types.zig").Config;
 const DataRow = @import("data.zig").DataRow;
 const doomicode = @import("doomicode.zig");
 const Field = @import("types.zig").Field;
 const float = @import("float.zig");
 const int = @import("int.zig");
+const Row = @import("types.zig").Row;
 const std = @import("std");
 const Table = @import("table.zig").Table;
 const testing = std.testing;
 const test_support = @import("test_support.zig");
 const util = @import("util.zig");
-const dash = "—";
