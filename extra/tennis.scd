@@ -77,8 +77,7 @@ $ tennis diamonds.csv
 	Show the first _N_ data rows.
 
 *--select* <headers>
-	Show one or more comma-separated headers. This can select a subset of
-	columns, reorder them, or repeat the same column more than once.
+	Show, reorder, or repeat one or more comma-separated headers.
 
 *--sort* <headers>
 	Sort rows by one or more comma-separated headers before applying *--head*
@@ -86,6 +85,9 @@ $ tennis diamonds.csv
 
 *--tail* <int>
 	Show the last _N_ data rows.
+
+*--completion* <shell>
+	Print a shell completion script. Valid values: *bash*, *zsh*.
 
 *--theme* <theme>
 	Select the color theme. Valid values: *auto*, *dark*, *light*. The default
@@ -137,7 +139,7 @@ Render a JSON file:
 
 - *bat* - Syntax-highlighting pager that also works well for CSV files.
 - *csvlens* - Terminal CSV viewer for browsing files interactively.
-- *miller* - Miller, for CSV/TSV/JSON processing and transformation.
+- *miller* - CSV/TSV/JSON processing and transformation.
 - *nushell* - Modern shell with first-class structured table data.
 - *qsv* - Fast CSV toolkit for filtering, joining, and summarizing data.
 - *table_tennis* - Related table-rendering project that inspired this one.

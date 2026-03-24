@@ -107,7 +107,7 @@ fn writeZsh(alloc: std.mem.Allocator, writer: anytype, options: Options) !void {
     }
 
     try writer.writeAll(
-        \\    '*:file:_files -g "*.csv(-.)" "*(-/)"'
+        \\    '*:file:_files -g "*.(csv|json|jsonl|ndjson)(-.)" "*(-/)"'
         \\}
         \\
         \\if [ "$funcstack[1]" = "_tennis" ]; then

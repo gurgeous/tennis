@@ -9,14 +9,14 @@ _tennis() {
     '--border[Table border style (rounded|thin|double|...)]:border:(ascii_rounded basic basic_compact compact compact_double dots double heavy light markdown none psql reinforced restructured rounded single thin with_love)' \
     '--peek[Show csv shape, sample, and handy stats]' \
     '--zebra[Turn on zebra stripes]' \
-    '--select[Only show these comma-separated headers]:headers:' \
-    '--sort[Sort rows by one or more comma-separated headers]:headers:' \
+    '--select[Select or reorder comma-separated headers]:headers:' \
+    '--sort[Sort rows by comma-separated headers]:headers:' \
     '-r[Reverse rows (helpful for sorting)]' \
     '--reverse[Reverse rows (helpful for sorting)]' \
     '--shuffle[Shuffle rows into random order]' \
     '--shuf[Shuffle rows into random order]' \
-    '--head[Show first or last rows]:int:' \
-    '--tail[Show first or last rows]:int:' \
+    '--head[Show first N rows]:int:' \
+    '--tail[Show last N rows]:int:' \
     '--filter[Only show rows that contain this text]:string:' \
     '--color[Turn color off and on (on|off|auto)]:color:(auto off on)' \
     '--delimiter[Set CSV delim (can be any char or "tab")]:char:(tab , \; \|)' \
@@ -27,7 +27,7 @@ _tennis() {
     '--completion[Print shell completion (bash|zsh)]:shell:(bash zsh)' \
     '--help[Get help]' \
     '--version[Show version number and exit]' \
-    '*:file:_files -g "*.csv(-.)" "*(-/)"'
+    '*:file:_files -g "*.(csv|json|jsonl|ndjson)(-.)" "*(-/)"'
 }
 
 if [ "$funcstack[1]" = "_tennis" ]; then

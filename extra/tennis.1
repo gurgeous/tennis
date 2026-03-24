@@ -5,7 +5,7 @@
 .nh
 .ad l
 .\" Begin generated content:
-.TH "tennis" "1" "2026-03-23"
+.TH "tennis" "1" "2026-03-24"
 .P
 .SH NAME
 .P
@@ -111,8 +111,7 @@ Show the first \fIN\fR data rows.\&
 .RE
 \fB--select\fR <headers>
 .RS 4
-Show one or more comma-separated headers.\& This can select a subset of
-columns, reorder them, or repeat the same column more than once.\&
+Show, reorder, or repeat one or more comma-separated headers.\&
 .P
 .RE
 \fB--sort\fR <headers>
@@ -124,6 +123,11 @@ or \fB--tail\fR.\&
 \fB--tail\fR <int>
 .RS 4
 Show the last \fIN\fR data rows.\&
+.P
+.RE
+\fB--completion\fR <shell>
+.RS 4
+Print a shell completion script.\& Valid values: \fBbash\fR, \fBzsh\fR.\&
 .P
 .RE
 \fB--theme\fR <theme>
@@ -217,7 +221,7 @@ $ tennis data.\&json
 .el \{\
 .IP \(bu 4
 .\}
-\fBmiller\fR - Miller, for CSV/TSV/JSON processing and transformation.\&
+\fBmiller\fR - CSV/TSV/JSON processing and transformation.\&
 .RE
 .RS 4
 .ie n \{\

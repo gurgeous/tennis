@@ -53,7 +53,7 @@ setup() {
 }
 
 @test "renders semicolon-delimited csv" {
-  run bash -lc "printf 'name;score\nalice;1234\nbob;5678\n' | '$TENNIS_BIN' --color=off -d ';' --width 80"
+  run bash -lc "printf 'name;score\nalice;1234\nbob;5678\n' | '$TENNIS_BIN' --color=off --delimiter ';' --width 80"
   [ "$status" -eq 0 ]
   [[ "$output" == *"name"* ]]
   [[ "$output" == *"score"* ]]
@@ -155,7 +155,7 @@ setup() {
 }
 
 @test "explicit delimiter overrides sniffing" {
-  run "$TENNIS_BIN" --color=off --width 80 -d ',' "$REPO_ROOT/testdata/semicolon.csv"
+  run "$TENNIS_BIN" --color=off --width 80 --delimiter ',' "$REPO_ROOT/testdata/semicolon.csv"
   [ "$status" -eq 0 ]
   [[ "$output" == *"name;score;city"* ]]
   [[ "$output" == *"alice;1234;boston"* ]]

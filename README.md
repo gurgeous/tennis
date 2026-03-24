@@ -51,12 +51,12 @@ $ zig build
       --zebra                Turn on zebra stripes
 
  Sort, filter, etc:
-      --select <headers>     Only show these comma-separated headers
-      --sort <headers>       Sort rows by one or more comma-separated headers
+      --select <headers>     Select or reorder comma-separated headers
+      --sort <headers>       Sort rows by comma-separated headers
   -r, --reverse              Reverse rows (helpful for sorting)
       --shuffle, --shuf      Shuffle rows into random order
-      --head <int>           Show first or last rows
-      --tail <int>           Show first or last rows
+      --head <int>           Show first N rows
+      --tail <int>           Show last N rows
       --filter <string>      Only show rows that contain this text
 
  Other options:

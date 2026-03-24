@@ -16,12 +16,12 @@ pub const Args = struct {
         \\      --zebra                Turn on zebra stripes
         \\
         \\ Sort, filter, etc:
-        \\      --select <headers>     Only show these comma-separated headers
-        \\      --sort <headers>       Sort rows by one or more comma-separated headers
+        \\      --select <headers>     Select or reorder comma-separated headers
+        \\      --sort <headers>       Sort rows by comma-separated headers
         \\  -r, --reverse              Reverse rows (helpful for sorting)
         \\      --shuffle, --shuf      Shuffle rows into random order
-        \\      --head <int>           Show first or last rows
-        \\      --tail <int>           Show first or last rows
+        \\      --head <int>           Show first N rows
+        \\      --tail <int>           Show last N rows
         \\      --filter <string>      Only show rows that contain this text
         \\
         \\ Other options:
@@ -50,15 +50,15 @@ pub const Args = struct {
         \\    --sort <STRING>
         \\    --tail <INT>
         \\    --theme <THEME>
-        \\-d, --delimiter <CHAR>
         \\-n, --row-numbers
         \\-r, --reverse
         \\--zebra
         \\-t, --title <STRING>
-        \\-w, --width <INT>
         \\    --digits <INT>
+        \\    --delimiter <CHAR>
         \\    --select <STRING>
         \\    --vanilla
+        \\    --width <INT>
         \\-h, --help
         \\    --version
         \\<FILE>...
@@ -262,7 +262,6 @@ test "parse option event cases" {
         event: ?types.MainEvent = null,
     }{
         .{ .argv = &.{ "--delimiter", ";", "-" }, .delimiter = ';' },
-        .{ .argv = &.{ "-d", ";", "-" }, .delimiter = ';' },
         .{ .argv = &.{ "--delimiter", "tab", "-" }, .delimiter = '\t' },
         .{ .argv = &.{ "--delimiter", "\\t", "-" }, .delimiter = '\t' },
         .{ .argv = &.{ "--border", "compact_double", "-" }, .border_name = .compact_double },
