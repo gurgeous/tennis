@@ -58,8 +58,8 @@ pub const Column = struct {
     // Measure the widest visible cell in this column.
     fn measure(self: Column) usize {
         var width = doomicode.displayWidth(self.name);
-        for (0..self.table.nrows()) |visible_index| {
-            width = @max(width, doomicode.displayWidth(self.field(visible_index)));
+        for (0..self.table.nrows()) |index| {
+            width = @max(width, doomicode.displayWidth(self.field(index)));
         }
         return width;
     }
