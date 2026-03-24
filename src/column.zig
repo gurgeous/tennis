@@ -51,9 +51,9 @@ pub const Column = struct {
     }
 
     // Return one rendered or raw cell by visible row index.
-    pub fn field(self: Column, visible_index: usize) Field {
-        if (self.formatted) |fields| return fields[visible_index];
-        return self.table.row(visible_index)[self.index];
+    pub fn field(self: Column, index: usize) Field {
+        if (self.formatted) |fields| return fields[index];
+        return self.table.row(index)[self.index];
     }
 
     //

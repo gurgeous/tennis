@@ -3,17 +3,11 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    //
     // deps
-    //
-
     const clap_mod = b.dependency("clap", .{ .target = target, .optimize = optimize }).module("clap");
     const mibu_mod = b.dependency("mibu", .{ .target = target, .optimize = optimize }).module("mibu");
 
-    //
     // build options
-    //
-
     const build_options = b.addOptions();
     build_options.addOption([]const u8, "version", getVersion(b));
 

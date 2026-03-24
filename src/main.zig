@@ -168,7 +168,6 @@ test {
     _ = @import("peek.zig");
     _ = @import("render.zig");
     _ = @import("data.zig");
-    _ = @import("replay.zig");
     _ = @import("sort.zig");
     _ = @import("sniffer.zig");
     _ = @import("style.zig");

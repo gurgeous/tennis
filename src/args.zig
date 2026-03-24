@@ -104,17 +104,13 @@ pub const Args = struct {
     }
 
     // Parse argv and map supported flags into config.
-    fn parse(
-        alloc: std.mem.Allocator,
-        argv: []const []const u8,
-        diagnostic: *clap.Diagnostic,
-    ) anyerror!MainEvent {
+    fn parse(alloc: std.mem.Allocator, argv: []const []const u8, diag: *clap.Diagnostic) !MainEvent {
         if (builtin.os.tag == .windows) return error.Windows;
 
         var iter = clap.args.SliceIterator{ .args = argv };
         var res = try clap.parseEx(clap.Help, &params, parsers, &iter, .{
             .allocator = alloc,
-            .diagnostic = diagnostic,
+            .diagnostic = diag,
         });
         defer res.deinit();
 
@@ -133,33 +129,32 @@ pub const Args = struct {
         var config: Config = .{};
         if (res.args.border) |v| config.border = v;
         if (res.args.color) |v| config.color = v;
-        // note that 0 means "unset" and we try to sniff later before defaulting to comma
         config.delimiter = if (res.args.delimiter) |v| v else 0;
-        if (res.args.digits) |v| {
-            if (v < 1 or v > 6) return error.InvalidDigits;
-            config.digits = v;
-        }
         if (res.args.filter) |v| config.filter = v;
-        if (res.args.head) |v| {
-            if (v == 0) return error.InvalidHeadValue;
-            config.head = v;
-        }
         config.peek = res.args.peek > 0;
         config.reverse = res.args.reverse > 0;
+        config.row_numbers = @field(res.args, "row-numbers") > 0;
         if (res.args.select) |v| config.select = v;
         config.shuffle = res.args.shuffle > 0 or res.args.shuf > 0;
         if (res.args.sort) |v| config.sort = v;
-        if (res.args.tail) |v| {
-            if (v == 0) return error.InvalidTailValue;
-            config.tail = v;
-            if (config.head > 0) return error.InvalidHeadTail;
-        }
         if (res.args.theme) |v| config.theme = v;
         if (res.args.title) |v| config.title = v;
-        if (res.args.width) |v| config.width = v;
-        config.row_numbers = @field(res.args, "row-numbers") > 0;
         config.vanilla = res.args.vanilla > 0;
+        if (res.args.width) |v| config.width = v;
         config.zebra = res.args.zebra > 0;
+        if (res.args.digits) |v| {
+            config.digits = v;
+            if (v < 1 or v > 6) return error.InvalidDigits;
+        }
+        if (res.args.head) |v| {
+            config.head = v;
+            if (v == 0) return error.InvalidHeadValue;
+        }
+        if (res.args.tail) |v| {
+            config.tail = v;
+            if (v == 0) return error.InvalidTailValue;
+            if (config.head > 0) return error.InvalidHeadTail;
+        }
 
         //
         // now handle filename
