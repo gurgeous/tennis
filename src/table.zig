@@ -49,6 +49,8 @@ pub const Table = struct {
         const data = try csv.load(alloc, bytes, config.delimiter);
         errdefer data.deinit(alloc);
         var bound = config;
+        if (config.title.len > 0) bound.title = try alloc.dupe(u8, config.title);
+        if (config.footer.len > 0) bound.footer = try alloc.dupe(u8, config.footer);
         defer bound.deinit(alloc);
         try bound.bind(alloc, data.headers());
         return init(alloc, bound, data);

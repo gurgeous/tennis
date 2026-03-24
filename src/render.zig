@@ -465,7 +465,7 @@ test "render with title and row numbers" {
     test_table.table.config.color = .off;
     test_table.table.config.theme = .dark;
     test_table.table.config.row_numbers = true;
-    test_table.table.config.title = "foo";
+    test_table.table.config.title = try test_table.table.alloc.dupe(u8, "foo");
     const l = try Layout.init(test_table.table);
     defer l.deinit(test_table.table.alloc);
     var render: Render = .init(test_table.table, &writer, l);
@@ -513,7 +513,7 @@ fn renderTest(input: []const u8, config: types.Config) ![]u8 {
     var test_table: test_support.TestTable = undefined;
     try test_table.init(testing.allocator, input);
     defer test_table.deinit();
-    applyRenderConfig(test_table.table, config);
+    try applyRenderConfig(test_table.table, config);
     const l = try Layout.init(test_table.table);
     defer l.deinit(test_table.table.alloc);
     var buf: [4096]u8 = undefined;
@@ -524,12 +524,13 @@ fn renderTest(input: []const u8, config: types.Config) ![]u8 {
     return testing.allocator.dupe(u8, writer.buffered());
 }
 
-fn applyRenderConfig(table: *Table, config: types.Config) void {
+fn applyRenderConfig(table: *Table, config: types.Config) !void {
     table.config.border = config.border;
     table.config.color = config.color;
     table.config.theme = config.theme;
     table.config.row_numbers = config.row_numbers;
-    table.config.title = config.title;
+    if (config.title.len > 0) table.config.title = try table.alloc.dupe(u8, config.title);
+    if (config.footer.len > 0) table.config.footer = try table.alloc.dupe(u8, config.footer);
     table.config.zebra = config.zebra;
     if (config.width > 0) table.config.width = config.width;
 }

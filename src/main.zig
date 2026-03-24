@@ -68,7 +68,10 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
             return null;
         },
         // otherwise keep the parsed config and continue
-        .run => |cfg| cfg,
+        .run => |cfg| blk: {
+            event = .banner;
+            break :blk cfg;
+        },
     };
 
     //

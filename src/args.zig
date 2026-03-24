@@ -138,7 +138,7 @@ pub const Args = struct {
         config.shuffle = res.args.shuffle > 0 or res.args.shuf > 0;
         if (res.args.sort) |v| config.sort = v;
         if (res.args.theme) |v| config.theme = v;
-        if (res.args.title) |v| config.title = v;
+        if (res.args.title) |v| config.title = try alloc.dupe(u8, v);
         config.vanilla = res.args.vanilla > 0;
         if (res.args.width) |v| config.width = v;
         config.zebra = res.args.zebra > 0;
@@ -199,7 +199,7 @@ test "parse args accepts dash positional" {
 }
 
 test "parse option config case" {
-    const out = try parseTest(&.{
+    var out = try parseTest(&.{
         "--border",
         "double",
         "--color",
@@ -228,6 +228,7 @@ test "parse option config case" {
         "-n",
         "-",
     });
+    defer out.deinit(testing.allocator);
 
     try testing.expect(out == .run);
     try testing.expectEqual(border.BorderName.double, out.run.border);
@@ -272,7 +273,8 @@ test "parse option event cases" {
     };
 
     for (cases) |tc| {
-        const parsed = try parseTest(tc.argv);
+        var parsed = try parseTest(tc.argv);
+        defer parsed.deinit(testing.allocator);
         if (tc.delimiter) |d| try testing.expectEqual(d, parsed.run.delimiter);
         if (tc.border_name) |b| try testing.expectEqual(b, parsed.run.border);
         if (std.mem.eql(u8, tc.argv[0], "--filter")) try testing.expectEqualStrings("ali", parsed.run.filter);

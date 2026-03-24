@@ -1,12 +1,13 @@
 // Build and render a compact sample + stats view for one visible table.
 pub fn render(alloc: std.mem.Allocator, table: *Table, writer: *std.Io.Writer) !void {
+    // sample
     const sample = try buildSampleTable(alloc, table);
     defer sample.config.deinit(alloc);
     defer sample.deinit();
     try sample.renderTable(writer);
-
     try writer.writeByte('\n');
 
+    // stats
     const stats = try buildStatsTable(alloc, table);
     defer stats.config.deinit(alloc);
     defer stats.deinit();
@@ -18,14 +19,12 @@ fn buildSampleTable(alloc: std.mem.Allocator, table: *Table) !*Table {
     var config = sampleConfig(table.config);
     const title = try shapeTitle(alloc, table.config.title, table.nrows(), table.ncols());
     config.title = title;
-    config.owned_title = title;
 
     const n = @min(@as(usize, 5), table.nrows());
     if (table.nrows() > n) {
         const more = table.nrows() - n;
         const footer = try sampleFooter(alloc, more);
         config.footer = footer;
-        config.owned_footer = footer;
     }
     var rows: std.ArrayList(DataRow) = .empty;
     defer {
@@ -51,7 +50,7 @@ fn buildStatsTable(alloc: std.mem.Allocator, table: *Table) !*Table {
     try rows.append(alloc, try DataRow.init(alloc, &headers));
     for (0..table.ncols()) |ii| try rows.append(alloc, try buildStatsRow(alloc, table, ii));
 
-    return try Table.init(alloc, statsConfig(table.config), .{ .rows = try rows.toOwnedSlice(alloc) });
+    return try Table.init(alloc, try statsConfig(alloc, table.config), .{ .rows = try rows.toOwnedSlice(alloc) });
 }
 
 // Build one owned stats row for one visible column.
@@ -102,6 +101,7 @@ fn formatCount(alloc: std.mem.Allocator, n: usize) ![]u8 {
 // Derive a config for the sample table without reapplying row/col transforms.
 fn sampleConfig(config: Config) Config {
     var out = config;
+    out.title = "";
     out.filter = "";
     out.footer = "";
     out.head = 0;
@@ -113,17 +113,15 @@ fn sampleConfig(config: Config) Config {
     out.sort = "";
     out.sort_cols = &.{};
     out.tail = 0;
-    out.owned_footer = null;
-    out.owned_title = null;
     out.srand = 0;
     return out;
 }
 
 // Derive a config for the stats table.
-fn statsConfig(config: Config) Config {
+fn statsConfig(alloc: std.mem.Allocator, config: Config) !Config {
     var out = sampleConfig(config);
     out.row_numbers = false;
-    out.title = "stats";
+    out.title = try alloc.dupe(u8, "stats");
     return out;
 }
 
@@ -287,6 +285,7 @@ test "buildStatsTable reports basic visible stats" {
     defer table.deinit();
 
     const stats = try buildStatsTable(testing.allocator, table);
+    defer stats.config.deinit(testing.allocator);
     defer stats.deinit();
 
     try test_support.expectEqualRows(&.{ "column", "type", "fill", "uniq", "min", "max" }, stats.headers());
@@ -300,6 +299,7 @@ test "buildStatsTable truncates float min and max to three digits" {
     defer table.deinit();
 
     const stats = try buildStatsTable(testing.allocator, table);
+    defer stats.config.deinit(testing.allocator);
     defer stats.deinit();
 
     try test_support.expectEqualRows(&.{ "score", "float", "100%", "2", "1.234", "20.999" }, stats.row(0));
