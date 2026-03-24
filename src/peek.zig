@@ -55,19 +55,19 @@ fn buildStatsTable(alloc: std.mem.Allocator, table: *Table) !*Table {
 }
 
 // Build one owned stats row for one visible column.
-fn buildStatsRow(alloc: std.mem.Allocator, table: *Table, visible_col: usize) !DataRow {
-    const column = table.column(visible_col);
-    const fill = try formatFill(alloc, table, visible_col);
+fn buildStatsRow(alloc: std.mem.Allocator, table: *Table, c: usize) !DataRow {
+    const column = table.column(c);
+    const fill = try formatFill(alloc, table, c);
     defer alloc.free(fill);
-    const uniq = try formatUniq(alloc, table, visible_col);
+    const uniq = try formatUniq(alloc, table, c);
     defer alloc.free(uniq);
-    const min = try formatMin(alloc, table, visible_col);
+    const min = try formatMin(alloc, table, c);
     defer alloc.free(min);
-    const max = try formatMax(alloc, table, visible_col);
+    const max = try formatMax(alloc, table, c);
     defer alloc.free(max);
 
     const row = [_]Field{
-        table.headers()[visible_col],
+        table.headers()[c],
         @tagName(column.type),
         fill,
         uniq,
@@ -135,24 +135,24 @@ fn sampleFooter(alloc: std.mem.Allocator, nmore: usize) ![]u8 {
 }
 
 // Format fill as the percent of non-empty visible cells in a column.
-fn formatFill(alloc: std.mem.Allocator, table: *Table, visible_col: usize) ![]u8 {
+fn formatFill(alloc: std.mem.Allocator, table: *Table, c: usize) ![]u8 {
     if (table.nrows() == 0) return alloc.dupe(u8, "0%");
 
     var fill: usize = 0;
-    for (0..table.nrows()) |visible_row| {
-        if (table.row(visible_row)[visible_col].len > 0) fill += 1;
+    for (0..table.nrows()) |r| {
+        if (table.row(r)[c].len > 0) fill += 1;
     }
     const pct = (fill * 100 + table.nrows() / 2) / table.nrows();
     return std.fmt.allocPrint(alloc, "{d}%", .{pct});
 }
 
 // Format the exact count of unique non-empty visible values in a column.
-fn formatUniq(alloc: std.mem.Allocator, table: *Table, visible_col: usize) ![]u8 {
+fn formatUniq(alloc: std.mem.Allocator, table: *Table, c: usize) ![]u8 {
     var seen: std.StringHashMap(void) = .init(alloc);
     defer seen.deinit();
 
-    for (0..table.nrows()) |visible_row| {
-        const field = table.row(visible_row)[visible_col];
+    for (0..table.nrows()) |r| {
+        const field = table.row(r)[c];
         if (field.len == 0) continue;
         try seen.put(field, {});
     }
@@ -160,20 +160,20 @@ fn formatUniq(alloc: std.mem.Allocator, table: *Table, visible_col: usize) ![]u8
 }
 
 // Format one visible column's minimum value using its inferred type.
-fn formatMin(alloc: std.mem.Allocator, table: *Table, visible_col: usize) ![]u8 {
-    return switch (table.column(visible_col).type) {
-        .int => try formatIntEdge(alloc, table, visible_col, .min),
-        .float => try formatFloatEdge(alloc, table, visible_col, .min),
-        .string => try formatStringEdge(alloc, table, visible_col, .min),
+fn formatMin(alloc: std.mem.Allocator, table: *Table, c: usize) ![]u8 {
+    return switch (table.column(c).type) {
+        .int => try formatIntEdge(alloc, table, c, .min),
+        .float => try formatFloatEdge(alloc, table, c, .min),
+        .string => try formatStringEdge(alloc, table, c, .min),
     };
 }
 
 // Format one visible column's maximum value using its inferred type.
-fn formatMax(alloc: std.mem.Allocator, table: *Table, visible_col: usize) ![]u8 {
-    return switch (table.column(visible_col).type) {
-        .int => try formatIntEdge(alloc, table, visible_col, .max),
-        .float => try formatFloatEdge(alloc, table, visible_col, .max),
-        .string => try formatStringEdge(alloc, table, visible_col, .max),
+fn formatMax(alloc: std.mem.Allocator, table: *Table, c: usize) ![]u8 {
+    return switch (table.column(c).type) {
+        .int => try formatIntEdge(alloc, table, c, .max),
+        .float => try formatFloatEdge(alloc, table, c, .max),
+        .string => try formatStringEdge(alloc, table, c, .max),
     };
 }
 
@@ -181,15 +181,15 @@ fn formatMax(alloc: std.mem.Allocator, table: *Table, visible_col: usize) ![]u8 
 const Edge = enum { min, max };
 
 // Format one integer edge for an inferred integer column.
-fn formatIntEdge(alloc: std.mem.Allocator, table: *Table, visible_col: usize, edge: Edge) ![]u8 {
+fn formatIntEdge(alloc: std.mem.Allocator, table: *Table, c: usize, edge: Edge) ![]u8 {
     var seen = false;
     var min_value: i64 = 0;
     var max_value: i64 = 0;
     var min_text: []const u8 = "";
     var max_text: []const u8 = "";
 
-    for (0..table.nrows()) |visible_row| {
-        const field = table.row(visible_row)[visible_col];
+    for (0..table.nrows()) |r| {
+        const field = table.row(r)[c];
         if (field.len == 0) continue;
         const value = std.fmt.parseInt(i64, field, 10) catch continue;
         if (!seen or value < min_value) {
@@ -208,15 +208,15 @@ fn formatIntEdge(alloc: std.mem.Allocator, table: *Table, visible_col: usize, ed
 }
 
 // Format one float edge for an inferred float column.
-fn formatFloatEdge(alloc: std.mem.Allocator, table: *Table, visible_col: usize, edge: Edge) ![]u8 {
+fn formatFloatEdge(alloc: std.mem.Allocator, table: *Table, c: usize, edge: Edge) ![]u8 {
     var seen = false;
     var min_value: f64 = 0;
     var max_value: f64 = 0;
     var min_text: []const u8 = "";
     var max_text: []const u8 = "";
 
-    for (0..table.nrows()) |visible_row| {
-        const field = table.row(visible_row)[visible_col];
+    for (0..table.nrows()) |r| {
+        const field = table.row(r)[c];
         if (field.len == 0) continue;
         const value = std.fmt.parseFloat(f64, field) catch continue;
         if (!seen or value < min_value) {
@@ -235,13 +235,13 @@ fn formatFloatEdge(alloc: std.mem.Allocator, table: *Table, visible_col: usize, 
 }
 
 // Format one string-length edge for one visible string column.
-fn formatStringEdge(alloc: std.mem.Allocator, table: *Table, visible_col: usize, edge: Edge) ![]u8 {
+fn formatStringEdge(alloc: std.mem.Allocator, table: *Table, c: usize, edge: Edge) ![]u8 {
     var seen = false;
     var min_len: usize = 0;
     var max_len: usize = 0;
 
-    for (0..table.nrows()) |visible_row| {
-        const field = table.row(visible_row)[visible_col];
+    for (0..table.nrows()) |r| {
+        const field = table.row(r)[c];
         if (field.len == 0) continue;
         const len = doomicode.displayWidth(field);
         if (!seen or len < min_len) min_len = len;

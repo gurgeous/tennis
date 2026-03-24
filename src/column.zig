@@ -69,8 +69,9 @@ pub const Column = struct {
         var floats: bool = false;
         var ints: bool = false;
 
-        for (0..self.table.nrows()) |visible_row| {
-            const value = self.table.row(visible_row)[self.index];
+        for (0..self.table.nrows()) |r| {
+            const value = self.table.row(r)[self.index];
+
             // ignore blanks
             if (value.len == 0) continue;
 
@@ -109,8 +110,8 @@ pub const Column = struct {
         errdefer {
             for (fields[0..ii]) |formatted| alloc.free(formatted);
         }
-        for (0..self.table.nrows()) |visible_row| {
-            fields[ii] = try formatter(self, alloc, self.table.row(visible_row)[self.index]);
+        for (0..self.table.nrows()) |r| {
+            fields[ii] = try formatter(self, alloc, self.table.row(r)[self.index]);
             ii += 1;
         }
         self.formatted = fields;
