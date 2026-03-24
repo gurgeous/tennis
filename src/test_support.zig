@@ -1,12 +1,5 @@
 // Small helpers for unit tests that need an owned Table.
 
-// Parse CSV test input bytes and build a ready-to-render table.
-pub fn initCsv(alloc: std.mem.Allocator, config: types.Config, bytes: []const u8) !*Table {
-    const data = try csv.load(alloc, bytes, config.delimiter);
-    errdefer data.deinit(alloc);
-    return Table.init(alloc, config, data);
-}
-
 // Assert that two string slices match element by element.
 pub fn expectEqualRows(want: []const []const u8, got: []const []const u8) !void {
     try testing.expectEqual(want.len, got.len);
@@ -22,7 +15,9 @@ pub const TestTable = struct {
     pub fn init(self: *TestTable, alloc: std.mem.Allocator, input: []const u8) !void {
         self.arena = std.heap.ArenaAllocator.init(alloc);
         errdefer self.arena.deinit();
-        self.table = try initCsv(self.arena.allocator(), .{}, input);
+        const data = try csv.load(self.arena.allocator(), input, ',');
+        errdefer data.deinit(self.arena.allocator());
+        self.table = try Table.init(self.arena.allocator(), .{}, data);
     }
 
     // Release the arena and test table.
@@ -36,4 +31,3 @@ const csv = @import("csv.zig");
 const std = @import("std");
 const testing = std.testing;
 const Table = @import("table.zig").Table;
-const types = @import("types.zig");

@@ -68,7 +68,10 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
             return null;
         },
         // otherwise keep the parsed config and continue
-        .run => |cfg| cfg,
+        .run => |cfg| blk: {
+            event = .banner;
+            break :blk cfg;
+        },
     };
 
     //
@@ -105,9 +108,9 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
 
     // plug data headers into config, for validation
     config.bind(alloc, data.headers()) catch |err| {
+        config.deinit(alloc);
         return try failure.Failure.fromTableError(alloc, err, data.headers());
     };
-    defer config.deinit(alloc);
 
     //
     // data => table
@@ -168,7 +171,6 @@ test {
     _ = @import("peek.zig");
     _ = @import("render.zig");
     _ = @import("data.zig");
-    _ = @import("replay.zig");
     _ = @import("sort.zig");
     _ = @import("sniffer.zig");
     _ = @import("style.zig");

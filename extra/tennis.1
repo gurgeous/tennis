@@ -17,17 +17,18 @@ https://github.\&com/gurgeous/tennis
 .P
 \fBtennis\fR [\fIoptions.\&.\&.\&\fR] <file.\&csv>
 .P
+Also supports stdin, json/jsonl files, etc.\&
+.P
 .SH DESCRIPTION
 .P
 \fBtennis\fR is a small CLI for printing stylish CSV tables in your terminal.\&
 Rows will be truncated to fit and it'\&ll automatically pick nice colors
-to match your terminal.\& Works with all CSV variants as well as
-\fBJSON/NDJSON\fR.\& Written in zig.\&
+to match your terminal.\& Works with all \fBCSV\fR variants as well as
+\fBJSON/JSONL\fR.\& Written in zig.\&
 .P
 .SH DEMO
 .P
 Render a CSV file:
-.P
 .P
 .nf
 .RS 4
@@ -44,31 +45,21 @@ $ tennis diamonds\&.csv
 .fi
 .RE
 .P
-.SH OPTIONS
+.SH POPULAR OPTIONS
 .P
-\fB-n\fR, \fB--row-numbers\fR
+\fB--border\fR <border>
 .RS 4
-Show row numbers.\&
+Select the table border style (see below).\& The default is \fBrounded\fR.\&
 .P
 .RE
 \fB--peek\fR
 .RS 4
-Show the visible shape, a few sample rows, and compact per-column stats.\&
+Show the shape, some sample rows, and compact per-column stats.\&
 .P
 .RE
-\fB-r\fR, \fB--reverse\fR
+\fB-n\fR, \fB--row-numbers\fR
 .RS 4
-Reverse row order.\& Helpful when sorting.\&
-.P
-.RE
-\fB--zebra\fR
-.RS 4
-Turn on zebra stripes.\&
-.P
-.RE
-\fB--shuffle\fR, \fB--shuf\fR
-.RS 4
-Shuffle row order before applying \fB--head\fR or \fB--tail\fR.\&
+Show row numbers.\&
 .P
 .RE
 \fB-t\fR, \fB--title\fR <string>
@@ -76,11 +67,50 @@ Shuffle row order before applying \fB--head\fR or \fB--tail\fR.\&
 Add a title above the table.\&
 .P
 .RE
-\fB--border\fR <border>
+\fB--zebra\fR
 .RS 4
-Select the table border style.\& The default is \fBrounded\fR.\&
+Turn on zebra stripes.\&
 .P
 .RE
+.SH SORTING & FILTERING
+.P
+\fB--filter\fR <string>
+.RS 4
+Keep rows where any field contains the given text, case-insensitive.\&
+.P
+.RE
+\fB--head\fR <int>
+.RS 4
+Show the first \fIN\fR data rows.\&
+.P
+.RE
+\fB-r\fR, \fB--reverse\fR
+.RS 4
+Reverse row order.\& Helpful when sorting.\&
+.P
+.RE
+\fB--select\fR <headers>
+.RS 4
+Select, reorder, or repeat one or more comma-separated headers.\&
+.P
+.RE
+\fB--shuffle\fR
+.RS 4
+Shuffle rows.\&
+.P
+.RE
+\fB--sort\fR <headers>
+.RS 4
+Sort rows by one or more comma-separated headers.\&
+.P
+.RE
+\fB--tail\fR <int>
+.RS 4
+Show the last \fIN\fR data rows.\&
+.P
+.RE
+.SH OTHER OPTIONS
+.P
 \fB--color\fR <color>
 .RS 4
 Control color output.\& Valid values: \fBon\fR, \fBoff\fR, \fBauto\fR.\& The default is
@@ -90,44 +120,15 @@ Control color output.\& Valid values: \fBon\fR, \fBoff\fR, \fBauto\fR.\& The def
 \fB--delimiter\fR <char>
 .RS 4
 Set the delimiter when reading input.\& Defaults to '\&\fB,\fR'\& naturally.\& It
-accepts any char, or \fBtab\fR for tab-delimited input.\&
+accepts any char, or \fBtab\fR for tab-delimited input.\& Note that tennis tries
+to automatically detect the correct delimiter, so hopefully this is
+rarely necessary.\&
 .P
 .RE
 \fB--digits\fR <int>
 .RS 4
-Set the number of digits after the decimal for float columns.\& Valid values:
-\fB1\fR through \fB6\fR.\& The default is \fB3\fR.\&
-.P
-.RE
-\fB--filter\fR <string>
-.RS 4
-Keep rows where any field contains the given text, case-insensitively.\&
-.P
-.RE
-\fB--head\fR <int>
-.RS 4
-Show the first \fIN\fR data rows.\&
-.P
-.RE
-\fB--select\fR <headers>
-.RS 4
-Show, reorder, or repeat one or more comma-separated headers.\&
-.P
-.RE
-\fB--sort\fR <headers>
-.RS 4
-Sort rows by one or more comma-separated headers before applying \fB--head\fR
-or \fB--tail\fR.\&
-.P
-.RE
-\fB--tail\fR <int>
-.RS 4
-Show the last \fIN\fR data rows.\&
-.P
-.RE
-\fB--completion\fR <shell>
-.RS 4
-Print a shell completion script.\& Valid values: \fBbash\fR, \fBzsh\fR.\&
+Set the number of digits after the decimal for float columns.\& Valid values
+\fB1\fR through \fB6\fR, the default is \fB3\fR.\&
 .P
 .RE
 \fB--theme\fR <theme>
@@ -161,37 +162,43 @@ Border names are adapted from Nushell table themes, which in turn build on the
 Render with row numbers and a title:
 .P
 .RS 4
-$ tennis --row-numbers --title Diamonds diamonds.\&csv
+$ tennis --row-numbers --title Diamonds diamonds.\&csv # csv
 .P
 .RE
-Read from standard input:
+Peek at shape, sample rows, and column stats:
 .P
 .RS 4
-$ cat diamonds.\&csv | tennis
+$ tennis --peek diamonds.\&csv
 .P
 .RE
-Disable colors and numeric formatting:
+Render json, from standard input:
 .P
 .RS 4
-$ tennis --color off --vanilla diamonds.\&csv
+$ cat diamonds.\&json | tennis
+.P
+.RE
+Show 20 random rows:
+.P
+.RS 4
+$ tennis --shuffle --head 20 diamonds.\&csv
+.P
+.RE
+Select and reorder columns:
+.P
+.RS 4
+$ tennis --select price,carat,cut diamonds.\&csv
+.P
+.RE
+Only show "ideal" diamonds:
+.P
+.RS 4
+$ tennis --filter ideal diamonds.\&csv
 .P
 .RE
 Render with a different border:
 .P
 .RS 4
 $ tennis --border dots diamonds.\&csv
-.P
-.RE
-Render a tab-delimited file:
-.P
-.RS 4
-$ tennis --delimiter tab data.\&tsv
-.P
-.RE
-Render a JSON file:
-.P
-.RS 4
-$ tennis data.\&json
 .P
 .RE
 .SH SIMILAR TOOLS

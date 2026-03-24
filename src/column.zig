@@ -45,15 +45,10 @@ pub const Column = struct {
     // accessors
     //
 
-    // Iterate this column's visible raw cells.
-    pub fn iterator(self: Column) ColumnIterator {
-        return .init(self.table, self.index);
-    }
-
     // Return one rendered or raw cell by visible row index.
-    pub fn field(self: Column, visible_index: usize) Field {
-        if (self.formatted) |fields| return fields[visible_index];
-        return self.table.row(visible_index)[self.index];
+    pub fn field(self: Column, index: usize) Field {
+        if (self.formatted) |fields| return fields[index];
+        return self.table.row(index)[self.index];
     }
 
     //
@@ -63,8 +58,8 @@ pub const Column = struct {
     // Measure the widest visible cell in this column.
     fn measure(self: Column) usize {
         var width = doomicode.displayWidth(self.name);
-        for (0..self.table.nrows()) |visible_index| {
-            width = @max(width, doomicode.displayWidth(self.field(visible_index)));
+        for (0..self.table.nrows()) |index| {
+            width = @max(width, doomicode.displayWidth(self.field(index)));
         }
         return width;
     }
@@ -74,8 +69,9 @@ pub const Column = struct {
         var floats: bool = false;
         var ints: bool = false;
 
-        var it = self.iterator();
-        while (it.next()) |value| {
+        for (0..self.table.nrows()) |r| {
+            const value = self.table.row(r)[self.index];
+
             // ignore blanks
             if (value.len == 0) continue;
 
@@ -114,9 +110,9 @@ pub const Column = struct {
         errdefer {
             for (fields[0..ii]) |formatted| alloc.free(formatted);
         }
-        var it = self.iterator();
-        while (it.next()) |raw| : (ii += 1) {
-            fields[ii] = try formatter(self, alloc, raw);
+        for (0..self.table.nrows()) |r| {
+            fields[ii] = try formatter(self, alloc, self.table.row(r)[self.index]);
+            ii += 1;
         }
         self.formatted = fields;
     }
@@ -137,30 +133,6 @@ pub const Column = struct {
 pub const ColumnType = enum { int, float, string };
 
 //
-// iterator
-//
-
-// Iterator over the visible cells of one column.
-pub const ColumnIterator = struct {
-    table: *const Table,
-    col: usize,
-    visible_row: usize = 0,
-
-    // Create a visible-row iterator for one table column.
-    pub fn init(table: *const Table, col: usize) ColumnIterator {
-        return .{ .table = table, .col = col };
-    }
-
-    // Return the next visible raw cell in this column.
-    pub fn next(self: *ColumnIterator) ?Field {
-        if (self.visible_row >= self.table.nrows()) return null;
-        const field = self.table.row(self.visible_row)[self.col];
-        self.visible_row += 1;
-        return field;
-    }
-};
-
-//
 // testing
 //
 
@@ -174,16 +146,6 @@ test "column init stores table header and index" {
     try testing.expectEqual(@as(usize, 1), column.index);
     try testing.expectEqual(@as(usize, 1), column.width);
     try testing.expectEqual(ColumnType.string, column.type);
-}
-
-test "column iterator walks data rows only" {
-    const table = try Table.initCsv(testing.allocator, .{}, "a,b\nc,d\ne,f\n");
-    defer table.deinit();
-
-    var it = table.column(1).iterator();
-    try testing.expectEqualStrings("d", it.next().?);
-    try testing.expectEqualStrings("f", it.next().?);
-    try testing.expectEqual(@as(?Field, null), it.next());
 }
 
 test "column tail formatting and width use visible rows" {

@@ -10,17 +10,18 @@ https://github.com/gurgeous/tennis
 
 *tennis* [_options..._] <file.csv>
 
+Also supports stdin, json/jsonl files, etc.
+
 # DESCRIPTION
 
 *tennis* is a small CLI for printing stylish CSV tables in your terminal.
 Rows will be truncated to fit and it'll automatically pick nice colors
-to match your terminal. Works with all CSV variants as well as
-*JSON/NDJSON*. Written in zig.
+to match your terminal. Works with all *CSV* variants as well as
+*JSON/JSONL*. Written in zig.
 
 # DEMO
 
 Render a CSV file:
-
 
 ```
 $ tennis diamonds.csv
@@ -35,28 +36,47 @@ $ tennis diamonds.csv
 ...
 ```
 
-# OPTIONS
+# POPULAR OPTIONS
+
+*--border* <border>
+	Select the table border style (see below). The default is *rounded*.
+
+*--peek*
+	Show the shape, some sample rows, and compact per-column stats.
 
 *-n*, *--row-numbers*
 	Show row numbers.
 
-*--peek*
-	Show the visible shape, a few sample rows, and compact per-column stats.
-
-*-r*, *--reverse*
-	Reverse row order. Helpful when sorting.
+*-t*, *--title* <string>
+	Add a title above the table.
 
 *--zebra*
 	Turn on zebra stripes.
 
-*--shuffle*, *--shuf*
-	Shuffle row order before applying *--head* or *--tail*.
+# SORTING & FILTERING
 
-*-t*, *--title* <string>
-	Add a title above the table.
+*--filter* <string>
+	Keep rows where any field contains the given text, case-insensitive.
 
-*--border* <border>
-	Select the table border style. The default is *rounded*.
+*--head* <int>
+	Show the first _N_ data rows.
+
+*-r*, *--reverse*
+	Reverse row order. Helpful when sorting.
+
+*--select* <headers>
+	Select, reorder, or repeat one or more comma-separated headers.
+
+*--shuffle*
+	Shuffle rows.
+
+*--sort* <headers>
+	Sort rows by one or more comma-separated headers.
+
+*--tail* <int>
+	Show the last _N_ data rows.
+
+# OTHER OPTIONS
 
 *--color* <color>
 	Control color output. Valid values: *on*, *off*, *auto*. The default is
@@ -64,30 +84,13 @@ $ tennis diamonds.csv
 
 *--delimiter* <char>
 	Set the delimiter when reading input. Defaults to '*,*' naturally. It
-	accepts any char, or *tab* for tab-delimited input.
+	accepts any char, or *tab* for tab-delimited input. Note that tennis tries
+	to automatically detect the correct delimiter, so hopefully this is
+	rarely necessary.
 
 *--digits* <int>
-	Set the number of digits after the decimal for float columns. Valid values:
-	*1* through *6*. The default is *3*.
-
-*--filter* <string>
-	Keep rows where any field contains the given text, case-insensitively.
-
-*--head* <int>
-	Show the first _N_ data rows.
-
-*--select* <headers>
-	Show, reorder, or repeat one or more comma-separated headers.
-
-*--sort* <headers>
-	Sort rows by one or more comma-separated headers before applying *--head*
-	or *--tail*.
-
-*--tail* <int>
-	Show the last _N_ data rows.
-
-*--completion* <shell>
-	Print a shell completion script. Valid values: *bash*, *zsh*.
+	Set the number of digits after the decimal for float columns. Valid values
+	*1* through *6*, the default is *3*.
 
 *--theme* <theme>
 	Select the color theme. Valid values: *auto*, *dark*, *light*. The default
@@ -113,27 +116,31 @@ Border names are adapted from Nushell table themes, which in turn build on the
 
 Render with row numbers and a title:
 
-	$ tennis --row-numbers --title Diamonds diamonds.csv
+	$ tennis --row-numbers --title Diamonds diamonds.csv # csv
 
-Read from standard input:
+Peek at shape, sample rows, and column stats:
 
-	$ cat diamonds.csv | tennis
+	$ tennis --peek diamonds.csv
 
-Disable colors and numeric formatting:
+Render json, from standard input:
 
-	$ tennis --color off --vanilla diamonds.csv
+	$ cat diamonds.json | tennis
+
+Show 20 random rows:
+
+	$ tennis --shuffle --head 20 diamonds.csv
+
+Select and reorder columns:
+
+	$ tennis --select price,carat,cut diamonds.csv
+
+Only show "ideal" diamonds:
+
+	$ tennis --filter ideal diamonds.csv
 
 Render with a different border:
 
 	$ tennis --border dots diamonds.csv
-
-Render a tab-delimited file:
-
-	$ tennis --delimiter tab data.tsv
-
-Render a JSON file:
-
-	$ tennis data.json
 
 # SIMILAR TOOLS
 

@@ -51,9 +51,9 @@ pub const Render = struct {
         if (self.border.header != .none) try self.renderRule(self.border.header);
 
         // rows
-        for (0..self.table.nrows()) |visible_index| {
-            try self.renderRow(visible_index);
-            if (visible_index + 1 < self.table.nrows() and self.border.row != .none) {
+        for (0..self.table.nrows()) |index| {
+            try self.renderRow(index);
+            if (index + 1 < self.table.nrows() and self.border.row != .none) {
                 try self.renderRule(self.border.row);
             }
         }
@@ -169,11 +169,11 @@ pub const Render = struct {
     // Render one visible data row.
     //
 
-    fn renderRow(self: *Render, visible_index: usize) !void {
+    fn renderRow(self: *Render, index: usize) !void {
         // calculate row "reset" which is ansi.reset + zebra, if any
         const style = self.table.style();
         if (style.chrome.len > 0) {
-            const zebra = self.table.config.zebra and visible_index % 2 == 0;
+            const zebra = self.table.config.zebra and index % 2 == 0;
             const zebra_style = if (zebra) style.zebra else "";
             self.reset = try std.fmt.bufPrint(&self.reset_buf, "{s}{s}", .{ ansi.reset, zebra_style });
             try self.buf.writer.writeAll(self.reset);
@@ -186,7 +186,7 @@ pub const Render = struct {
         var col: usize = 0;
         if (self.table.config.row_numbers) {
             var num_buf: [32]u8 = undefined;
-            const label = try std.fmt.bufPrint(&num_buf, "{d}", .{visible_index + 1});
+            const label = try std.fmt.bufPrint(&num_buf, "{d}", .{index + 1});
             const sep = if (col + 1 == self.layout.widths.len) self.border.right else self.border.mid;
             try self.renderField(style.chrome, label, col, sep, .right);
             col += 1;
@@ -194,7 +194,7 @@ pub const Render = struct {
 
         // fields
         for (self.table.columns) |column| {
-            const str = column.field(visible_index);
+            const str = column.field(index);
             const is_placeholder = str.len == 0;
             const cell_style = if (is_placeholder) style.chrome else style.field;
             const field = if (is_placeholder) placeholder else str;
@@ -465,7 +465,7 @@ test "render with title and row numbers" {
     test_table.table.config.color = .off;
     test_table.table.config.theme = .dark;
     test_table.table.config.row_numbers = true;
-    test_table.table.config.title = "foo";
+    test_table.table.config.title = try test_table.table.alloc.dupe(u8, "foo");
     const l = try Layout.init(test_table.table);
     defer l.deinit(test_table.table.alloc);
     var render: Render = .init(test_table.table, &writer, l);
@@ -513,7 +513,7 @@ fn renderTest(input: []const u8, config: types.Config) ![]u8 {
     var test_table: test_support.TestTable = undefined;
     try test_table.init(testing.allocator, input);
     defer test_table.deinit();
-    applyRenderConfig(test_table.table, config);
+    try applyRenderConfig(test_table.table, config);
     const l = try Layout.init(test_table.table);
     defer l.deinit(test_table.table.alloc);
     var buf: [4096]u8 = undefined;
@@ -524,12 +524,13 @@ fn renderTest(input: []const u8, config: types.Config) ![]u8 {
     return testing.allocator.dupe(u8, writer.buffered());
 }
 
-fn applyRenderConfig(table: *Table, config: types.Config) void {
+fn applyRenderConfig(table: *Table, config: types.Config) !void {
     table.config.border = config.border;
     table.config.color = config.color;
     table.config.theme = config.theme;
     table.config.row_numbers = config.row_numbers;
-    table.config.title = config.title;
+    if (config.title.len > 0) table.config.title = try table.alloc.dupe(u8, config.title);
+    if (config.footer.len > 0) table.config.footer = try table.alloc.dupe(u8, config.footer);
     table.config.zebra = config.zebra;
     if (config.width > 0) table.config.width = config.width;
 }
