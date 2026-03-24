@@ -51,9 +51,12 @@ pub const Table = struct {
         var bound = config;
         if (config.title.len > 0) bound.title = try alloc.dupe(u8, config.title);
         if (config.footer.len > 0) bound.footer = try alloc.dupe(u8, config.footer);
-        defer bound.deinit(alloc);
+        var handed_off = false;
+        defer if (!handed_off) bound.deinit(alloc);
         try bound.bind(alloc, data.headers());
-        return init(alloc, bound, data);
+        const table = try init(alloc, bound, data);
+        handed_off = true;
+        return table;
     }
 
     // Release the table, columns, style cache, and stored rows.
@@ -66,6 +69,7 @@ pub const Table = struct {
             self.alloc.free(self.rows);
         }
         self.data.deinit(self.alloc);
+        self.config.deinit(self.alloc);
         self.alloc.destroy(self);
     }
 

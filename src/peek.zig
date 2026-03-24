@@ -2,14 +2,12 @@
 pub fn render(alloc: std.mem.Allocator, table: *Table, writer: *std.Io.Writer) !void {
     // sample
     const sample = try buildSampleTable(alloc, table);
-    defer sample.config.deinit(alloc);
     defer sample.deinit();
     try sample.renderTable(writer);
     try writer.writeByte('\n');
 
     // stats
     const stats = try buildStatsTable(alloc, table);
-    defer stats.config.deinit(alloc);
     defer stats.deinit();
     try stats.renderTable(writer);
 }
@@ -17,14 +15,13 @@ pub fn render(alloc: std.mem.Allocator, table: *Table, writer: *std.Io.Writer) !
 // Build a small visible-row sample table with shape embedded in the title.
 fn buildSampleTable(alloc: std.mem.Allocator, table: *Table) !*Table {
     var config = sampleConfig(table.config);
-    const title = try shapeTitle(alloc, table.config.title, table.nrows(), table.ncols());
-    config.title = title;
+    // REVIEW: change shapeTitle to take table as param
+    config.title = try shapeTitle(alloc, table.config.title, table.nrows(), table.ncols());
 
+    // REVIEW: can we use config.head here?
     const n = @min(@as(usize, 5), table.nrows());
     if (table.nrows() > n) {
-        const more = table.nrows() - n;
-        const footer = try sampleFooter(alloc, more);
-        config.footer = footer;
+        config.footer = try sampleFooter(alloc, table.nrows() - n);
     }
     var rows: std.ArrayList(DataRow) = .empty;
     defer {
@@ -56,6 +53,7 @@ fn buildStatsTable(alloc: std.mem.Allocator, table: *Table) !*Table {
 // Build one owned stats row for one visible column.
 fn buildStatsRow(alloc: std.mem.Allocator, table: *Table, c: usize) !DataRow {
     const column = table.column(c);
+
     const fill = try formatFill(alloc, table, c);
     defer alloc.free(fill);
     const uniq = try formatUniq(alloc, table, c);
@@ -65,19 +63,14 @@ fn buildStatsRow(alloc: std.mem.Allocator, table: *Table, c: usize) !DataRow {
     const max = try formatMax(alloc, table, c);
     defer alloc.free(max);
 
-    const row = [_]Field{
-        table.headers()[c],
-        @tagName(column.type),
-        fill,
-        uniq,
-        min,
-        max,
-    };
+    const row = [_]Field{ table.headers()[c], @tagName(column.type), fill, uniq, min, max };
     return try DataRow.init(alloc, &row);
 }
 
 // Format the sample/stats title with the current visible shape.
 fn shapeTitle(alloc: std.mem.Allocator, title: []const u8, nrows: usize, ncols: usize) ![]u8 {
+    // REVIEW: add util.pluralCount() that does this (takes a count and a string
+    // that gets pluralized). That means we can get rid of formatCount
     const rows = try formatCount(alloc, nrows);
     defer alloc.free(rows);
     const cols = try formatCount(alloc, ncols);
@@ -100,6 +93,7 @@ fn formatCount(alloc: std.mem.Allocator, n: usize) ![]u8 {
 
 // Derive a config for the sample table without reapplying row/col transforms.
 fn sampleConfig(config: Config) Config {
+    // REVIEW: can't we start with a blank config?
     var out = config;
     out.title = "";
     out.filter = "";
@@ -119,6 +113,7 @@ fn sampleConfig(config: Config) Config {
 
 // Derive a config for the stats table.
 fn statsConfig(alloc: std.mem.Allocator, config: Config) !Config {
+    // REVIEW: can't we start with a blank config?
     var out = sampleConfig(config);
     out.row_numbers = false;
     out.title = try alloc.dupe(u8, "stats");
@@ -285,7 +280,6 @@ test "buildStatsTable reports basic visible stats" {
     defer table.deinit();
 
     const stats = try buildStatsTable(testing.allocator, table);
-    defer stats.config.deinit(testing.allocator);
     defer stats.deinit();
 
     try test_support.expectEqualRows(&.{ "column", "type", "fill", "uniq", "min", "max" }, stats.headers());
@@ -299,7 +293,6 @@ test "buildStatsTable truncates float min and max to three digits" {
     defer table.deinit();
 
     const stats = try buildStatsTable(testing.allocator, table);
-    defer stats.config.deinit(testing.allocator);
     defer stats.deinit();
 
     try test_support.expectEqualRows(&.{ "score", "float", "100%", "2", "1.234", "20.999" }, stats.row(0));

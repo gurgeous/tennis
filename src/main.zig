@@ -108,9 +108,9 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
 
     // plug data headers into config, for validation
     config.bind(alloc, data.headers()) catch |err| {
+        config.deinit(alloc);
         return try failure.Failure.fromTableError(alloc, err, data.headers());
     };
-    defer config.deinit(alloc);
 
     //
     // data => table
