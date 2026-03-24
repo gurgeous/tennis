@@ -40,6 +40,24 @@ setup() {
   [[ "$output" == *"--version"* ]]
 }
 
+@test "prints version" {
+  run "$TENNIS_BIN" --version
+  [ "$status" -eq 0 ]
+  [[ "$output" == tennis:* ]]
+}
+
+@test "prints bash completion" {
+  run "$TENNIS_BIN" --completion bash
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"complete -F _tennis tennis"* ]]
+}
+
+@test "prints zsh completion" {
+  run "$TENNIS_BIN" --completion zsh
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"#compdef tennis"* ]]
+}
+
 @test "fails on invalid csv input" {
   run bash -lc "printf 'a,b\n\"oops\n' | '$TENNIS_BIN' --color=off"
   [ "$status" -eq 1 ]
@@ -343,12 +361,49 @@ setup() {
   [[ "$output" == *"│  1 │ 0.230 │ Ideal     │ E     │ SI2     │ 61.500 │    55 │   326 │"* ]]
 }
 
+@test "respects digits option" {
+  run "$TENNIS_BIN" --color=off --width 80 --digits 1 "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"0.2"* ]]
+  [[ "$output" != *"0.230"* ]]
+}
+
+@test "respects vanilla option" {
+  run "$TENNIS_BIN" --color=off --width 120 --vanilla "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"0.23"* ]]
+  [[ "$output" != *"0.230"* ]]
+}
+
+@test "respects theme option" {
+  run "$TENNIS_BIN" --color=on --theme dark --width 80 --title foo "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 0 ]
+  dark="$output"
+
+  run "$TENNIS_BIN" --color=on --theme light --width 80 --title foo "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 0 ]
+  light="$output"
+
+  [ "$dark" != "$light" ]
+}
+
 @test "renders a title" {
   run "$TENNIS_BIN" --color=off --width 80 --title foo "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 0 ]
   [[ "$output" == *"foo"* ]]
   [[ "$output" == *"carat"* ]]
   [[ "$output" == *"Premium"* ]]
+}
+
+@test "peek respects filter and select" {
+  run "$TENNIS_BIN" --color=off --width 120 --peek --filter bob --select name,score "$REPO_ROOT/testdata/test.json"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"bob"* ]]
+  [[ "$output" != *"alice"* ]]
+  [[ "$output" == *"│ column │ type"* ]]
+  [[ "$output" == *"│ name   │ string │ 100% │    1"* ]]
+  [[ "$output" == *"│ score  │ int    │ 100% │    1"* ]]
+  [[ "$output" != *"city"* ]]
 }
 
 @test "renders basic snapshot" {

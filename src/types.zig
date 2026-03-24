@@ -98,10 +98,9 @@ pub const MainEvent = union(enum) {
     }
 };
 
-// Rows/Row/Field plus a simple two-field entry pair.
+// Row/Field plus a simple two-field entry pair.
 pub const Field = []const u8;
 pub const Row = []const Field;
-pub const Rows = []const Row;
 pub const Entry = [2]Field;
 
 // simple enums for Config
