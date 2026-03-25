@@ -39,7 +39,7 @@ $ zig build
 - sorting, filtering, head/tail
 - `--peek` to get a quick summary
 
-### All Options
+### Options
 
 ```
  Usage: tennis [options...] <file.csv>
@@ -72,6 +72,7 @@ $ zig build
       --completion <shell>   Print shell completion (bash|zsh)
       --help                 Get help
       --version              Show version number and exit
+
 ```
 
 Note that color defaults to `on`. Tennis likes to be colorful.
