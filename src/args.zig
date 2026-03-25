@@ -42,25 +42,25 @@ pub const Args = struct {
         \\    --border <BORDER>
         \\    --color <COLOR>
         \\    --completion <SHELL>
+        \\    --digits <INT>
         \\    --filter <STRING>
         \\    --head <INT>
         \\    --peek
-        \\    --shuffle
+        \\    --select <STRING>
         \\    --shuf
+        \\    --shuffle
         \\    --sort <STRING>
         \\    --tail <INT>
         \\    --theme <THEME>
-        \\-n, --row-numbers
-        \\-r, --reverse
-        \\--zebra
-        \\-t, --title <STRING>
-        \\    --digits <INT>
-        \\    --delimiter <CHAR>
-        \\    --select <STRING>
         \\    --vanilla
         \\    --width <INT>
+        \\-d, --delimiter <CHAR>
         \\-h, --help
-        \\    --version
+        \\-n, --row-numbers
+        \\-r, --reverse
+        \\-t, --title <STRING>
+        \\-v, --version
+        \\-z, --zebra
         \\<FILE>...
     );
 
