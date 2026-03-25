@@ -86,22 +86,21 @@ Tennis works fine with unicode and emoji content. Calculating non-ascii display 
 
 Tennis picks a color theme based on the color of your terminal. Color is on by default. It also honors NO_COLOR=1. See `--color` and `--theme`. Max terminal width is pulled from your terminal, or defaults to 80 if we can't figure it out. See `--width` if you need to override or want something predictable for ci/tests.
 
-Use `--border`, `--row-numbers`, `--title`, , and `--zebra` for more bling.
+Use `--border`, `--row-numbers`, `--title`, and `--zebra` for more bling. Tennis supports the same borders as `nushell`.
 
 ![bling](./bling.png)
 
 ### Data, Selection, Order
 
---select
---sort (natsort) --reverse
---shuffle
---head
---tail
---filter
+Tennis has a few ways to organize your data. Pick the display columns with `--select`. Sort rows with `--sort` and an optional `--reverse`. Or maybe you want to `--shuffle` into a random order. Use `--head` and `--tail` to only show a few rows, or `--filter` to grep for data.
+
+Numeric columns are detected and formatted/aligned. You can turn that off with `--vanilla`.
 
 ### Peek
 
---peek
+Sometimes you just want to get a quick look at a data file. Use `--peek` to get a sense of data shape, fill rate, and formats:
+
+![peek](./peek.png)
 
 ### An Aside: Term Background
 
@@ -124,12 +123,12 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 #### 0.0.4 (unreleased)
 
-- `--border` styles based on Nushell / `tabled` crate.
-- JSON! Works with json array, jsonl, or even just a single json object
-- auto-detect csv vs tsv delims (or semis, or pipes)
+- `--border` styles based on `nushell` / `tabled` crate.
+- JSON! Works with json array, jsonl, or even just a single object
+- auto-detect csv delims
 - `--filter`, `--sort`, `--reverse`, `--shuffle`, `--zebra`, `--head` and `--tail`
-- `--peek` for shape, a few sample rows, and compact column stats
 - `--select` for selecting columns
+- `--peek` for shape, a few sample rows, and compact column stats
 - `doomicode`, best-effort Unicode width for emojis, etc
 
 #### 0.0.3 (Mar '26)
