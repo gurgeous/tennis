@@ -35,9 +35,11 @@ $ zig build
 - auto-format numbers
 - auto-detect csv vs tsv (or semis, or pipes)
 - also works great with json (or jsonl)
-- titles, row numbers, zebra stripes, border styles...
+- titles, row numbers, zebra stripes, border styles
+- sorting, filtering, head/tail
+- `--peek` to get a quick summary
 
-### Options
+### All Options
 
 ```
  Usage: tennis [options...] <file.csv>
@@ -74,9 +76,36 @@ $ zig build
 
 Note that color defaults to `on`. Tennis likes to be colorful.
 
+### File Formats
+
+Tennis supports CSV and JSON along with common variants. It will infer the format using both the filename (if present) and the first few bytes of input. When reading a csv it tries to sniff the correct delimiter from the first few rows. JSON can be a full array of objects, or jsonl/ndjson, or even just a single JSON object (the pairs become rows).
+
+Tennis works fine with unicode and emoji content. Calculating non-ascii display width can be complicated, so tennis includes simple heuristics for common cases.
+
+### Colors, Themes, Appearance
+
+Tennis picks a color theme based on the color of your terminal. Color is on by default. It also honors NO_COLOR=1. See `--color` and `--theme`. Max terminal width is pulled from your terminal, or defaults to 80 if we can't figure it out. See `--width` if you need to override or want something predictable for ci/tests.
+
+Use `--border`, `--row-numbers`, `--title`, , and `--zebra` for more bling.
+
+![bling](./bling.png)
+
+### Data, Selection, Order
+
+--select
+--sort (natsort) --reverse
+--shuffle
+--head
+--tail
+--filter
+
+### Peek
+
+--peek
+
 ### An Aside: Term Background
 
-`tennis` uses a `termbg.zig` module to detect the terminal background color so it can choose the correct theme (dark or light). Detection is complicated, and I'm calling it out here because I don't think anyone has implemented this in Zig yet.
+Tennis includes a `termbg.zig` module to detect the terminal background color so it can choose the correct theme (dark or light). Detection is complicated, and I'm calling it out here because I don't think anyone has implemented this in Zig yet.
 
 ### Similar Tools
 
