@@ -6,7 +6,7 @@
 
 `tennis` is a small CLI for printing stylish CSV tables in your terminal. Rows will be truncated to fit and it'll automatically pick nice colors to match your terminal. Written in Zig. Demo:
 
-![screenshot](./screenshot.png)
+<img src="./screenshot.png" width="80%">
 
 ### Installation
 
@@ -88,7 +88,7 @@ Tennis picks a color theme based on the color of your terminal. Color is on by d
 
 Use `--border`, `--row-numbers`, `--title`, and `--zebra` for more bling. Tennis supports the same borders as `nushell`.
 
-![bling](./bling.png)
+<img src="./bling.png" width="60%">
 
 ### Data, Selection, Order
 
@@ -100,7 +100,7 @@ Numeric columns are detected and formatted/aligned. You can turn that off with `
 
 Sometimes you just want to get a quick look at a data file. Use `--peek` to get a sense of data shape, fill rate, and formats:
 
-![peek](./peek.png)
+<img src="./peek.png" width="40%">
 
 ### An Aside: Term Background
 
