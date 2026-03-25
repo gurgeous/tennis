@@ -4,13 +4,13 @@
 
 # Tennis
 
-`tennis` is a small CLI for printing stylish CSV tables in your terminal. Rows will be truncated to fit and it'll automatically pick nice colors to match your terminal. Written in Zig. Demo:
+`tennis` is a small CLI for printing stylish CSV tables in your terminal. Rows will be truncated to fit, and it will automatically pick nice colors to match your terminal. Written in Zig. Demo:
 
 <img src="./screenshot.png" width="80%">
 
 ### Installation
 
-#### Brew/macos
+#### Brew/macOS
 
 ```sh
 $ brew install gurgeous/tap/tennis
@@ -18,7 +18,7 @@ $ brew install gurgeous/tap/tennis
 
 #### Linux tarball
 
-Download a binary from https://github.com/gurgeous/tennis/releases. Copy into your path somewhere. I like to use ~/.local/bin personally. Also see the (optional) bash/zsh completions and man page in `extra/`.
+Download a binary from https://github.com/gurgeous/tennis/releases. Copy it somewhere in your `PATH`. I like to use `~/.local/bin`. Also see the optional bash/zsh completions and man page in `extra/`.
 
 #### Build from source
 
@@ -33,8 +33,8 @@ $ zig build
 - auto-layout to fit your terminal window
 - auto-themes to pick light or dark based on your terminal background
 - auto-format numbers
-- auto-detect csv vs tsv (or semis, or pipes)
-- also works great with json (or jsonl)
+- auto-detect CSV vs TSV (or semis, or pipes)
+- also works great with JSON (or JSONL)
 - titles, row numbers, zebra stripes, border styles
 - sorting, filtering, head/tail
 - `--peek` to get a quick summary
@@ -78,13 +78,13 @@ Note that color defaults to `on`. Tennis likes to be colorful.
 
 ### File Formats
 
-Tennis supports CSV and JSON along with common variants. It will infer the format using both the filename (if present) and the first few bytes of input. When reading a csv it tries to sniff the correct delimiter from the first few rows. JSON can be a full array of objects, or jsonl/ndjson, or even just a single JSON object (the pairs become rows).
+Tennis supports CSV and JSON along with common variants. It will infer the format using both the filename, if present, and the first few bytes of input. When reading a CSV it tries to sniff the correct delimiter from the first few rows. JSON can be a full array of objects, JSONL/NDJSON, or even just a single JSON object, in which case the pairs become rows.
 
-Tennis works fine with unicode and emoji content. Calculating non-ascii display width can be complicated, so tennis includes simple heuristics for common cases.
+Tennis works fine with Unicode and emoji content. Calculating non-ASCII display width can be complicated, so tennis includes simple heuristics for common cases.
 
 ### Colors, Themes, Appearance
 
-Tennis picks a color theme based on the color of your terminal. Color is on by default. It also honors NO_COLOR=1. See `--color` and `--theme`. Max terminal width is pulled from your terminal, or defaults to 80 if we can't figure it out. See `--width` if you need to override or want something predictable for ci/tests.
+Tennis picks a color theme based on the color of your terminal. Color is on by default. It also honors `NO_COLOR=1`. See `--color` and `--theme`. Max terminal width is pulled from your terminal, or defaults to 80 if we can't figure it out. See `--width` if you need to override it or want something predictable for CI/tests.
 
 Use `--border`, `--row-numbers`, `--title`, and `--zebra` for more bling. Tennis supports the same borders as `nushell`.
 
@@ -110,13 +110,13 @@ Tennis includes a `termbg.zig` module to detect the terminal background color so
 
 We love CSV tools and use them all the time! Here are a few that we rely on:
 
-- [bat](https://github.com/sharkdp/bat) - syntax highlights csv files, and many others
+- [bat](https://github.com/sharkdp/bat) - syntax highlights CSV files, and many others
 - [csvlens](https://github.com/YS-L/csvlens), [tabiew](https://github.com/shshemi/tabiew) & [tidy viewer](https://github.com/alexhallam/tv) - great viewers for CSV files, beautiful and fun
-- [miller](https://github.com/johnkerl/miller) - csv processing and transformation
+- [miller](https://github.com/johnkerl/miller) - CSV processing and transformation
 - [nushell](https://www.nushell.sh) - modern shell with first-class structured table data
 - [qsv](https://github.com/dathere/qsv) - filter, sort, combine, join... (a fork of [xsv](https://github.com/BurntSushi/xsv))
 - [table_tennis](https://github.com/gurgeous/table_tennis) - my own project, the basis for this one
-- [Terminal::Table](https://github.com/tj/terminal-table) - wonderful rubygem for pretty printing tables, great for non-hash data like confusion matrices
+- [Terminal::Table](https://github.com/tj/terminal-table) - wonderful Ruby gem for pretty-printing tables, great for non-hash data like confusion matrices
 - [visidata](https://www.visidata.org) - the best for poking around large files, it does everything
 
 ### Changelog
@@ -124,8 +124,8 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 #### 0.0.4 (unreleased)
 
 - `--border` styles based on `nushell` / `tabled` crate.
-- JSON! Works with json array, jsonl, or even just a single object
-- auto-detect csv delims
+- JSON! Works with a JSON array, JSONL, or even just a single object
+- auto-detect CSV delimiters
 - `--filter`, `--sort`, `--reverse`, `--shuffle`, `--zebra`, `--head` and `--tail`
 - `--select` for selecting columns
 - `--peek` for shape, a few sample rows, and compact column stats
