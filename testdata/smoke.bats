@@ -128,7 +128,7 @@ setup() {
   [[ "$output" == *"value"* ]]
   [[ "$output" == *"name"* ]]
   [[ "$output" == *"alice"* ]]
-  [[ "$output" == *"{\"ok\": true}"* ]]
+  [[ "$output" == *"{\"ok\":true}"* ]]
 }
 
 @test "renders jsonl input" {
@@ -162,7 +162,7 @@ setup() {
   [[ "$output" == *"value"* ]]
   [[ "$output" == *"name"* ]]
   [[ "$output" == *"alice"* ]]
-  [[ "$output" == *"{\"ok\": true}"* ]]
+  [[ "$output" == *"{\"ok\":true}"* ]]
 }
 
 @test "auto-detects jsonl from stdin" {
