@@ -131,6 +131,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 - auto-detect CSV delimiters
 - `--filter`, `--sort`, `--reverse`, `--shuffle`, `--zebra`, `--head` and `--tail`
 - `--select` and `--deselect` for choosing columns
+- `--pager` to send output through your pager (usually less)
 - `--peek` for shape, a few sample rows, and compact column stats
 - `doomicode`, best-effort Unicode width for emojis, etc
 
