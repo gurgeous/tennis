@@ -33,6 +33,7 @@ setup() {
   [[ "$output" == *"--color <color>"* ]]
   [[ "$output" == *"--digits <int>"* ]]
   [[ "$output" == *"--deselect <headers>"* ]]
+  [[ "$output" == *"--pager"* ]]
   [[ "$output" == *"--peek"* ]]
   [[ "$output" == *"--head <int>"* ]]
   [[ "$output" == *"--tail <int>"* ]]

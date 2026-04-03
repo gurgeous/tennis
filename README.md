@@ -66,6 +66,7 @@ $ zig build
       --color <color>        Turn color off and on (on|off|auto)
       --delimiter <char>     Set CSV delim (can be any char or "tab")
       --digits <int>         Digits after decimal for float columns
+  -p, --pager               Send output through $PAGER or less
       --theme <theme>        Select color theme (auto|dark|light)
       --vanilla              Disable numeric formatting
       --width <int>          Set max table width in chars

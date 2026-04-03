@@ -13,6 +13,7 @@ pub const Config = struct {
     filter: []const u8 = "",
     filename: ?[]const u8 = null,
     head: usize = 0,
+    pager: bool = false,
     peek: bool = false,
     reverse: bool = false,
     row_numbers: bool = false,

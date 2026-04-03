@@ -136,6 +136,12 @@ Set the number of digits after the decimal for float columns.\& Valid values
 \fB1\fR through \fB6\fR, the default is \fB3\fR.\&
 .P
 .RE
+\fB--pager\fR
+.RS 4
+Send output through \fB$PAGER\fR or \fBless\fR.\& If \fBLESS\fR is unset, it defaults to
+\fBFRX\fR.\&
+.P
+.RE
 \fB--theme\fR <theme>
 .RS 4
 Select the color theme.\& Valid values: \fBauto\fR, \fBdark\fR, \fBlight\fR.\& The default
@@ -210,6 +216,12 @@ Render with a different border:
 .P
 .RS 4
 $ tennis --border dots diamonds.\&csv
+.P
+.RE
+Page through a large table:
+.P
+.RS 4
+$ tennis --pager diamonds.\&csv
 .P
 .RE
 .SH SIMILAR TOOLS
