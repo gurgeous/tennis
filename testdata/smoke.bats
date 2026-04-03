@@ -436,6 +436,6 @@ setup() {
 }
 
 @test "exits cleanly on short downstream pipe" {
-  run bash -o pipefail -lc "'$TENNIS_BIN' --color=off --width 80 '$REPO_ROOT/testdata/test.csv' | head -n 0 >/dev/null"
+  run bash -o pipefail -lc "'$TENNIS_BIN' --color=off --width 80 '$REPO_ROOT/testdata/test.csv' | sh -c 'exit 0'"
   [ "$status" -eq 0 ]
 }
