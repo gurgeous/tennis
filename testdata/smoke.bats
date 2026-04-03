@@ -32,6 +32,7 @@ setup() {
   [[ "$output" == *"rounded|thin|double"* ]]
   [[ "$output" == *"--color <color>"* ]]
   [[ "$output" == *"--digits <int>"* ]]
+  [[ "$output" == *"--deselect <headers>"* ]]
   [[ "$output" == *"--peek"* ]]
   [[ "$output" == *"--head <int>"* ]]
   [[ "$output" == *"--tail <int>"* ]]
@@ -235,6 +236,13 @@ setup() {
   [[ "$output" != *"city"* ]]
 }
 
+@test "deselect removes columns after select" {
+  run "$TENNIS_BIN" --color=off --width 80 --select score,name,city --deselect city "$REPO_ROOT/testdata/test.json"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"│ score │ name  │"* ]]
+  [[ "$output" != *"city"* ]]
+}
+
 @test "filters rows by case insensitive substring" {
   run "$TENNIS_BIN" --color=off --width 80 --filter ali "$REPO_ROOT/testdata/test.json"
   [ "$status" -eq 0 ]
@@ -316,6 +324,13 @@ setup() {
   run "$TENNIS_BIN" --color=off --select version "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 1 ]
   [[ "$output" == *"tennis: --select didn't look right, should be a comma-separated list of columns."* ]]
+  [[ "$output" == *"column names: carat, cut, color, clarity, depth, table, price, x, y, z"* ]]
+}
+
+@test "rejects invalid deselect columns without panicking" {
+  run "$TENNIS_BIN" --color=off --deselect version "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"tennis: --deselect didn't look right, should be a comma-separated list of columns."* ]]
   [[ "$output" == *"column names: carat, cut, color, clarity, depth, table, price, x, y, z"* ]]
 }
 
@@ -418,4 +433,9 @@ setup() {
   [ "$status" -eq 0 ]
   expected="$(printf '%b' "$(cat "$REPO_ROOT/testdata/basic-color.out")")"
   [ "$output" = "$expected" ]
+}
+
+@test "exits cleanly on short downstream pipe" {
+  run bash -o pipefail -lc "'$TENNIS_BIN' --color=off --width 80 '$REPO_ROOT/testdata/test.csv' | head -n 0 >/dev/null"
+  [ "$status" -eq 0 ]
 }

@@ -16,6 +16,7 @@ pub const Args = struct {
         \\      --zebra                Turn on zebra stripes
         \\
         \\ Sort, filter, etc:
+        \\      --deselect <headers>   Remove comma-separated headers
         \\      --select <headers>     Select or reorder comma-separated headers
         \\      --sort <headers>       Sort rows by comma-separated headers
         \\  -r, --reverse              Reverse rows (helpful for sorting)
@@ -42,6 +43,7 @@ pub const Args = struct {
         \\    --border <BORDER>
         \\    --color <COLOR>
         \\    --completion <SHELL>
+        \\    --deselect <STRING>
         \\    --digits <INT>
         \\    --filter <STRING>
         \\    --head <INT>
@@ -129,6 +131,7 @@ pub const Args = struct {
         var config: Config = .{};
         if (res.args.border) |v| config.border = v;
         if (res.args.color) |v| config.color = v;
+        if (res.args.deselect) |v| config.deselect = v;
         config.delimiter = if (res.args.delimiter) |v| v else 0;
         if (res.args.filter) |v| config.filter = v;
         config.peek = res.args.peek > 0;
@@ -208,6 +211,8 @@ test "parse option config case" {
         "4",
         "--filter",
         "ali",
+        "--deselect",
+        "city,tags",
         "--head",
         "5",
         "--peek",
@@ -233,6 +238,7 @@ test "parse option config case" {
     try testing.expect(out == .run);
     try testing.expectEqual(border.BorderName.double, out.run.border);
     try testing.expectEqual(types.Color.off, out.run.color);
+    try testing.expectEqualStrings("city,tags", out.run.deselect);
     try testing.expectEqual(@as(usize, 4), out.run.digits);
     try testing.expectEqualStrings("ali", out.run.filter);
     try testing.expectEqual(@as(usize, 5), out.run.head);
@@ -262,6 +268,7 @@ test "parse option event cases" {
         .{ .argv = &.{ "--delimiter", "\\t", "-" }, .delimiter = '\t' },
         .{ .argv = &.{ "--border", "compact_double", "-" }, .border_name = .compact_double },
         .{ .argv = &.{ "--filter", "ali", "-" } },
+        .{ .argv = &.{ "--deselect", "score,name", "-" } },
         .{ .argv = &.{ "--peek", "-" } },
         .{ .argv = &.{ "--zebra", "-" } },
         .{ .argv = &.{ "--shuffle", "-" } },
@@ -277,6 +284,7 @@ test "parse option event cases" {
         defer parsed.deinit(testing.allocator);
         if (tc.delimiter) |d| try testing.expectEqual(d, parsed.run.delimiter);
         if (tc.border_name) |b| try testing.expectEqual(b, parsed.run.border);
+        if (std.mem.eql(u8, tc.argv[0], "--deselect")) try testing.expectEqualStrings("score,name", parsed.run.deselect);
         if (std.mem.eql(u8, tc.argv[0], "--filter")) try testing.expectEqualStrings("ali", parsed.run.filter);
         if (std.mem.eql(u8, tc.argv[0], "--peek")) try testing.expect(parsed.run.peek);
         if (std.mem.eql(u8, tc.argv[0], "--shuffle") or std.mem.eql(u8, tc.argv[0], "--shuf")) {

@@ -58,6 +58,9 @@ $ tennis diamonds.csv
 *--filter* <string>
 	Keep rows where any field contains the given text, case-insensitive.
 
+*--deselect* <headers>
+	Remove one or more comma-separated headers after any *--select*.
+
 *--head* <int>
 	Show the first _N_ data rows.
 
@@ -133,6 +136,10 @@ Show 20 random rows:
 Select and reorder columns:
 
 	$ tennis --select price,carat,cut diamonds.csv
+
+Remove a few columns:
+
+	$ tennis --deselect x,y,z diamonds.csv
 
 Only show "ideal" diamonds:
 
