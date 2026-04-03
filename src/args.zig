@@ -29,6 +29,7 @@ pub const Args = struct {
         \\      --color <color>        Turn color off and on (on|off|auto)
         \\      --delimiter <char>     Set CSV delim (can be any char or "tab")
         \\      --digits <int>         Digits after decimal for float columns
+        \\  -p, --pager               Send output through $PAGER or less
         \\      --theme <theme>        Select color theme (auto|dark|light)
         \\      --vanilla              Disable numeric formatting
         \\      --width <int>          Set max table width in chars
@@ -47,6 +48,7 @@ pub const Args = struct {
         \\    --digits <INT>
         \\    --filter <STRING>
         \\    --head <INT>
+        \\-p, --pager
         \\    --peek
         \\    --select <STRING>
         \\    --shuf
@@ -134,6 +136,7 @@ pub const Args = struct {
         if (res.args.deselect) |v| config.deselect = v;
         config.delimiter = if (res.args.delimiter) |v| v else 0;
         if (res.args.filter) |v| config.filter = v;
+        config.pager = res.args.pager > 0;
         config.peek = res.args.peek > 0;
         config.reverse = res.args.reverse > 0;
         config.row_numbers = @field(res.args, "row-numbers") > 0;
@@ -215,6 +218,7 @@ test "parse option config case" {
         "city,tags",
         "--head",
         "5",
+        "-p",
         "--peek",
         "--reverse",
         "--zebra",
@@ -242,6 +246,7 @@ test "parse option config case" {
     try testing.expectEqual(@as(usize, 4), out.run.digits);
     try testing.expectEqualStrings("ali", out.run.filter);
     try testing.expectEqual(@as(usize, 5), out.run.head);
+    try testing.expect(out.run.pager);
     try testing.expect(out.run.peek);
     try testing.expect(out.run.reverse);
     try testing.expect(out.run.zebra);
@@ -269,6 +274,8 @@ test "parse option event cases" {
         .{ .argv = &.{ "--border", "compact_double", "-" }, .border_name = .compact_double },
         .{ .argv = &.{ "--filter", "ali", "-" } },
         .{ .argv = &.{ "--deselect", "score,name", "-" } },
+        .{ .argv = &.{ "--pager", "-" } },
+        .{ .argv = &.{ "-p", "-" } },
         .{ .argv = &.{ "--peek", "-" } },
         .{ .argv = &.{ "--zebra", "-" } },
         .{ .argv = &.{ "--shuffle", "-" } },
@@ -286,6 +293,7 @@ test "parse option event cases" {
         if (tc.border_name) |b| try testing.expectEqual(b, parsed.run.border);
         if (std.mem.eql(u8, tc.argv[0], "--deselect")) try testing.expectEqualStrings("score,name", parsed.run.deselect);
         if (std.mem.eql(u8, tc.argv[0], "--filter")) try testing.expectEqualStrings("ali", parsed.run.filter);
+        if (std.mem.eql(u8, tc.argv[0], "--pager") or std.mem.eql(u8, tc.argv[0], "-p")) try testing.expect(parsed.run.pager);
         if (std.mem.eql(u8, tc.argv[0], "--peek")) try testing.expect(parsed.run.peek);
         if (std.mem.eql(u8, tc.argv[0], "--shuffle") or std.mem.eql(u8, tc.argv[0], "--shuf")) {
             try testing.expect(parsed.run.shuffle);

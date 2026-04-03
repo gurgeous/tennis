@@ -135,11 +135,12 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
     //
 
     timer = try std.time.Timer.start();
-    if (config.peek) {
-        try peek.render(alloc, table, util.stdout);
+    if (config.pager and std.posix.isatty(std.fs.File.stdout().handle)) {
+        try renderToPager(alloc, config, table);
     } else {
-        try table.renderTable(util.stdout);
+        try renderToWriter(alloc, config, table, util.stdout);
     }
+
     util.benchmark("table.render", timer.read());
     return null;
 }
@@ -162,6 +163,47 @@ fn load(alloc: std.mem.Allocator, config: types.Config, bytes_in: []const u8) !D
 fn flushPipe() anyerror!void {
     try util.stdout.flush();
     try util.stderr.flush();
+}
+
+fn renderToPager(alloc: std.mem.Allocator, config: types.Config, table: *Table) !void {
+    const cmd = std.posix.getenv("PAGER") orelse "less";
+    if (std.mem.eql(u8, cmd, "cat")) return renderToWriter(alloc, config, table, util.stdout);
+
+    var env = try std.process.getEnvMap(alloc);
+    defer env.deinit();
+    if (env.get("LESS") == null) try env.put("LESS", "FRX");
+
+    var child = std.process.Child.init(&.{ "/bin/sh", "-c", cmd }, alloc);
+    child.env_map = &env;
+    child.stdin_behavior = .Pipe;
+    child.stdout_behavior = .Inherit;
+    child.stderr_behavior = .Inherit;
+    try child.spawn();
+
+    var waited = false;
+    defer {
+        if (child.stdin) |stdin| stdin.close();
+        child.stdin = null;
+        if (!waited) _ = child.wait() catch {};
+    }
+
+    var buf: [4096]u8 = undefined;
+    var out: std.fs.File.Writer = .init(child.stdin.?, &buf);
+    try renderToWriter(alloc, config, table, &out.interface);
+    try out.interface.flush();
+    child.stdin.?.close();
+    child.stdin = null;
+
+    _ = try child.wait();
+    waited = true;
+}
+
+fn renderToWriter(alloc: std.mem.Allocator, config: types.Config, table: *Table, writer: *std.Io.Writer) !void {
+    if (config.peek) {
+        try peek.render(alloc, table, writer);
+    } else {
+        try table.renderTable(writer);
+    }
 }
 
 //

@@ -22,6 +22,8 @@ _tennis() {
     '--color[Turn color off and on (on|off|auto)]:color:(auto off on)' \
     '--delimiter[Set CSV delim (can be any char or "tab")]:char:(tab , \; \|)' \
     '--digits[Digits after decimal for float columns]:int:(1 2 3 4 5 6)' \
+    '-p[Send output through $PAGER or less]' \
+    '--pager[Send output through $PAGER or less]' \
     '--theme[Select color theme (auto|dark|light)]:theme:(auto dark light)' \
     '--vanilla[Disable numeric formatting]' \
     '--width[Set max table width in chars]:int:' \

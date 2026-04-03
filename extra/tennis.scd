@@ -95,6 +95,10 @@ $ tennis diamonds.csv
 	Set the number of digits after the decimal for float columns. Valid values
 	*1* through *6*, the default is *3*.
 
+*--pager*
+	Send output through *$PAGER* or *less*. If *LESS* is unset, it defaults to
+	*FRX*.
+
 *--theme* <theme>
 	Select the color theme. Valid values: *auto*, *dark*, *light*. The default
 	is *auto*.
@@ -148,6 +152,10 @@ Only show "ideal" diamonds:
 Render with a different border:
 
 	$ tennis --border dots diamonds.csv
+
+Page through a large table:
+
+	$ tennis --pager diamonds.csv
 
 # SIMILAR TOOLS
 
