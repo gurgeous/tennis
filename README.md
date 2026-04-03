@@ -53,7 +53,7 @@ $ zig build
       --zebra                Turn on zebra stripes
 
  Sort, filter, etc:
-      --deselect <headers>   Remove comma-separated headers
+      --deselect <headers>   De-select comma-separated headers
       --select <headers>     Select or reorder comma-separated headers
       --sort <headers>       Sort rows by comma-separated headers
   -r, --reverse              Reverse rows (helpful for sorting)
@@ -94,7 +94,7 @@ Use `--border`, `--row-numbers`, `--title`, and `--zebra` for more bling. Tennis
 
 ### Data, Selection, Order
 
-Tennis has a few ways to organize your data. Pick the display columns with `--select`, or remove a few with `--deselect`. Sort rows with `--sort` and an optional `--reverse`. Or maybe you want to `--shuffle` into a random order. Use `--head` and `--tail` to only show a few rows, or `--filter` to grep for data.
+Tennis has a few ways to organize your data. Pick the display columns with `--select` or `--deselect`. Sort rows with `--sort` and an optional `--reverse`. Or maybe you want to `--shuffle` into a random order. Use `--head` and `--tail` to only show a few rows, or `--filter` to grep for data.
 
 Numeric columns are detected and formatted/aligned. You can turn that off with `--vanilla`.
 

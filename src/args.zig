@@ -16,7 +16,7 @@ pub const Args = struct {
         \\      --zebra                Turn on zebra stripes
         \\
         \\ Sort, filter, etc:
-        \\      --deselect <headers>   Remove comma-separated headers
+        \\      --deselect <headers>   De-select comma-separated headers
         \\      --select <headers>     Select or reorder comma-separated headers
         \\      --sort <headers>       Sort rows by comma-separated headers
         \\  -r, --reverse              Reverse rows (helpful for sorting)

@@ -81,7 +81,7 @@ Keep rows where any field contains the given text, case-insensitive.\&
 .RE
 \fB--deselect\fR <headers>
 .RS 4
-Remove one or more comma-separated headers after any \fB--select\fR.\&
+De-select one or more comma-separated headers after any \fB--select\fR.\&
 .P
 .RE
 \fB--head\fR <int>
@@ -194,7 +194,7 @@ Select and reorder columns:
 $ tennis --select price,carat,cut diamonds.\&csv
 .P
 .RE
-Remove a few columns:
+Suppress a few columns:
 .P
 .RS 4
 $ tennis --deselect x,y,z diamonds.\&csv
