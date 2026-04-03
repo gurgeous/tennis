@@ -7,6 +7,7 @@ pub const CompletionShell = enum { bash, zsh };
 pub const Config = struct {
     border: border.BorderName = .rounded,
     color: Color = .on,
+    deselect: []const u8 = "",
     delimiter: u8 = ',',
     digits: usize = 3,
     filter: []const u8 = "",
@@ -25,7 +26,8 @@ pub const Config = struct {
     vanilla: bool = false,
     width: usize = 0,
     zebra: bool = false,
-    // Bound header indexes populated after data load for select/sort.
+    // Bound header indexes populated after data load for select/deselect/sort.
+    deselect_cols: []usize = &.{},
     select_cols: []usize = &.{},
     sort_cols: []usize = &.{},
     // Test-only shuffle seed for deterministic row order assertions.
@@ -36,6 +38,9 @@ pub const Config = struct {
         if (self.select.len > 0) {
             self.select_cols = resolveColumns(alloc, headers, self.select) catch return error.InvalidSelect;
         }
+        if (self.deselect.len > 0) {
+            self.deselect_cols = resolveColumns(alloc, headers, self.deselect) catch return error.InvalidDeselect;
+        }
         if (self.sort.len > 0) {
             self.sort_cols = resolveColumns(alloc, headers, self.sort) catch return error.InvalidSort;
         }
@@ -45,6 +50,7 @@ pub const Config = struct {
     pub fn deinit(self: Config, alloc: std.mem.Allocator) void {
         if (self.title.len > 0) alloc.free(self.title);
         if (self.footer.len > 0) alloc.free(self.footer);
+        alloc.free(self.deselect_cols);
         alloc.free(self.select_cols);
         alloc.free(self.sort_cols);
     }
@@ -110,12 +116,17 @@ pub const Theme = enum { auto, dark, light };
 //
 
 test "Config.bind resolves case insensitive header names" {
-    var config: Config = .{ .sort = " NAME , score ", .select = "score,name,score" };
+    var config: Config = .{
+        .sort = " NAME , score ",
+        .select = "score,name,score",
+        .deselect = " SCORE ",
+    };
     defer config.deinit(testing.allocator);
     try config.bind(testing.allocator, &.{ "name", "score" });
 
     try testing.expectEqualSlices(usize, &.{ 0, 1 }, config.sort_cols);
     try testing.expectEqualSlices(usize, &.{ 1, 0, 1 }, config.select_cols);
+    try testing.expectEqualSlices(usize, &.{1}, config.deselect_cols);
 }
 
 test "Config.bind rejects bad column specs" {
@@ -126,6 +137,10 @@ test "Config.bind rejects bad column specs" {
     var bad_select: Config = .{ .select = "bogus" };
     defer bad_select.deinit(testing.allocator);
     try testing.expectError(error.InvalidSelect, bad_select.bind(testing.allocator, &.{ "name", "score" }));
+
+    var bad_deselect: Config = .{ .deselect = "bogus" };
+    defer bad_deselect.deinit(testing.allocator);
+    try testing.expectError(error.InvalidDeselect, bad_deselect.bind(testing.allocator, &.{ "name", "score" }));
 }
 
 const border = @import("border.zig");

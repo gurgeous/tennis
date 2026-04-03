@@ -155,12 +155,18 @@ pub const Table = struct {
             util.range(self.alloc, self.data.rows.len - 1);
         defer self.alloc.free(row_order);
 
-        // col_order and --select
-        const col_order = try if (self.config.select_cols.len > 0)
+        // col_order and --select/--deselect
+        var col_order = try if (self.config.select_cols.len > 0)
             self.alloc.dupe(usize, self.config.select_cols)
         else
             util.range(self.alloc, self.data.headers().len);
         defer self.alloc.free(col_order);
+        if (self.config.deselect_cols.len > 0) {
+            const next = try self.deselectCols(col_order);
+            self.alloc.free(col_order);
+            col_order = next;
+            if (col_order.len == 0) return error.InvalidDeselect;
+        }
 
         // --sort / --shuffle / --reverse
         if (self.config.sort_cols.len > 0) {
@@ -224,6 +230,19 @@ pub const Table = struct {
         }
         return out.toOwnedSlice(self.alloc);
     }
+
+    // Remove bound deselected columns from the current visible column order.
+    fn deselectCols(self: *const Self, col_order: []const usize) ![]usize {
+        var out: std.ArrayList(usize) = .empty;
+        defer out.deinit(self.alloc);
+
+        for (col_order) |source_col| {
+            if (std.mem.indexOfScalar(usize, self.config.deselect_cols, source_col) == null) {
+                try out.append(self.alloc, source_col);
+            }
+        }
+        return out.toOwnedSlice(self.alloc);
+    }
 };
 
 //
@@ -258,6 +277,17 @@ test "table shape and headers" {
         if (tc.first_row) |row| try test_support.expectEqualRows(row, table.row(0));
         if (tc.empty and tc.input.len > 0) try testing.expectEqual(@as(usize, 0), table.columns.len);
     }
+}
+
+test "deselect removes columns after select" {
+    const table = try Table.initCsv(testing.allocator, .{
+        .select = "score,name,city",
+        .deselect = "city,score",
+    }, "name,score,city\nalice,123,boston\n");
+    defer table.deinit();
+
+    try test_support.expectEqualRows(&.{"name"}, table.headers());
+    try test_support.expectEqualRows(&.{"alice"}, table.row(0));
 }
 
 test "row returns data rows only" {

@@ -5,7 +5,7 @@
 .nh
 .ad l
 .\" Begin generated content:
-.TH "tennis" "1" "2026-03-24"
+.TH "tennis" "1" "2026-04-03"
 .P
 .SH NAME
 .P
@@ -77,6 +77,11 @@ Turn on zebra stripes.\&
 \fB--filter\fR <string>
 .RS 4
 Keep rows where any field contains the given text, case-insensitive.\&
+.P
+.RE
+\fB--deselect\fR <headers>
+.RS 4
+De-select one or more comma-separated headers after any \fB--select\fR.\&
 .P
 .RE
 \fB--head\fR <int>
@@ -187,6 +192,12 @@ Select and reorder columns:
 .P
 .RS 4
 $ tennis --select price,carat,cut diamonds.\&csv
+.P
+.RE
+Suppress a few columns:
+.P
+.RS 4
+$ tennis --deselect x,y,z diamonds.\&csv
 .P
 .RE
 Only show "ideal" diamonds:
