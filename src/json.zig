@@ -319,6 +319,30 @@ test "renders escaped strings via decoded value" {
     try testing.expectEqualStrings("he said \"hi\"", rows.row(1)[1]);
 }
 
+test "compacts pretty nested objects and arrays" {
+    const rows = try initTest(testing.allocator,
+        \\[
+        \\  {
+        \\    "name": "alice",
+        \\    "meta": {
+        \\      "6": 0,
+        \\      "12": 168,
+        \\      "24": 820
+        \\    },
+        \\    "tags": [
+        \\      "a",
+        \\      "b"
+        \\    ]
+        \\  }
+        \\]
+    );
+    defer rows.deinit(testing.allocator);
+
+    try testing.expectEqualStrings("alice", rows.row(1)[0]);
+    try testing.expectEqualStrings("{\"6\":0,\"12\":168,\"24\":820}", rows.row(1)[1]);
+    try testing.expectEqualStrings("[\"a\",\"b\"]", rows.row(1)[2]);
+}
+
 test "rejects non object json rows" {
     try testing.expectError(error.SyntaxError, initTest(testing.allocator, "[1,2,3]"));
     try testing.expectError(error.SyntaxError, initTest(testing.allocator, "1\n"));
@@ -348,7 +372,7 @@ test "renders null booleans and schema union" {
     defer rows.deinit(testing.allocator);
 
     try expectRow(rows, 0, &.{ "name", "ok", "score", "city" });
-    try expectRow(rows, 1, &.{ "alice", "true", "", "" });
+    try expectRow(rows, 1, &.{ "alice", "true", "null", "" });
     try expectRow(rows, 2, &.{ "bob", "false", "", "denver" });
 }
 

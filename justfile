@@ -14,6 +14,9 @@ clean:
   rm -rf tmp zig-out
   mkdir tmp
 
+install:
+  cp zig-out/bin/tennis ~/.local/bin/tennis
+
 run *ARGS:
   zig build run -- {{ARGS}}
 
