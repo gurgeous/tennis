@@ -7,15 +7,24 @@ pub fn main() !void {
     }
     const alloc = gpa.allocator();
 
-    if (try main0(alloc)) |fatal| {
+    if (main0(alloc) catch |err| switch (err) {
+        error.BrokenPipe, error.WriteFailed => {
+            std.process.exit(0);
+        },
+        else => return err,
+    }) |fatal| {
         defer fatal.deinit(alloc);
         try fatal.print();
-        try util.stdout.flush();
-        try util.stderr.flush();
+        flushPipe() catch |err| switch (err) {
+            error.BrokenPipe, error.WriteFailed => std.process.exit(0),
+            else => return err,
+        };
         std.process.exit(1);
     }
-    try util.stdout.flush();
-    try util.stderr.flush();
+    flushPipe() catch |err| switch (err) {
+        error.BrokenPipe, error.WriteFailed => std.process.exit(0),
+        else => return err,
+    };
     std.process.exit(0);
 }
 
@@ -117,6 +126,7 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
     //
 
     const table = try Table.init(alloc, config, data);
+    data = .{ .rows = &.{} };
     defer table.deinit();
     util.benchmark("table.init", timer.read());
 
@@ -147,6 +157,11 @@ fn load(alloc: std.mem.Allocator, config: types.Config, bytes_in: []const u8) !D
     var delimiter = config.delimiter;
     if (delimiter == 0) delimiter = sniffer.sniff(bytes) orelse ',';
     return try csv.load(alloc, bytes, delimiter);
+}
+
+fn flushPipe() anyerror!void {
+    try util.stdout.flush();
+    try util.stderr.flush();
 }
 
 //

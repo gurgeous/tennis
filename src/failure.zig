@@ -42,6 +42,7 @@ pub const Failure = struct {
     pub fn fromTableError(alloc: std.mem.Allocator, err: anyerror, headers: []const []const u8) !Failure {
         return switch (err) {
             error.InvalidSelect => .{ .code = .invalid_select, .detail = try formatColumns(alloc, "--select", headers) },
+            error.InvalidDeselect => .{ .code = .invalid_deselect, .detail = try formatColumns(alloc, "--deselect", headers) },
             error.InvalidSort => .{ .code = .invalid_sort, .detail = try formatColumns(alloc, "--sort", headers) },
             else => unreachable,
         };
@@ -73,7 +74,7 @@ pub const Failure = struct {
             .windows => try writer.writeAll("Windows is not yet supported"),
 
             // these have details
-            .clap, .file_not_found, .invalid_select, .invalid_sort => try writer.writeAll(self.detail orelse unreachable),
+            .clap, .file_not_found, .invalid_deselect, .invalid_select, .invalid_sort => try writer.writeAll(self.detail orelse unreachable),
         }
     }
 };
@@ -85,6 +86,7 @@ pub const FailureCode = enum {
     could_not_read_stdin,
     file_not_found,
     invalid_csv,
+    invalid_deselect,
     invalid_digits,
     invalid_head_tail,
     invalid_head_value,
@@ -193,6 +195,13 @@ test "write includes column headers" {
     defer testing.allocator.free(select_msg);
     try testing.expect(std.mem.indexOf(u8, select_msg, "--select") != null);
     try testing.expect(std.mem.indexOf(u8, select_msg, "name, score") != null);
+
+    const deselect_failure = try Failure.fromTableError(testing.allocator, error.InvalidDeselect, &.{ "name", "score" });
+    defer deselect_failure.deinit(testing.allocator);
+    const deselect_msg = try string(testing.allocator, deselect_failure);
+    defer testing.allocator.free(deselect_msg);
+    try testing.expect(std.mem.indexOf(u8, deselect_msg, "--deselect") != null);
+    try testing.expect(std.mem.indexOf(u8, deselect_msg, "name, score") != null);
 }
 
 const clap = @import("clap");

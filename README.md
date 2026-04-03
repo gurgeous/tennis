@@ -53,6 +53,7 @@ $ zig build
       --zebra                Turn on zebra stripes
 
  Sort, filter, etc:
+      --deselect <headers>   De-select comma-separated headers
       --select <headers>     Select or reorder comma-separated headers
       --sort <headers>       Sort rows by comma-separated headers
   -r, --reverse              Reverse rows (helpful for sorting)
@@ -93,7 +94,7 @@ Use `--border`, `--row-numbers`, `--title`, and `--zebra` for more bling. Tennis
 
 ### Data, Selection, Order
 
-Tennis has a few ways to organize your data. Pick the display columns with `--select`. Sort rows with `--sort` and an optional `--reverse`. Or maybe you want to `--shuffle` into a random order. Use `--head` and `--tail` to only show a few rows, or `--filter` to grep for data.
+Tennis has a few ways to organize your data. Pick the display columns with `--select` or `--deselect`. Sort rows with `--sort` and an optional `--reverse`. Or maybe you want to `--shuffle` into a random order. Use `--head` and `--tail` to only show a few rows, or `--filter` to grep for data.
 
 Numeric columns are detected and formatted/aligned. You can turn that off with `--vanilla`.
 
@@ -128,7 +129,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 - JSON! Works with a JSON array, JSONL, or even just a single object
 - auto-detect CSV delimiters
 - `--filter`, `--sort`, `--reverse`, `--shuffle`, `--zebra`, `--head` and `--tail`
-- `--select` for selecting columns
+- `--select` and `--deselect` for choosing columns
 - `--peek` for shape, a few sample rows, and compact column stats
 - `doomicode`, best-effort Unicode width for emojis, etc
 
