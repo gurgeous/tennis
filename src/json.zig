@@ -222,7 +222,7 @@ test "reads json row shapes" {
             .nrows = 3,
             .checks = &.{
                 .{ .row = 0, .fields = &.{ "name", "score", "tags", "city", "meta" } },
-                .{ .row = 1, .fields = &.{ "alice", "1234", "[\"a\",\"b\"]", "", "" } },
+                .{ .row = 1, .fields = &.{ "alice", "1234", "[\"a\", \"b\"]", "", "" } },
                 .{ .row = 2, .fields = &.{ "bob", "", "", "denver", "{\"ok\":true}" } },
             },
         },
@@ -234,7 +234,7 @@ test "reads json row shapes" {
             ,
             .nrows = 4,
             .checks = &.{
-                .{ .row = 1, .fields = &.{ "alice", "1234", "[\"a\",\"b\"]", "", "" } },
+                .{ .row = 1, .fields = &.{ "alice", "1234", "[\"a\", \"b\"]", "", "" } },
                 .{ .row = 2, .fields = &.{ "bob", "", "", "denver", "{\"ok\":true}" } },
             },
         },
@@ -258,7 +258,7 @@ test "reads single object json as key value rows" {
     try expectRow(rows, 0, &.{ "key", "value" });
     try expectRow(rows, 1, &.{ "name", "alice" });
     try expectRow(rows, 2, &.{ "score", "1234" });
-    try expectRow(rows, 3, &.{ "tags", "[\"a\",\"b\"]" });
+    try expectRow(rows, 3, &.{ "tags", "[\"a\", \"b\"]" });
     try expectRow(rows, 4, &.{ "meta", "{\"ok\":true}" });
 }
 
@@ -339,8 +339,8 @@ test "compacts pretty nested objects and arrays" {
     defer rows.deinit(testing.allocator);
 
     try testing.expectEqualStrings("alice", rows.row(1)[0]);
-    try testing.expectEqualStrings("{\"6\":0,\"12\":168,\"24\":820}", rows.row(1)[1]);
-    try testing.expectEqualStrings("[\"a\",\"b\"]", rows.row(1)[2]);
+    try testing.expectEqualStrings("{\"6\":0, \"12\":168, \"24\":820}", rows.row(1)[1]);
+    try testing.expectEqualStrings("[\"a\", \"b\"]", rows.row(1)[2]);
 }
 
 test "rejects non object json rows" {
@@ -372,7 +372,7 @@ test "renders null booleans and schema union" {
     defer rows.deinit(testing.allocator);
 
     try expectRow(rows, 0, &.{ "name", "ok", "score", "city" });
-    try expectRow(rows, 1, &.{ "alice", "true", "null", "" });
+    try expectRow(rows, 1, &.{ "alice", "true", "", "" });
     try expectRow(rows, 2, &.{ "bob", "false", "", "denver" });
 }
 

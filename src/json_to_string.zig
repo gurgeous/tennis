@@ -3,7 +3,8 @@ pub fn jsonToString(alloc: std.mem.Allocator, scan: *json.Scanner) ![]const u8 {
     const next = try nextRawToken(alloc, scan);
     return switch (next.token) {
         // scalars
-        .null, .true, .false, .number, .allocated_number => next.raw,
+        .null => "",
+        .true, .false, .number, .allocated_number => next.raw,
         .string, .allocated_string => util.tokenBytes(next.token),
         // deep
         .array_begin, .object_begin => {
@@ -36,7 +37,7 @@ fn writeArray(writer: *std.Io.Writer, alloc: std.mem.Allocator, scan: *json.Scan
     try writer.writeByte('[');
     var el = try nextRawToken(alloc, scan);
     while (el.token != .array_end) : (el = try nextRawToken(alloc, scan)) {
-        if (first) first = false else try writer.writeByte(',');
+        if (first) first = false else try writer.writeAll(", ");
         try writeValue(writer, alloc, scan, el);
     }
     try writer.writeByte(']');
@@ -47,7 +48,7 @@ fn writeObject(writer: *std.Io.Writer, alloc: std.mem.Allocator, scan: *json.Sca
     try writer.writeByte('{');
     var key = try nextRawToken(alloc, scan);
     while (key.token != .object_end) : (key = try nextRawToken(alloc, scan)) {
-        if (first) first = false else try writer.writeByte(',');
+        if (first) first = false else try writer.writeAll(", ");
         try writer.writeAll(key.raw);
         try writer.writeByte(':');
         try writeValue(writer, alloc, scan, try nextRawToken(alloc, scan));
@@ -106,7 +107,7 @@ test "jsonToString compacts pretty nested json" {
     defer scan.deinit();
 
     const got = try jsonToString(arena.allocator(), &scan);
-    try testing.expectEqualStrings("{\"6\":0,\"12\":168,\"24\":820,\"36\":1073}", got);
+    try testing.expectEqualStrings("{\"6\":0, \"12\":168, \"24\":820, \"36\":1073}", got);
 }
 
 test "jsonToString preserves nested scalar token escapes" {
@@ -119,7 +120,7 @@ test "jsonToString preserves nested scalar token escapes" {
     defer scan.deinit();
 
     const got = try jsonToString(arena.allocator(), &scan);
-    try testing.expectEqualStrings("[\"a\\\\tb\",true,null,123]", got);
+    try testing.expectEqualStrings("[\"a\\\\tb\", true, null, 123]", got);
 }
 
 const json = std.json;

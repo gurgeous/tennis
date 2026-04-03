@@ -119,7 +119,7 @@ setup() {
   [[ "$output" == *"alice"* ]]
   [[ "$output" == *"bob"* ]]
   [[ "$output" == *"{\"ok\":true}"* ]]
-  [[ "$output" == *"[\"a\",\"b\"]"* ]]
+  [[ "$output" == *"[\"a\", \"b\"]"* ]]
 }
 
 @test "renders single json object input" {
@@ -265,7 +265,7 @@ setup() {
   [[ "$output" == *"│ city   │ string"* ]]
   [[ "$output" == *"│ score  │ int    │ 100% │    3 │ 90"* ]]
   [[ "$output" == *"│ score  │ int    │ 100% │    3 │ 90       │ 5,678"* ]]
-  [[ "$output" == *"│ tags   │ string │ 33%  │    1 │ 9 chars  │ 9 chars"* ]]
+  [[ "$output" == *"│ tags   │ string │ 33%  │    1 │ 10 chars │ 10 chars"* ]]
   [[ "$output" == *"│ meta   │ string │ 33%  │    1 │ 11 chars │ 11 chars"* ]]
 }
 
