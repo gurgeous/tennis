@@ -144,6 +144,8 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
 // Load the configured input into table data, dispatching by detected format.
 fn load(alloc: std.mem.Allocator, config: types.Config, input: std.fs.File) !Data {
     const format = try detectInputFormat(alloc, config, input);
+    if (config.table.len > 0 and config.filename == null) return error.SqliteRequiresFile;
+    if (config.table.len > 0 and config.filename != null and std.mem.eql(u8, config.filename.?, "-")) return error.SqliteRequiresFile;
     if (config.table.len > 0 and format != .sqlite) return error.SqliteTableRequiresSqlite;
     if (format == .sqlite) {
         const path = config.filename orelse return error.SqliteRequiresFile;

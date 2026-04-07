@@ -21,18 +21,16 @@ pub fn load(alloc: std.mem.Allocator, path: []const u8, selected_table: []const 
 // Choose a deterministic table, preferring the requested table or the largest table.
 fn chooseTable(alloc: std.mem.Allocator, path: []const u8, selected_table: []const u8) ![]u8 {
     if (selected_table.len > 0) return try pickRequestedTable(alloc, path, selected_table);
-    return queryScalar(alloc, path, largestTableSql) catch |err| switch (err) {
-        error.SqliteCliFailed => try firstTable(alloc, path),
-        else => err,
-    };
+    if (try hasDbstat(alloc, path)) return try queryScalar(alloc, path, largestTableSql);
+    return try firstTable(alloc, path);
 }
 
 // Return the requested table when it exists, otherwise fail.
 fn pickRequestedTable(alloc: std.mem.Allocator, path: []const u8, selected_table: []const u8) ![]u8 {
-    const ident = try quoteIdentifier(alloc, selected_table);
-    defer alloc.free(ident);
+    const value = try quoteString(alloc, selected_table);
+    defer alloc.free(value);
 
-    const sql = try std.fmt.allocPrint(alloc, "SELECT name FROM pragma_table_list WHERE schema = 'main' AND type = 'table' AND name = {s} LIMIT 1;", .{ident});
+    const sql = try std.fmt.allocPrint(alloc, "SELECT name FROM pragma_table_list WHERE schema = 'main' AND type = 'table' AND name = {s} LIMIT 1;", .{value});
     defer alloc.free(sql);
 
     return queryScalar(alloc, path, sql) catch |err| switch (err) {
@@ -47,6 +45,27 @@ fn firstTable(alloc: std.mem.Allocator, path: []const u8) ![]u8 {
     defer freeTables(alloc, tables);
     if (tables.len == 0) return error.SqliteNoTables;
     return alloc.dupe(u8, tables[0]);
+}
+
+// Report whether the local sqlite3 build exposes dbstat.
+fn hasDbstat(alloc: std.mem.Allocator, path: []const u8) !bool {
+    const result = try runSqlite(alloc, &.{
+        "sqlite3",
+        "-readonly",
+        "-batch",
+        "-noheader",
+        path,
+        "SELECT 1 FROM pragma_compile_options WHERE compile_options = 'ENABLE_DBSTAT_VTAB' LIMIT 1;",
+    });
+    defer alloc.free(result.stderr);
+    defer alloc.free(result.stdout);
+
+    switch (result.term) {
+        .Exited => |code| if (code != 0) return error.SqliteCliFailed,
+        else => return error.SqliteCliFailed,
+    }
+
+    return util.strip(u8, result.stdout).len > 0;
 }
 
 // Run a scalar SQL query and return the trimmed first line.
@@ -81,6 +100,20 @@ fn quoteIdentifier(alloc: std.mem.Allocator, ident: []const u8) ![]u8 {
     return out.toOwnedSlice(alloc);
 }
 
+// Escape one sqlite string literal using single-quoted SQL syntax.
+fn quoteString(alloc: std.mem.Allocator, text: []const u8) ![]u8 {
+    var out: std.ArrayList(u8) = .empty;
+    defer out.deinit(alloc);
+
+    try out.append(alloc, '\'');
+    for (text) |ch| {
+        if (ch == '\'') try out.append(alloc, '\'');
+        try out.append(alloc, ch);
+    }
+    try out.append(alloc, '\'');
+    return out.toOwnedSlice(alloc);
+}
+
 // Execute sqlite3 and capture stdout/stderr for later inspection.
 fn runSqlite(alloc: std.mem.Allocator, argv: []const []const u8) !std.process.Child.RunResult {
     return std.process.Child.run(.{
@@ -95,7 +128,7 @@ fn runSqlite(alloc: std.mem.Allocator, argv: []const []const u8) !std.process.Ch
 }
 
 // List ordinary user tables in the main sqlite schema.
-pub fn listTables(alloc: std.mem.Allocator, path: []const u8) ![][]u8 {
+pub fn listTables(alloc: std.mem.Allocator, path: []const u8) ![][]const u8 {
     const result = try runSqlite(alloc, &.{ "sqlite3", "-readonly", "-batch", "-noheader", path, listTablesSql });
     defer alloc.free(result.stderr);
     defer alloc.free(result.stdout);
@@ -105,7 +138,7 @@ pub fn listTables(alloc: std.mem.Allocator, path: []const u8) ![][]u8 {
         else => return error.SqliteCliFailed,
     }
 
-    var out: std.ArrayList([]u8) = .empty;
+    var out: std.ArrayList([]const u8) = .empty;
     errdefer {
         for (out.items) |name| alloc.free(name);
         out.deinit(alloc);
@@ -122,7 +155,7 @@ pub fn listTables(alloc: std.mem.Allocator, path: []const u8) ![][]u8 {
 }
 
 // Release the table-name list returned by listTables.
-pub fn freeTables(alloc: std.mem.Allocator, tables: [][]u8) void {
+pub fn freeTables(alloc: std.mem.Allocator, tables: [][]const u8) void {
     for (tables) |name| alloc.free(name);
     alloc.free(tables);
 }
@@ -166,6 +199,22 @@ test "quoteIdentifier escapes identifiers" {
 
     for (cases) |tc| {
         const got = try quoteIdentifier(testing.allocator, tc.input);
+        defer testing.allocator.free(got);
+        try testing.expectEqualStrings(tc.want, got);
+    }
+}
+
+test "quoteString escapes string literals" {
+    const cases = [_]struct {
+        input: []const u8,
+        want: []const u8,
+    }{
+        .{ .input = "plain", .want = "'plain'" },
+        .{ .input = "weird'name", .want = "'weird''name'" },
+    };
+
+    for (cases) |tc| {
+        const got = try quoteString(testing.allocator, tc.input);
         defer testing.allocator.free(got);
         try testing.expectEqualStrings(tc.want, got);
     }

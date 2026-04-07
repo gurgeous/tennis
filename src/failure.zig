@@ -165,7 +165,7 @@ fn formatSqliteTables(alloc: std.mem.Allocator, table: []const u8, tables: []con
     var out = std.Io.Writer.Allocating.init(alloc);
     errdefer out.deinit();
     try out.writer.print("Table '{s}' was not found in that sqlite file.\n", .{table});
-    try out.writer.writeAll("tennis: tables: ");
+    try out.writer.writeAll("Available tables: ");
     if (tables.len == 0) {
         try out.writer.writeAll("(none)");
     } else {
@@ -258,7 +258,7 @@ test "write includes column headers" {
     const sqlite_msg = try string(testing.allocator, sqlite_failure);
     defer testing.allocator.free(sqlite_msg);
     try testing.expect(std.mem.indexOf(u8, sqlite_msg, "missing") != null);
-    try testing.expect(std.mem.indexOf(u8, sqlite_msg, "players, stats") != null);
+    try testing.expect(std.mem.indexOf(u8, sqlite_msg, "Available tables: players, stats") != null);
 }
 
 const clap = @import("clap");

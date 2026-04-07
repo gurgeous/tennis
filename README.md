@@ -67,10 +67,10 @@ $ zig build
       --delimiter <char>     Set CSV delim (can be any char or "tab")
       --digits <int>         Digits after decimal for float columns
   -p, --pager                Send output through $PAGER or less
+      --table <table>        Select the db table (for sqlite)
       --theme <theme>        Select color theme (auto|dark|light)
       --vanilla              Disable numeric formatting
       --width <int>          Set max table width in chars
-      --table <table>        Select the db table (for sqlite)
 
       --completion <shell>   Print shell completion (bash|zsh)
       --help                 Get help

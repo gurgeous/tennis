@@ -212,7 +212,7 @@ setup() {
   run "$TENNIS_BIN" --color=off --width 80 --table missing "$REPO_ROOT/testdata/sqlite-single.sqlite"
   [ "$status" -eq 1 ]
   [[ "$output" == *"tennis: Table 'missing' was not found in that sqlite file."* ]]
-  [[ "$output" == *"tennis: tables: players"* ]]
+  [[ "$output" == *"Available tables: players"* ]]
 }
 
 @test "fails when --table is used for non-sqlite input" {
