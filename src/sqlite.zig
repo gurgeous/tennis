@@ -1,14 +1,13 @@
 // sqlite loader using the external sqlite3 CLI.
 
 // Load one sqlite database file by selecting a table and decoding sqlite3 CSV output.
-pub fn load(alloc: std.mem.Allocator, path: []const u8, selected_table: []const u8) !Data {
-    const table = try chooseTable(alloc, path, selected_table);
+pub fn load(alloc: std.mem.Allocator, path: []const u8, table_in: []const u8) !Data {
+    const table_unq = try chooseTable(alloc, path, table_in);
+    defer alloc.free(table_unq);
+    const table = try util.quoteSql(alloc, table_unq, '"');
     defer alloc.free(table);
 
-    const ident = try util.quoteSql(alloc, table, '"');
-    defer alloc.free(ident);
-
-    const sql = try std.fmt.allocPrint(alloc, "SELECT * FROM {s};", .{ident});
+    const sql = try std.fmt.allocPrint(alloc, "SELECT * FROM {s};", .{table});
     defer alloc.free(sql);
 
     const out = try runSqlite(alloc, &.{ "sqlite3", "-readonly", "-header", "-csv", path, sql });
@@ -17,6 +16,37 @@ pub fn load(alloc: std.mem.Allocator, path: []const u8, selected_table: []const 
 
     return try csv.load(alloc, out.stdout, ',');
 }
+
+// List ordinary user tables in the main sqlite schema.
+pub fn listTables(alloc: std.mem.Allocator, path: []const u8) ![][]const u8 {
+    const stdout = try runSql(alloc, path, listTablesSql);
+    defer alloc.free(stdout);
+
+    var out: std.ArrayList([]const u8) = .empty;
+    errdefer {
+        for (out.items) |name| alloc.free(name);
+        out.deinit(alloc);
+    }
+
+    var it = std.mem.tokenizeScalar(u8, stdout, '\n');
+    while (it.next()) |line| {
+        const name = util.strip(u8, line);
+        if (name.len == 0) continue;
+        try out.append(alloc, try alloc.dupe(u8, name));
+    }
+
+    return out.toOwnedSlice(alloc);
+}
+
+// Release the table-name list returned by listTables.
+pub fn freeTables(alloc: std.mem.Allocator, tables: [][]const u8) void {
+    for (tables) |name| alloc.free(name);
+    alloc.free(tables);
+}
+
+//
+// main actions here
+//
 
 // Choose a deterministic table, preferring the requested table or the largest table.
 fn chooseTable(alloc: std.mem.Allocator, path: []const u8, selected_table: []const u8) ![]u8 {
@@ -49,42 +79,14 @@ fn firstTable(alloc: std.mem.Allocator, path: []const u8) ![]u8 {
 
 // Report whether the local sqlite3 build exposes dbstat.
 fn hasDbstat(alloc: std.mem.Allocator, path: []const u8) !bool {
-    const result = try runSqlite(alloc, &.{
-        "sqlite3",
-        "-readonly",
-        "-batch",
-        "-noheader",
-        path,
-        "SELECT 1 FROM pragma_compile_options WHERE compile_options = 'ENABLE_DBSTAT_VTAB' LIMIT 1;",
-    });
-    defer alloc.free(result.stderr);
-    defer alloc.free(result.stdout);
-
-    switch (result.term) {
-        .Exited => |code| if (code != 0) return error.SqliteCliFailed,
-        else => return error.SqliteCliFailed,
-    }
-
-    return util.strip(u8, result.stdout).len > 0;
+    const value = try queryScalarOrNull(alloc, path, "SELECT 1 FROM pragma_compile_options WHERE compile_options = 'ENABLE_DBSTAT_VTAB' LIMIT 1;");
+    defer if (value) |v| alloc.free(v);
+    return value != null;
 }
 
-// Run a scalar SQL query and return the trimmed first line.
-fn queryScalar(alloc: std.mem.Allocator, path: []const u8, sql: []const u8) ![]u8 {
-    const result = try runSqlite(alloc, &.{ "sqlite3", "-readonly", "-batch", "-noheader", path, sql });
-    defer alloc.free(result.stderr);
-    defer alloc.free(result.stdout);
-
-    switch (result.term) {
-        .Exited => |code| {
-            if (code != 0) return error.SqliteCliFailed;
-        },
-        else => return error.SqliteCliFailed,
-    }
-
-    const trimmed = util.strip(u8, result.stdout);
-    if (trimmed.len == 0) return error.SqliteNoTables;
-    return alloc.dupe(u8, trimmed);
-}
+//
+// runSqlite and friends
+//
 
 // Execute sqlite3 and capture stdout/stderr for later inspection.
 fn runSqlite(alloc: std.mem.Allocator, argv: []const []const u8) !std.process.Child.RunResult {
@@ -99,37 +101,41 @@ fn runSqlite(alloc: std.mem.Allocator, argv: []const []const u8) !std.process.Ch
     };
 }
 
-// List ordinary user tables in the main sqlite schema.
-pub fn listTables(alloc: std.mem.Allocator, path: []const u8) ![][]const u8 {
-    const result = try runSqlite(alloc, &.{ "sqlite3", "-readonly", "-batch", "-noheader", path, listTablesSql });
+// Run one sqlite query and return owned stdout bytes after checking the exit status.
+fn runSql(alloc: std.mem.Allocator, path: []const u8, sql: []const u8) ![]u8 {
+    const result = try runSqlite(alloc, &.{ "sqlite3", "-readonly", "-batch", "-noheader", path, sql });
     defer alloc.free(result.stderr);
-    defer alloc.free(result.stdout);
 
     switch (result.term) {
-        .Exited => |code| if (code != 0) return error.SqliteCliFailed,
-        else => return error.SqliteCliFailed,
+        .Exited => |code| {
+            if (code != 0) {
+                alloc.free(result.stdout);
+                return error.SqliteCliFailed;
+            }
+        },
+        else => {
+            alloc.free(result.stdout);
+            return error.SqliteCliFailed;
+        },
     }
 
-    var out: std.ArrayList([]const u8) = .empty;
-    errdefer {
-        for (out.items) |name| alloc.free(name);
-        out.deinit(alloc);
-    }
-
-    var it = std.mem.tokenizeScalar(u8, result.stdout, '\n');
-    while (it.next()) |line| {
-        const name = util.strip(u8, line);
-        if (name.len == 0) continue;
-        try out.append(alloc, try alloc.dupe(u8, name));
-    }
-
-    return out.toOwnedSlice(alloc);
+    return result.stdout;
 }
 
-// Release the table-name list returned by listTables.
-pub fn freeTables(alloc: std.mem.Allocator, tables: [][]const u8) void {
-    for (tables) |name| alloc.free(name);
-    alloc.free(tables);
+// Run a scalar SQL query and return the trimmed first line.
+fn queryScalar(alloc: std.mem.Allocator, path: []const u8, sql: []const u8) ![]u8 {
+    const value = try queryScalarOrNull(alloc, path, sql);
+    return value orelse error.SqliteNoTables;
+}
+
+// Run a scalar SQL query and return the trimmed first line or null.
+fn queryScalarOrNull(alloc: std.mem.Allocator, path: []const u8, sql: []const u8) !?[]u8 {
+    const stdout = try runSql(alloc, path, sql);
+    defer alloc.free(stdout);
+
+    const trimmed = util.strip(u8, stdout);
+    if (trimmed.len == 0) return null;
+    return try alloc.dupe(u8, trimmed);
 }
 
 //
