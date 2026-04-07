@@ -4,8 +4,8 @@
 // Patterned after Martin Pool's natural sort algorithm.
 // https://github.com/sourcefrog/natsort
 
-// Compare two strings using natural ordering with numeric-run awareness.
-pub fn order(a_in: []const u8, b_in: []const u8) std.math.Order {
+// Compare two strings using natural ordering with optional ASCII case folding.
+pub fn order(a_in: []const u8, b_in: []const u8, ignore_case: bool) std.math.Order {
     var a = a_in;
     var b = b_in;
 
@@ -22,8 +22,10 @@ pub fn order(a_in: []const u8, b_in: []const u8) std.math.Order {
         if (a.len == 0 and b.len == 0) return .eq;
         if (a.len == 0) return .lt;
         if (b.len == 0) return .gt;
-        if (a[0] < b[0]) return .lt;
-        if (a[0] > b[0]) return .gt;
+        const a_ch = if (ignore_case) std.ascii.toLower(a[0]) else a[0];
+        const b_ch = if (ignore_case) std.ascii.toLower(b[0]) else b[0];
+        if (a_ch < b_ch) return .lt;
+        if (a_ch > b_ch) return .gt;
 
         a = a[1..];
         b = b[1..];
@@ -77,45 +79,50 @@ fn compareRight(a_in: []const u8, b_in: []const u8) std.math.Order {
 // testing
 //
 
-test "natsort compares plain strings" {
-    try testing.expectEqual(std.math.Order.lt, order("a", "b"));
-    try testing.expectEqual(std.math.Order.gt, order("b", "a"));
-    try testing.expectEqual(std.math.Order.eq, order("abc", "abc"));
+test "plain strings" {
+    try testing.expectEqual(std.math.Order.lt, order("a", "b", false));
+    try testing.expectEqual(std.math.Order.gt, order("b", "a", false));
+    try testing.expectEqual(std.math.Order.eq, order("abc", "abc", false));
+    try testing.expectEqual(std.math.Order.eq, order("abc", "ABC", true));
+    try testing.expectEqual(std.math.Order.lt, order("a", "B", true));
+    try testing.expectEqual(std.math.Order.gt, order("B", "a", true));
 }
 
-test "natsort handles simple numeric runs" {
-    try testing.expectEqual(std.math.Order.lt, order("a2", "a10"));
-    try testing.expectEqual(std.math.Order.lt, order("rfc1.txt", "rfc822.txt"));
-    try testing.expectEqual(std.math.Order.lt, order("rfc822.txt", "rfc2086.txt"));
+test "simple numeric runs" {
+    try testing.expectEqual(std.math.Order.lt, order("a2", "a10", false));
+    try testing.expectEqual(std.math.Order.lt, order("rfc1.txt", "rfc822.txt", false));
+    try testing.expectEqual(std.math.Order.lt, order("rfc822.txt", "rfc2086.txt", false));
+    try testing.expectEqual(std.math.Order.lt, order("A2", "a10", true));
+    try testing.expectEqual(std.math.Order.eq, order("RFC1.txt", "rfc1.TXT", true));
 }
 
-test "natsort handles pure numeric strings" {
-    try testing.expectEqual(std.math.Order.lt, order("9", "10"));
-    try testing.expectEqual(std.math.Order.lt, order("2", "100"));
-    try testing.expectEqual(std.math.Order.gt, order("100", "2"));
+test "pure numeric strings" {
+    try testing.expectEqual(std.math.Order.lt, order("9", "10", false));
+    try testing.expectEqual(std.math.Order.lt, order("2", "100", false));
+    try testing.expectEqual(std.math.Order.gt, order("100", "2", false));
 }
 
-test "natsort handles multiple numeric runs" {
-    try testing.expectEqual(std.math.Order.lt, order("x2-g8", "x2-y08"));
-    try testing.expectEqual(std.math.Order.lt, order("x2-y08", "x2-y7"));
-    try testing.expectEqual(std.math.Order.lt, order("x2-y7", "x8-y8"));
+test "multiple numeric runs" {
+    try testing.expectEqual(std.math.Order.lt, order("x2-g8", "x2-y08", false));
+    try testing.expectEqual(std.math.Order.lt, order("x2-y08", "x2-y7", false));
+    try testing.expectEqual(std.math.Order.lt, order("x2-y7", "x8-y8", false));
 }
 
-test "natsort handles fractional-looking strings with leading zeros" {
+test "fractional-looking strings with leading zeros" {
     const vals = [_][]const u8{ "1.001", "1.002", "1.010", "1.02", "1.1", "1.3" };
     for (vals[0 .. vals.len - 1], vals[1..]) |a, b| {
-        try testing.expectEqual(std.math.Order.lt, order(a, b));
+        try testing.expectEqual(std.math.Order.lt, order(a, b, false));
     }
 }
 
-test "natsort ignores leading whitespace" {
-    try testing.expectEqual(std.math.Order.eq, order("  a2", "a2"));
-    try testing.expectEqual(std.math.Order.lt, order("  a2", "a10"));
+test "leading whitespace" {
+    try testing.expectEqual(std.math.Order.eq, order("  a2", "a2", false));
+    try testing.expectEqual(std.math.Order.lt, order("  a2", "a10", false));
 }
 
-test "natsort treats negative signs as plain characters" {
+test "negative signs as plain characters" {
     // This is a string-oriented comparator, not numeric parsing, so "-5" sorts before "-10".
-    try testing.expectEqual(std.math.Order.lt, order("-5", "-10"));
+    try testing.expectEqual(std.math.Order.lt, order("-5", "-10", false));
 }
 
 const isDigit = @import("std").ascii.isDigit;
