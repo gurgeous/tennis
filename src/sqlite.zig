@@ -5,7 +5,7 @@ pub fn load(alloc: std.mem.Allocator, path: []const u8, selected_table: []const 
     const table = try chooseTable(alloc, path, selected_table);
     defer alloc.free(table);
 
-    const ident = try quoteIdentifier(alloc, table);
+    const ident = try util.quoteSql(alloc, table, '"');
     defer alloc.free(ident);
 
     const sql = try std.fmt.allocPrint(alloc, "SELECT * FROM {s};", .{ident});
@@ -27,7 +27,7 @@ fn chooseTable(alloc: std.mem.Allocator, path: []const u8, selected_table: []con
 
 // Return the requested table when it exists, otherwise fail.
 fn pickRequestedTable(alloc: std.mem.Allocator, path: []const u8, selected_table: []const u8) ![]u8 {
-    const value = try quoteString(alloc, selected_table);
+    const value = try util.quoteSql(alloc, selected_table, '\'');
     defer alloc.free(value);
 
     const sql = try std.fmt.allocPrint(alloc, "SELECT name FROM pragma_table_list WHERE schema = 'main' AND type = 'table' AND name = {s} LIMIT 1;", .{value});
@@ -84,34 +84,6 @@ fn queryScalar(alloc: std.mem.Allocator, path: []const u8, sql: []const u8) ![]u
     const trimmed = util.strip(u8, result.stdout);
     if (trimmed.len == 0) return error.SqliteNoTables;
     return alloc.dupe(u8, trimmed);
-}
-
-// Escape one sqlite identifier using double-quoted identifier syntax.
-fn quoteIdentifier(alloc: std.mem.Allocator, ident: []const u8) ![]u8 {
-    var out: std.ArrayList(u8) = .empty;
-    defer out.deinit(alloc);
-
-    try out.append(alloc, '"');
-    for (ident) |ch| {
-        if (ch == '"') try out.append(alloc, '"');
-        try out.append(alloc, ch);
-    }
-    try out.append(alloc, '"');
-    return out.toOwnedSlice(alloc);
-}
-
-// Escape one sqlite string literal using single-quoted SQL syntax.
-fn quoteString(alloc: std.mem.Allocator, text: []const u8) ![]u8 {
-    var out: std.ArrayList(u8) = .empty;
-    defer out.deinit(alloc);
-
-    try out.append(alloc, '\'');
-    for (text) |ch| {
-        if (ch == '\'') try out.append(alloc, '\'');
-        try out.append(alloc, ch);
-    }
-    try out.append(alloc, '\'');
-    return out.toOwnedSlice(alloc);
 }
 
 // Execute sqlite3 and capture stdout/stderr for later inspection.
@@ -187,38 +159,6 @@ const largestTableSql =
 //
 // testing
 //
-
-test "quoteIdentifier escapes identifiers" {
-    const cases = [_]struct {
-        input: []const u8,
-        want: []const u8,
-    }{
-        .{ .input = "plain", .want = "\"plain\"" },
-        .{ .input = "weird\"name", .want = "\"weird\"\"name\"" },
-    };
-
-    for (cases) |tc| {
-        const got = try quoteIdentifier(testing.allocator, tc.input);
-        defer testing.allocator.free(got);
-        try testing.expectEqualStrings(tc.want, got);
-    }
-}
-
-test "quoteString escapes string literals" {
-    const cases = [_]struct {
-        input: []const u8,
-        want: []const u8,
-    }{
-        .{ .input = "plain", .want = "'plain'" },
-        .{ .input = "weird'name", .want = "'weird''name'" },
-    };
-
-    for (cases) |tc| {
-        const got = try quoteString(testing.allocator, tc.input);
-        defer testing.allocator.free(got);
-        try testing.expectEqualStrings(tc.want, got);
-    }
-}
 
 test "table selection queries are deterministic" {
     const cases = [_]struct {
