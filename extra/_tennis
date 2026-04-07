@@ -19,6 +19,7 @@ _tennis() {
     '--head[Show first N rows]:int:' \
     '--tail[Show last N rows]:int:' \
     '--filter[Only show rows that contain this text]:string:' \
+    '--table[Select the db table (for sqlite)]:table:' \
     '--color[Turn color off and on (on|off|auto)]:color:(auto off on)' \
     '--delimiter[Set CSV delim (can be any char or "tab")]:char:(tab , \; \|)' \
     '--digits[Digits after decimal for float columns]:int:(1 2 3 4 5 6)' \

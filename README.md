@@ -66,10 +66,11 @@ $ zig build
       --color <color>        Turn color off and on (on|off|auto)
       --delimiter <char>     Set CSV delim (can be any char or "tab")
       --digits <int>         Digits after decimal for float columns
-  -p, --pager               Send output through $PAGER or less
+  -p, --pager                Send output through $PAGER or less
       --theme <theme>        Select color theme (auto|dark|light)
       --vanilla              Disable numeric formatting
       --width <int>          Set max table width in chars
+      --table <table>        Select the db table (for sqlite)
 
       --completion <shell>   Print shell completion (bash|zsh)
       --help                 Get help
@@ -81,7 +82,7 @@ Note that color defaults to `on`. Tennis likes to be colorful.
 
 ### File Formats
 
-Tennis supports CSV and JSON along with common variants. It will infer the format using both the filename, if present, and the first few bytes of input. When reading a CSV it tries to sniff the correct delimiter from the first few rows. JSON can be a full array of objects, JSONL/NDJSON, or even just a single JSON object, in which case the pairs become rows.
+Tennis supports CSV, JSON, and sqlite along with common variants. It will infer the format using both the filename, if present, and the first few bytes of input. When reading a CSV it tries to sniff the correct delimiter from the first few rows. JSON can be a full array of objects, JSONL/NDJSON, or even just a single JSON object, in which case the pairs become rows. Sqlite files are read through the external `sqlite3` CLI. Use `--table` to pick a specific table; otherwise tennis chooses one automatically.
 
 Tennis works fine with Unicode and emoji content. Calculating non-ASCII display width can be complicated, so tennis includes simple heuristics for common cases.
 

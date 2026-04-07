@@ -183,6 +183,15 @@ setup() {
   [[ "$output" == *"cara"* ]]
 }
 
+@test "renders named sqlite table" {
+  run "$TENNIS_BIN" --color=off --width 80 --table players "$REPO_ROOT/testdata/sqlite-single.sqlite"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"name"* ]]
+  [[ "$output" == *"score"* ]]
+  [[ "$output" == *"alice"* ]]
+  [[ "$output" == *"cara"* ]]
+}
+
 @test "renders sqlite by picking the largest table" {
   run "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/sqlite-multi.sqlite"
   [ "$status" -eq 0 ]
@@ -197,6 +206,19 @@ setup() {
   run "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/sqlite-invalid.sqlite"
   [ "$status" -eq 1 ]
   [[ "$output" == *"tennis: Could not read that file with sqlite3"* ]]
+}
+
+@test "fails when sqlite table is missing" {
+  run "$TENNIS_BIN" --color=off --width 80 --table missing "$REPO_ROOT/testdata/sqlite-single.sqlite"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"tennis: Table 'missing' was not found in that sqlite file."* ]]
+  [[ "$output" == *"tennis: tables: players"* ]]
+}
+
+@test "fails when --table is used for non-sqlite input" {
+  run "$TENNIS_BIN" --color=off --width 80 --table players "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"tennis: --table only works with sqlite files"* ]]
 }
 
 @test "explicit delimiter overrides sniffing" {

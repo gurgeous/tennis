@@ -15,6 +15,7 @@ pub const Failure = struct {
             error.InvalidTailValue => .{ .code = .invalid_tail_value },
             error.JaggedCsv => .{ .code = .jagged_csv },
             error.SqliteCliFailed => .{ .code = .sqlite_cli_failed },
+            error.SqliteTableRequiresSqlite => .{ .code = .sqlite_table_requires_sqlite },
             error.SqliteCliMissing => .{ .code = .sqlite_cli_missing },
             error.SqliteTooLarge => .{ .code = .sqlite_too_large },
             error.SqliteNoTables => .{ .code = .sqlite_no_tables },
@@ -53,6 +54,14 @@ pub const Failure = struct {
         };
     }
 
+    // Sqlite table-selection error => failure with table list detail.
+    pub fn fromSqliteTableError(alloc: std.mem.Allocator, table: []const u8, tables: []const []const u8) !Failure {
+        return .{
+            .code = .sqlite_invalid_table,
+            .detail = try formatSqliteTables(alloc, table, tables),
+        };
+    }
+
     // Release any owned detail attached to this failure.
     pub fn deinit(self: Failure, alloc: std.mem.Allocator) void {
         if (self.detail) |str| alloc.free(str);
@@ -77,6 +86,7 @@ pub const Failure = struct {
             .jagged_csv => try writer.writeAll("All csv rows must have same number of columns"),
             .sqlite_cli_failed => try writer.writeAll("Could not read that file with sqlite3"),
             .sqlite_cli_missing => try writer.writeAll("`sqlite3` is required, but I couldn't find it."),
+            .sqlite_table_requires_sqlite => try writer.writeAll("--table only works with sqlite files"),
             .sqlite_no_tables => try writer.writeAll("That db has no tables"),
             .sqlite_requires_file => try writer.writeAll("Sqlite requires a file (not a pipe)"),
             .sqlite_too_large => try writer.writeAll("That db table is too large to display"),
@@ -84,7 +94,7 @@ pub const Failure = struct {
             .windows => try writer.writeAll("Windows is not yet supported"),
 
             // these have details
-            .clap, .file_not_found, .invalid_deselect, .invalid_select, .invalid_sort => try writer.writeAll(self.detail orelse unreachable),
+            .clap, .file_not_found, .invalid_deselect, .invalid_select, .invalid_sort, .sqlite_invalid_table => try writer.writeAll(self.detail orelse unreachable),
         }
     }
 };
@@ -107,8 +117,10 @@ pub const FailureCode = enum {
     jagged_csv,
     sqlite_cli_failed,
     sqlite_cli_missing,
+    sqlite_invalid_table,
     sqlite_no_tables,
     sqlite_requires_file,
+    sqlite_table_requires_sqlite,
     sqlite_too_large,
     too_many_arguments,
     windows,
@@ -148,6 +160,23 @@ fn formatColumns(alloc: std.mem.Allocator, flag: []const u8, row: []const []cons
     return out.toOwnedSlice();
 }
 
+// Render one invalid sqlite table selection into an owned string.
+fn formatSqliteTables(alloc: std.mem.Allocator, table: []const u8, tables: []const []const u8) ![]u8 {
+    var out = std.Io.Writer.Allocating.init(alloc);
+    errdefer out.deinit();
+    try out.writer.print("Table '{s}' was not found in that sqlite file.\n", .{table});
+    try out.writer.writeAll("tennis: tables: ");
+    if (tables.len == 0) {
+        try out.writer.writeAll("(none)");
+    } else {
+        for (tables, 0..) |name, ii| {
+            if (ii > 0) try out.writer.writeAll(", ");
+            try out.writer.writeAll(name);
+        }
+    }
+    return out.toOwnedSlice();
+}
+
 //
 // testing
 //
@@ -175,6 +204,7 @@ test "fromError covers direct mapped cases" {
         .{ .err = error.SqliteCliMissing, .want = .sqlite_cli_missing },
         .{ .err = error.SqliteNoTables, .want = .sqlite_no_tables },
         .{ .err = error.SqliteRequiresFile, .want = .sqlite_requires_file },
+        .{ .err = error.SqliteTableRequiresSqlite, .want = .sqlite_table_requires_sqlite },
         .{ .err = error.SqliteTooLarge, .want = .sqlite_too_large },
     };
 
@@ -222,6 +252,13 @@ test "write includes column headers" {
     defer testing.allocator.free(deselect_msg);
     try testing.expect(std.mem.indexOf(u8, deselect_msg, "--deselect") != null);
     try testing.expect(std.mem.indexOf(u8, deselect_msg, "name, score") != null);
+
+    const sqlite_failure = try Failure.fromSqliteTableError(testing.allocator, "missing", &.{ "players", "stats" });
+    defer sqlite_failure.deinit(testing.allocator);
+    const sqlite_msg = try string(testing.allocator, sqlite_failure);
+    defer testing.allocator.free(sqlite_msg);
+    try testing.expect(std.mem.indexOf(u8, sqlite_msg, "missing") != null);
+    try testing.expect(std.mem.indexOf(u8, sqlite_msg, "players, stats") != null);
 }
 
 const clap = @import("clap");

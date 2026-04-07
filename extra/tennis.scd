@@ -76,6 +76,9 @@ $ tennis diamonds.csv
 *--sort* <headers>
 	Sort rows by one or more comma-separated headers.
 
+*--table* <name>
+	Select a specific table from a sqlite file.
+
 *--tail* <int>
 	Show the last _N_ data rows.
 

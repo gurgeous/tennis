@@ -1,8 +1,8 @@
-// SQLite loader using the external sqlite3 CLI.
+// sqlite loader using the external sqlite3 CLI.
 
-// Load one SQLite database file by selecting a table and decoding sqlite3 CSV output.
-pub fn load(alloc: std.mem.Allocator, path: []const u8) !Data {
-    const table = try chooseTable(alloc, path);
+// Load one sqlite database file by selecting a table and decoding sqlite3 CSV output.
+pub fn load(alloc: std.mem.Allocator, path: []const u8, selected_table: []const u8) !Data {
+    const table = try chooseTable(alloc, path, selected_table);
     defer alloc.free(table);
 
     const ident = try quoteIdentifier(alloc, table);
@@ -18,12 +18,35 @@ pub fn load(alloc: std.mem.Allocator, path: []const u8) !Data {
     return try csv.load(alloc, out.stdout, ',');
 }
 
-// Choose a deterministic table, preferring the largest one when dbstat is available.
-fn chooseTable(alloc: std.mem.Allocator, path: []const u8) ![]u8 {
+// Choose a deterministic table, preferring the requested table or the largest table.
+fn chooseTable(alloc: std.mem.Allocator, path: []const u8, selected_table: []const u8) ![]u8 {
+    if (selected_table.len > 0) return try pickRequestedTable(alloc, path, selected_table);
     return queryScalar(alloc, path, largestTableSql) catch |err| switch (err) {
-        error.SqliteCliFailed => try queryScalar(alloc, path, firstTableSql),
+        error.SqliteCliFailed => try firstTable(alloc, path),
         else => err,
     };
+}
+
+// Return the requested table when it exists, otherwise fail.
+fn pickRequestedTable(alloc: std.mem.Allocator, path: []const u8, selected_table: []const u8) ![]u8 {
+    const ident = try quoteIdentifier(alloc, selected_table);
+    defer alloc.free(ident);
+
+    const sql = try std.fmt.allocPrint(alloc, "SELECT name FROM pragma_table_list WHERE schema = 'main' AND type = 'table' AND name = {s} LIMIT 1;", .{ident});
+    defer alloc.free(sql);
+
+    return queryScalar(alloc, path, sql) catch |err| switch (err) {
+        error.SqliteNoTables => error.SqliteInvalidTable,
+        else => err,
+    };
+}
+
+// Return the first ordinary user table by name.
+fn firstTable(alloc: std.mem.Allocator, path: []const u8) ![]u8 {
+    const tables = try listTables(alloc, path);
+    defer freeTables(alloc, tables);
+    if (tables.len == 0) return error.SqliteNoTables;
+    return alloc.dupe(u8, tables[0]);
 }
 
 // Run a scalar SQL query and return the trimmed first line.
@@ -44,7 +67,7 @@ fn queryScalar(alloc: std.mem.Allocator, path: []const u8, sql: []const u8) ![]u
     return alloc.dupe(u8, trimmed);
 }
 
-// Escape one SQLite identifier using double-quoted identifier syntax.
+// Escape one sqlite identifier using double-quoted identifier syntax.
 fn quoteIdentifier(alloc: std.mem.Allocator, ident: []const u8) ![]u8 {
     var out: std.ArrayList(u8) = .empty;
     defer out.deinit(alloc);
@@ -71,16 +94,48 @@ fn runSqlite(alloc: std.mem.Allocator, argv: []const []const u8) !std.process.Ch
     };
 }
 
+// List ordinary user tables in the main sqlite schema.
+pub fn listTables(alloc: std.mem.Allocator, path: []const u8) ![][]u8 {
+    const result = try runSqlite(alloc, &.{ "sqlite3", "-readonly", "-batch", "-noheader", path, listTablesSql });
+    defer alloc.free(result.stderr);
+    defer alloc.free(result.stdout);
+
+    switch (result.term) {
+        .Exited => |code| if (code != 0) return error.SqliteCliFailed,
+        else => return error.SqliteCliFailed,
+    }
+
+    var out: std.ArrayList([]u8) = .empty;
+    errdefer {
+        for (out.items) |name| alloc.free(name);
+        out.deinit(alloc);
+    }
+
+    var it = std.mem.tokenizeScalar(u8, result.stdout, '\n');
+    while (it.next()) |line| {
+        const name = util.strip(u8, line);
+        if (name.len == 0) continue;
+        try out.append(alloc, try alloc.dupe(u8, name));
+    }
+
+    return out.toOwnedSlice(alloc);
+}
+
+// Release the table-name list returned by listTables.
+pub fn freeTables(alloc: std.mem.Allocator, tables: [][]u8) void {
+    for (tables) |name| alloc.free(name);
+    alloc.free(tables);
+}
+
 //
 // sql
 //
 
-const firstTableSql =
+const listTablesSql =
     \\SELECT name
     \\FROM pragma_table_list
     \\WHERE schema = 'main' AND type = 'table' AND name NOT LIKE 'sqlite_%'
-    \\ORDER BY name
-    \\LIMIT 1;
+    \\ORDER BY name;
 ;
 
 const largestTableSql =
@@ -121,7 +176,7 @@ test "table selection queries are deterministic" {
         sql: []const u8,
         want: []const []const u8,
     }{
-        .{ .sql = firstTableSql, .want = &.{ "pragma_table_list", "order by name" } },
+        .{ .sql = listTablesSql, .want = &.{ "pragma_table_list", "order by name" } },
         .{ .sql = largestTableSql, .want = &.{ "pragma_table_list", "order by total_size desc, name asc" } },
     };
 
