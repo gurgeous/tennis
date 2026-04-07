@@ -19,19 +19,19 @@ _tennis() {
     '--head[Show first N rows]:int:' \
     '--tail[Show last N rows]:int:' \
     '--filter[Only show rows that contain this text]:string:' \
-    '--table[Select the db table (for sqlite)]:table:' \
     '--color[Turn color off and on (on|off|auto)]:color:(auto off on)' \
     '--delimiter[Set CSV delim (can be any char or "tab")]:char:(tab , \; \|)' \
     '--digits[Digits after decimal for float columns]:int:(1 2 3 4 5 6)' \
     '-p[Send output through $PAGER or less]' \
     '--pager[Send output through $PAGER or less]' \
+    '--table[Select the db table (for sqlite)]:table:' \
     '--theme[Select color theme (auto|dark|light)]:theme:(auto dark light)' \
     '--vanilla[Disable numeric formatting]' \
     '--width[Set max table width in chars]:int:' \
     '--completion[Print shell completion (bash|zsh)]:shell:(bash zsh)' \
     '--help[Get help]' \
     '--version[Show version number and exit]' \
-    '*:file:_files -g "*.(csv|json|jsonl|ndjson)(-.)" "*(-/)"'
+    '*:file:_files -g "*.(csv|db|json|jsonl|ndjson|sqlite|sqlite3)(-.)" "*(-/)"'
 }
 
 if [ "$funcstack[1]" = "_tennis" ]; then

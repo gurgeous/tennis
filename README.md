@@ -34,7 +34,7 @@ $ zig build
 - auto-themes to pick light or dark based on your terminal background
 - auto-format numbers
 - auto-detect CSV vs TSV (or semis, or pipes)
-- also works great with JSON (or JSONL)
+- also works great with JSON/JSONL or SQLite
 - titles, row numbers, zebra stripes, border styles
 - sorting, filtering, head/tail
 - `--peek` to get a quick summary
@@ -43,7 +43,7 @@ $ zig build
 
 ```
  Usage: tennis [options...] <file.csv>
-        also supports stdin, json/jsonl files, etc.
+        also supports stdin, json/jsonl, sqlite, etc.
 
  Popular options:
   -n, --row-numbers          Turn on row numbers

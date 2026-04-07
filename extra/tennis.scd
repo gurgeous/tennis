@@ -10,7 +10,7 @@ https://github.com/gurgeous/tennis
 
 *tennis* [_options..._] <file.csv>
 
-Also supports stdin, json/jsonl files, etc.
+Also supports stdin, json/jsonl, sqlite, etc.
 
 # DESCRIPTION
 

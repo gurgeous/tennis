@@ -6,7 +6,7 @@
 pub const Args = struct {
     pub const help =
         \\ Usage: tennis [options...] <file.csv>
-        \\        also supports stdin, json/jsonl files, etc.
+        \\        also supports stdin, json/jsonl, sqlite, etc.
         \\
         \\ Popular options:
         \\  -n, --row-numbers          Turn on row numbers
