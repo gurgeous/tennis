@@ -17,7 +17,7 @@ Also supports stdin, json/jsonl, sqlite, etc.
 *tennis* is a small CLI for printing stylish CSV tables in your terminal.
 Rows will be truncated to fit and it'll automatically pick nice colors
 to match your terminal. Works with all *CSV* variants as well as
-*JSON/JSONL*. Written in zig.
+*JSON/JSONL* and *SQLite* files. Written in zig.
 
 # DEMO
 
