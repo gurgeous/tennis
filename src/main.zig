@@ -103,9 +103,9 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
     var data = load(alloc, config, input) catch |err| {
         if (err == error.SqliteInvalidTable) {
             const path = config.filename orelse return err;
-            const tables = try sqlite.listTables(alloc, path);
-            defer sqlite.freeTables(alloc, tables);
-            return try failure.Failure.fromSqliteTableError(alloc, config.table, tables);
+            var db = try sqlite.Sqlite.init(alloc, path);
+            defer db.deinit();
+            return try failure.Failure.fromSqliteTableError(alloc, config.table, db.listTables());
         }
         return failure.Failure.fromError(err) orelse return err;
     };
@@ -147,7 +147,9 @@ fn load(alloc: std.mem.Allocator, config: types.Config, input: std.fs.File) !Dat
     // work if we are using `sqlite3`, though
     if (config.filename) |path| {
         if (detect.formatFromFilename(path) == .sqlite) {
-            return try sqlite.load(alloc, path, config.table);
+            var db = try sqlite.Sqlite.init(alloc, path);
+            defer db.deinit();
+            return try db.load(config.table);
         }
     }
 
