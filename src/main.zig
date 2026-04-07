@@ -105,7 +105,7 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
             const path = config.filename orelse return err;
             var db = try sqlite.Sqlite.init(alloc, path);
             defer db.deinit();
-            return try failure.Failure.fromSqliteTableError(alloc, config.table, db.listTables());
+            return try failure.Failure.fromSqliteTableError(alloc, config.table, db.tables);
         }
         return failure.Failure.fromError(err) orelse return err;
     };
