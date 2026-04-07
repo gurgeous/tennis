@@ -174,6 +174,19 @@ setup() {
   [[ "$output" == *"bob"* ]]
 }
 
+@test "renders sqlite by picking the largest table" {
+  db="$(mktemp "$BATS_TEST_TMPDIR/tennis-sqlite-XXXXXX.db")"
+  sqlite3 "$db" "CREATE TABLE small(name TEXT); INSERT INTO small VALUES ('solo'); CREATE TABLE big(name TEXT, score INT); INSERT INTO big VALUES ('alice',1),('bob',2),('cara',3);"
+
+  run "$TENNIS_BIN" --color=off --width 80 "$db"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"name"* ]]
+  [[ "$output" == *"score"* ]]
+  [[ "$output" == *"alice"* ]]
+  [[ "$output" == *"cara"* ]]
+  [[ "$output" != *"solo"* ]]
+}
+
 @test "explicit delimiter overrides sniffing" {
   run "$TENNIS_BIN" --color=off --width 80 --delimiter ',' "$REPO_ROOT/testdata/semicolon.csv"
   [ "$status" -eq 0 ]

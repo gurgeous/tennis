@@ -14,6 +14,11 @@ pub const Failure = struct {
             error.InvalidHeadValue => .{ .code = .invalid_head_value },
             error.InvalidTailValue => .{ .code = .invalid_tail_value },
             error.JaggedCsv => .{ .code = .jagged_csv },
+            error.SqliteCliFailed => .{ .code = .sqlite_cli_failed },
+            error.SqliteCliMissing => .{ .code = .sqlite_cli_missing },
+            error.SqliteTooLarge => .{ .code = .sqlite_too_large },
+            error.SqliteNoTables => .{ .code = .sqlite_no_tables },
+            error.SqliteRequiresFile => .{ .code = .sqlite_requires_file },
             error.SyntaxError => .{ .code = .invalid_json },
             error.TooManyArguments => .{ .code = .too_many_arguments },
             error.UnexpectedEndOfFile => .{ .code = .invalid_csv },
@@ -70,6 +75,11 @@ pub const Failure = struct {
             .invalid_json => try writer.writeAll("That JSON/JSONL file doesn't look right"),
             .invalid_tail_value => try writer.writeAll("Tail must be greater than 0"),
             .jagged_csv => try writer.writeAll("All csv rows must have same number of columns"),
+            .sqlite_cli_failed => try writer.writeAll("Could not read that SQLite file with sqlite3"),
+            .sqlite_cli_missing => try writer.writeAll("sqlite3 is required to read SQLite files"),
+            .sqlite_no_tables => try writer.writeAll("That SQLite file has no ordinary tables"),
+            .sqlite_requires_file => try writer.writeAll("SQLite input requires a file path"),
+            .sqlite_too_large => try writer.writeAll("That SQLite table is too large to display"),
             .too_many_arguments => try writer.writeAll("Too many file arguments"),
             .windows => try writer.writeAll("Windows is not yet supported"),
 
@@ -95,6 +105,11 @@ pub const FailureCode = enum {
     invalid_sort,
     invalid_tail_value,
     jagged_csv,
+    sqlite_cli_failed,
+    sqlite_cli_missing,
+    sqlite_no_tables,
+    sqlite_requires_file,
+    sqlite_too_large,
     too_many_arguments,
     windows,
 };
@@ -156,6 +171,11 @@ test "fromError covers direct mapped cases" {
         .{ .err = error.UnexpectedEndOfInput, .want = .invalid_json },
         .{ .err = error.Windows, .want = .windows },
         .{ .err = error.JaggedCsv, .want = .jagged_csv },
+        .{ .err = error.SqliteCliFailed, .want = .sqlite_cli_failed },
+        .{ .err = error.SqliteCliMissing, .want = .sqlite_cli_missing },
+        .{ .err = error.SqliteNoTables, .want = .sqlite_no_tables },
+        .{ .err = error.SqliteRequiresFile, .want = .sqlite_requires_file },
+        .{ .err = error.SqliteTooLarge, .want = .sqlite_too_large },
     };
 
     for (cases) |tc| {

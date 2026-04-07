@@ -99,18 +99,8 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
     defer if (needs_close) input.close();
     util.benchmark("input", timer.read());
 
-    //
-    // read input => input_bytes
-    //
-
-    const input_bytes = try input.readToEndAlloc(alloc, std.math.maxInt(usize));
-    defer alloc.free(input_bytes);
-
-    //
-    // input_bytes => data rows
-    //
-
-    var data = load(alloc, config, input_bytes) catch |err| {
+    // input => data rows
+    var data = load(alloc, config, input) catch |err| {
         return failure.Failure.fromError(err) orelse return err;
     };
     errdefer data.deinit(alloc);
@@ -145,19 +135,50 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
     return null;
 }
 
-fn load(alloc: std.mem.Allocator, config: types.Config, bytes_in: []const u8) !Data {
+// Load the configured input into table data, dispatching by detected format.
+fn load(alloc: std.mem.Allocator, config: types.Config, input: std.fs.File) !Data {
+    const format = try detectInputFormat(alloc, config, input);
+    if (format == .sqlite) {
+        const path = config.filename orelse return error.SqliteRequiresFile;
+        if (std.mem.eql(u8, path, "-")) return error.SqliteRequiresFile;
+        return try sqlite.load(alloc, path);
+    }
+
+    const bytes_in = try input.readToEndAlloc(alloc, std.math.maxInt(usize));
+    defer alloc.free(bytes_in);
+    return try loadBytes(alloc, config, bytes_in, format);
+}
+
+// Load in-memory bytes into table data using the existing text format loaders.
+fn loadBytes(alloc: std.mem.Allocator, config: types.Config, bytes_in: []const u8, format_hint: ?detect.InputFormat) !Data {
     // skip bom
     var bytes = bytes_in;
     if (std.mem.startsWith(u8, bytes, "\xef\xbb\xbf")) {
         bytes = bytes[3..];
     }
 
-    const format = try detect.detectFormat(alloc, config.filename, bytes);
+    const format = format_hint orelse try detect.detectFormat(alloc, config.filename, bytes);
     if (format == .json) return try json.load(alloc, bytes);
+    if (format == .sqlite) return error.SqliteRequiresFile;
 
     var delimiter = config.delimiter;
     if (delimiter == 0) delimiter = sniffer.sniff(bytes) orelse ',';
     return try csv.load(alloc, bytes, delimiter);
+}
+
+// Detect the input format, sampling named files only when the extension is ambiguous.
+fn detectInputFormat(alloc: std.mem.Allocator, config: types.Config, input: std.fs.File) !?detect.InputFormat {
+    if (config.filename) |path| {
+        if (!std.mem.eql(u8, path, "-")) {
+            if (detect.formatFromFilename(path)) |format| return format;
+
+            var sample_buf: [512]u8 = undefined;
+            const n = try input.read(&sample_buf);
+            try input.seekTo(0);
+            return try detect.detectFormat(alloc, config.filename, sample_buf[0..n]);
+        }
+    }
+    return null;
 }
 
 fn flushPipe() anyerror!void {
@@ -227,6 +248,7 @@ test {
     _ = @import("natsort.zig");
     _ = @import("peek.zig");
     _ = @import("render.zig");
+    _ = @import("sqlite.zig");
     _ = @import("data.zig");
     _ = @import("sort.zig");
     _ = @import("sniffer.zig");
@@ -264,7 +286,9 @@ test "load strips UTF-8 BOM before parsing csv and jsonl" {
     };
 
     for (cases) |tc| {
-        const data = try load(testing.allocator, tc.config, tc.input);
+        const bytes = try testing.allocator.dupe(u8, tc.input);
+        defer testing.allocator.free(bytes);
+        const data = try loadBytes(testing.allocator, tc.config, bytes, null);
         defer data.deinit(testing.allocator);
 
         try testing.expectEqual(tc.nrows, data.rows.len);
@@ -285,9 +309,10 @@ const failure = @import("failure.zig");
 const json = @import("json.zig");
 const peek = @import("peek.zig");
 const sniffer = @import("sniffer.zig");
+const sqlite = @import("sqlite.zig");
 const std = @import("std");
-const testing = std.testing;
 const Table = @import("table.zig").Table;
+const testing = std.testing;
 const types = @import("types.zig");
 const util = @import("util.zig");
 const version = @import("build_options").version;

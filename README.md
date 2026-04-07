@@ -133,6 +133,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 - `--select` and `--deselect` for choosing columns
 - `--pager` to send output through your pager (usually less)
 - `--peek` for shape, a few sample rows, and compact column stats
+- SQLite file support via the external `sqlite3` CLI
 - `doomicode`, best-effort Unicode width for emojis, etc
 
 #### 0.0.3 (Mar '26)
