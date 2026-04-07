@@ -34,7 +34,7 @@ $ zig build
 - auto-themes to pick light or dark based on your terminal background
 - auto-format numbers
 - auto-detect CSV vs TSV (or semis, or pipes)
-- also works great with JSON (or JSONL)
+- also works great with JSON/JSONL or SQLite
 - titles, row numbers, zebra stripes, border styles
 - sorting, filtering, head/tail
 - `--peek` to get a quick summary
@@ -43,7 +43,7 @@ $ zig build
 
 ```
  Usage: tennis [options...] <file.csv>
-        also supports stdin, json/jsonl files, etc.
+        also supports stdin, json/jsonl, sqlite, etc.
 
  Popular options:
   -n, --row-numbers          Turn on row numbers
@@ -66,7 +66,8 @@ $ zig build
       --color <color>        Turn color off and on (on|off|auto)
       --delimiter <char>     Set CSV delim (can be any char or "tab")
       --digits <int>         Digits after decimal for float columns
-  -p, --pager               Send output through $PAGER or less
+  -p, --pager                Send output through $PAGER or less
+      --table <table>        Select the db table (for sqlite)
       --theme <theme>        Select color theme (auto|dark|light)
       --vanilla              Disable numeric formatting
       --width <int>          Set max table width in chars
@@ -81,7 +82,7 @@ Note that color defaults to `on`. Tennis likes to be colorful.
 
 ### File Formats
 
-Tennis supports CSV and JSON along with common variants. It will infer the format using both the filename, if present, and the first few bytes of input. When reading a CSV it tries to sniff the correct delimiter from the first few rows. JSON can be a full array of objects, JSONL/NDJSON, or even just a single JSON object, in which case the pairs become rows.
+Tennis supports CSV-like, JSON, and SQLite. It will infer the format using both the filename (if present) and the first few bytes of input. When reading a CSV it tries to sniff the correct delimiter from the first few rows. JSON can be a full array of objects, JSONL/NDJSON, or even just a single JSON object, in which case the pairs become rows. Sqlite files are read through the external `sqlite3` CLI. Use `--table` to pick a specific table; otherwise tennis chooses one automatically.
 
 Tennis works fine with Unicode and emoji content. Calculating non-ASCII display width can be complicated, so tennis includes simple heuristics for common cases.
 
@@ -124,24 +125,25 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 ### Changelog
 
-#### 0.0.4 (unreleased)
+#### 0.4.0 (unreleased)
 
 - `--border` styles based on `nushell` / `tabled` crate.
-- JSON! Works with a JSON array, JSONL, or even just a single object
 - auto-detect CSV delimiters
+- JSON! Works with a JSON array, JSONL, or even just a single object
+- SQLite! Relies on `sqlite3` CLI
 - `--filter`, `--sort`, `--reverse`, `--shuffle`, `--zebra`, `--head` and `--tail`
 - `--select` and `--deselect` for choosing columns
 - `--pager` to send output through your pager (usually less)
 - `--peek` for shape, a few sample rows, and compact column stats
 - `doomicode`, best-effort Unicode width for emojis, etc
 
-#### 0.0.3 (Mar '26)
+#### 0.3.0 (Mar '26)
 
 - Custom `--delimiter` for tsv, semicolon, etc. #5 (@markhm)
 - Auto numeric formatting, including delims and rounding for int/float columns. Disable with --vanilla.
 - man page & shell completions
 
-#### 0.0.2 (Mar '26)
+#### 0.2.0 (Mar '26)
 
 - Initial release.
 

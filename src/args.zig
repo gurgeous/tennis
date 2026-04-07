@@ -6,7 +6,7 @@
 pub const Args = struct {
     pub const help =
         \\ Usage: tennis [options...] <file.csv>
-        \\        also supports stdin, json/jsonl files, etc.
+        \\        also supports stdin, json/jsonl, sqlite, etc.
         \\
         \\ Popular options:
         \\  -n, --row-numbers          Turn on row numbers
@@ -29,7 +29,8 @@ pub const Args = struct {
         \\      --color <color>        Turn color off and on (on|off|auto)
         \\      --delimiter <char>     Set CSV delim (can be any char or "tab")
         \\      --digits <int>         Digits after decimal for float columns
-        \\  -p, --pager               Send output through $PAGER or less
+        \\  -p, --pager                Send output through $PAGER or less
+        \\      --table <table>        Select the db table (for sqlite)
         \\      --theme <theme>        Select color theme (auto|dark|light)
         \\      --vanilla              Disable numeric formatting
         \\      --width <int>          Set max table width in chars
@@ -54,6 +55,7 @@ pub const Args = struct {
         \\    --shuf
         \\    --shuffle
         \\    --sort <STRING>
+        \\    --table <STRING>
         \\    --tail <INT>
         \\    --theme <THEME>
         \\    --vanilla
@@ -143,6 +145,7 @@ pub const Args = struct {
         if (res.args.select) |v| config.select = v;
         config.shuffle = res.args.shuffle > 0 or res.args.shuf > 0;
         if (res.args.sort) |v| config.sort = v;
+        if (res.args.table) |v| config.table = v;
         if (res.args.theme) |v| config.theme = v;
         if (res.args.title) |v| config.title = try alloc.dupe(u8, v);
         config.vanilla = res.args.vanilla > 0;
@@ -227,6 +230,8 @@ test "parse option config case" {
         "name,score",
         "--sort",
         "score,name",
+        "--table",
+        "players",
         "--theme",
         "light",
         "--title",
@@ -253,6 +258,7 @@ test "parse option config case" {
     try testing.expect(out.run.shuffle);
     try testing.expectEqualStrings("name,score", out.run.select);
     try testing.expectEqualStrings("score,name", out.run.sort);
+    try testing.expectEqualStrings("players", out.run.table);
     try testing.expectEqual(types.Theme.light, out.run.theme);
     try testing.expectEqualStrings("foo", out.run.title);
     try testing.expect(out.run.vanilla);
@@ -281,6 +287,7 @@ test "parse option event cases" {
         .{ .argv = &.{ "--shuffle", "-" } },
         .{ .argv = &.{ "--shuf", "-" } },
         .{ .argv = &.{ "--sort", "score,name", "-" } },
+        .{ .argv = &.{ "--table", "players", "-" } },
         .{ .argv = &.{ "--completion", "zsh" }, .event = .{ .completion = .zsh } },
         .{ .argv = &.{"--help"}, .event = .help },
         .{ .argv = &.{"--version"}, .event = .version },
@@ -298,6 +305,7 @@ test "parse option event cases" {
         if (std.mem.eql(u8, tc.argv[0], "--shuffle") or std.mem.eql(u8, tc.argv[0], "--shuf")) {
             try testing.expect(parsed.run.shuffle);
         }
+        if (std.mem.eql(u8, tc.argv[0], "--table")) try testing.expectEqualStrings("players", parsed.run.table);
         if (std.mem.eql(u8, tc.argv[0], "--zebra")) try testing.expect(parsed.run.zebra);
         if (tc.event) |event| try testing.expectEqual(event, parsed);
     }

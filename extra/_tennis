@@ -24,13 +24,14 @@ _tennis() {
     '--digits[Digits after decimal for float columns]:int:(1 2 3 4 5 6)' \
     '-p[Send output through $PAGER or less]' \
     '--pager[Send output through $PAGER or less]' \
+    '--table[Select the db table (for sqlite)]:table:' \
     '--theme[Select color theme (auto|dark|light)]:theme:(auto dark light)' \
     '--vanilla[Disable numeric formatting]' \
     '--width[Set max table width in chars]:int:' \
     '--completion[Print shell completion (bash|zsh)]:shell:(bash zsh)' \
     '--help[Get help]' \
     '--version[Show version number and exit]' \
-    '*:file:_files -g "*.(csv|json|jsonl|ndjson)(-.)" "*(-/)"'
+    '*:file:_files -g "*.(csv|db|json|jsonl|ndjson|sqlite|sqlite3)(-.)" "*(-/)"'
 }
 
 if [ "$funcstack[1]" = "_tennis" ]; then

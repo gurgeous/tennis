@@ -65,7 +65,11 @@ test:
   just banner "✓ test ✓"
 
 test-bats:
-  if [ -n "${LLM:-}" ]; then bats testdata/smoke.bats > /dev/null ; else bats testdata/smoke.bats ; fi
+  if [ -n "${LLM:-}" ]; then \
+    bats testdata/smoke.bats > /dev/null ; \
+  else \
+    bats --print-output-on-failure testdata/smoke.bats ; \
+  fi
   just banner "✓ test-bats ✓"
 
 test-watch:

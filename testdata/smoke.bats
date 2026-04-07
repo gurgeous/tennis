@@ -174,6 +174,53 @@ setup() {
   [[ "$output" == *"bob"* ]]
 }
 
+@test "renders sqlite with one table" {
+  run env TENNIS_DEBUG=1 "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/sqlite-single.db"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"name"* ]]
+  [[ "$output" == *"score"* ]]
+  [[ "$output" == *"alice"* ]]
+  [[ "$output" == *"cara"* ]]
+}
+
+@test "renders named sqlite table" {
+  run env TENNIS_DEBUG=1 "$TENNIS_BIN" --color=off --width 80 --table players "$REPO_ROOT/testdata/sqlite-single.db"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"name"* ]]
+  [[ "$output" == *"score"* ]]
+  [[ "$output" == *"alice"* ]]
+  [[ "$output" == *"cara"* ]]
+}
+
+@test "renders sqlite by picking the largest table" {
+  run env TENNIS_DEBUG=1 "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/sqlite-multi.db"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"name"* ]]
+  [[ "$output" == *"score"* ]]
+  [[ "$output" == *"alice"* ]]
+  [[ "$output" == *"cara"* ]]
+  [[ "$output" != *"solo"* ]]
+}
+
+@test "fails on invalid sqlite input" {
+  run env TENNIS_DEBUG=1 "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/sqlite-invalid.db"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"tennis: Could not read that file with sqlite3"* ]]
+}
+
+@test "fails when sqlite table is missing" {
+  run env TENNIS_DEBUG=1 "$TENNIS_BIN" --color=off --width 80 --table missing "$REPO_ROOT/testdata/sqlite-single.db"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"tennis: Table 'missing' was not found in that sqlite file."* ]]
+  [[ "$output" == *"Available tables: players"* ]]
+}
+
+@test "fails when --table is used for non-sqlite input" {
+  run "$TENNIS_BIN" --color=off --width 80 --table players "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"tennis: --table only works with sqlite files"* ]]
+}
+
 @test "explicit delimiter overrides sniffing" {
   run "$TENNIS_BIN" --color=off --width 80 --delimiter ',' "$REPO_ROOT/testdata/semicolon.csv"
   [ "$status" -eq 0 ]

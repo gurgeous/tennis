@@ -10,14 +10,14 @@ https://github.com/gurgeous/tennis
 
 *tennis* [_options..._] <file.csv>
 
-Also supports stdin, json/jsonl files, etc.
+Also supports stdin, json/jsonl, sqlite, etc.
 
 # DESCRIPTION
 
 *tennis* is a small CLI for printing stylish CSV tables in your terminal.
 Rows will be truncated to fit and it'll automatically pick nice colors
 to match your terminal. Works with all *CSV* variants as well as
-*JSON/JSONL*. Written in zig.
+*JSON/JSONL* and *SQLite* files. Written in zig.
 
 # DEMO
 
@@ -75,6 +75,9 @@ $ tennis diamonds.csv
 
 *--sort* <headers>
 	Sort rows by one or more comma-separated headers.
+
+*--table* <name>
+	Select a specific table from a sqlite file.
 
 *--tail* <int>
 	Show the last _N_ data rows.

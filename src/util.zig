@@ -148,6 +148,19 @@ pub fn replaceAny(comptime T: type, alloc: std.mem.Allocator, input: []const T, 
     return out.toOwnedSlice(alloc);
 }
 
+// Quote one SQL identifier or string literal by doubling the quote character and wrapping it.
+pub fn quoteSql(alloc: std.mem.Allocator, text: []const u8, quote: u8) ![]u8 {
+    var escaped_quote: [2]u8 = .{ quote, quote };
+    const escaped = try replaceAny(u8, alloc, text, &.{quote}, &escaped_quote);
+    defer alloc.free(escaped);
+
+    const out = try alloc.alloc(u8, escaped.len + 2);
+    out[0] = quote;
+    @memcpy(out[1 .. 1 + escaped.len], escaped);
+    out[out.len - 1] = quote;
+    return out;
+}
+
 // trim whitespace from slice
 pub fn strip(comptime T: type, slice: []const T) []const T {
     return std.mem.trim(T, slice, &std.ascii.whitespace);
@@ -348,6 +361,25 @@ test "replaceAny" {
     const s6 = try replaceAny(u8, alloc, "abc", "b", "");
     defer alloc.free(s6);
     try testing.expectEqualStrings("ac", s6);
+}
+
+test "quoteSql" {
+    const cases = [_]struct {
+        text: []const u8,
+        quote: u8,
+        want: []const u8,
+    }{
+        .{ .text = "plain", .quote = '"', .want = "\"plain\"" },
+        .{ .text = "weird\"name", .quote = '"', .want = "\"weird\"\"name\"" },
+        .{ .text = "plain", .quote = '\'', .want = "'plain'" },
+        .{ .text = "weird'name", .quote = '\'', .want = "'weird''name'" },
+    };
+
+    for (cases) |tc| {
+        const got = try quoteSql(testing.allocator, tc.text, tc.quote);
+        defer testing.allocator.free(got);
+        try testing.expectEqualStrings(tc.want, got);
+    }
 }
 
 test "lowerAscii" {

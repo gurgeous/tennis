@@ -20,6 +20,7 @@ pub const Config = struct {
     select: []const u8 = "",
     shuffle: bool = false,
     sort: []const u8 = "",
+    table: []const u8 = "",
     tail: usize = 0,
     theme: Theme = .auto,
     title: []const u8 = "",

@@ -5,7 +5,7 @@
 .nh
 .ad l
 .\" Begin generated content:
-.TH "tennis" "1" "2026-04-03"
+.TH "tennis" "1" "2026-04-07"
 .P
 .SH NAME
 .P
@@ -17,14 +17,14 @@ https://github.\&com/gurgeous/tennis
 .P
 \fBtennis\fR [\fIoptions.\&.\&.\&\fR] <file.\&csv>
 .P
-Also supports stdin, json/jsonl files, etc.\&
+Also supports stdin, json/jsonl, sqlite, etc.\&
 .P
 .SH DESCRIPTION
 .P
 \fBtennis\fR is a small CLI for printing stylish CSV tables in your terminal.\&
 Rows will be truncated to fit and it'\&ll automatically pick nice colors
 to match your terminal.\& Works with all \fBCSV\fR variants as well as
-\fBJSON/JSONL\fR.\& Written in zig.\&
+\fBJSON/JSONL\fR and \fBSQLite\fR files.\& Written in zig.\&
 .P
 .SH DEMO
 .P
@@ -107,6 +107,11 @@ Shuffle rows.\&
 \fB--sort\fR <headers>
 .RS 4
 Sort rows by one or more comma-separated headers.\&
+.P
+.RE
+\fB--table\fR <name>
+.RS 4
+Select a specific table from a sqlite file.\&
 .P
 .RE
 \fB--tail\fR <int>
