@@ -175,7 +175,7 @@ setup() {
 }
 
 @test "renders sqlite with one table" {
-  run "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/sqlite-single.db"
+  run env TENNIS_DEBUG=1 "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/sqlite-single.db"
   [ "$status" -eq 0 ]
   [[ "$output" == *"name"* ]]
   [[ "$output" == *"score"* ]]
@@ -184,7 +184,7 @@ setup() {
 }
 
 @test "renders named sqlite table" {
-  run "$TENNIS_BIN" --color=off --width 80 --table players "$REPO_ROOT/testdata/sqlite-single.db"
+  run env TENNIS_DEBUG=1 "$TENNIS_BIN" --color=off --width 80 --table players "$REPO_ROOT/testdata/sqlite-single.db"
   [ "$status" -eq 0 ]
   [[ "$output" == *"name"* ]]
   [[ "$output" == *"score"* ]]
@@ -193,7 +193,7 @@ setup() {
 }
 
 @test "renders sqlite by picking the largest table" {
-  run "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/sqlite-multi.db"
+  run env TENNIS_DEBUG=1 "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/sqlite-multi.db"
   [ "$status" -eq 0 ]
   [[ "$output" == *"name"* ]]
   [[ "$output" == *"score"* ]]
@@ -203,13 +203,13 @@ setup() {
 }
 
 @test "fails on invalid sqlite input" {
-  run "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/sqlite-invalid.db"
+  run env TENNIS_DEBUG=1 "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/sqlite-invalid.db"
   [ "$status" -eq 1 ]
   [[ "$output" == *"tennis: Could not read that file with sqlite3"* ]]
 }
 
 @test "fails when sqlite table is missing" {
-  run "$TENNIS_BIN" --color=off --width 80 --table missing "$REPO_ROOT/testdata/sqlite-single.db"
+  run env TENNIS_DEBUG=1 "$TENNIS_BIN" --color=off --width 80 --table missing "$REPO_ROOT/testdata/sqlite-single.db"
   [ "$status" -eq 1 ]
   [[ "$output" == *"tennis: Table 'missing' was not found in that sqlite file."* ]]
   [[ "$output" == *"Available tables: players"* ]]
