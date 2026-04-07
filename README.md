@@ -124,25 +124,25 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 ### Changelog
 
-#### 0.0.4 (unreleased)
+#### 0.4.0 (unreleased)
 
 - `--border` styles based on `nushell` / `tabled` crate.
-- JSON! Works with a JSON array, JSONL, or even just a single object
 - auto-detect CSV delimiters
+- JSON! Works with a JSON array, JSONL, or even just a single object
+- SQLite! Relies on `sqlite3` CLI
 - `--filter`, `--sort`, `--reverse`, `--shuffle`, `--zebra`, `--head` and `--tail`
 - `--select` and `--deselect` for choosing columns
 - `--pager` to send output through your pager (usually less)
 - `--peek` for shape, a few sample rows, and compact column stats
-- SQLite file support via the external `sqlite3` CLI
 - `doomicode`, best-effort Unicode width for emojis, etc
 
-#### 0.0.3 (Mar '26)
+#### 0.3.0 (Mar '26)
 
 - Custom `--delimiter` for tsv, semicolon, etc. #5 (@markhm)
 - Auto numeric formatting, including delims and rounding for int/float columns. Disable with --vanilla.
 - man page & shell completions
 
-#### 0.0.2 (Mar '26)
+#### 0.2.0 (Mar '26)
 
 - Initial release.
 

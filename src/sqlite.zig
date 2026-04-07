@@ -21,7 +21,7 @@ pub fn load(alloc: std.mem.Allocator, path: []const u8) !Data {
 // Choose a deterministic table, preferring the largest one when dbstat is available.
 fn chooseTable(alloc: std.mem.Allocator, path: []const u8) ![]u8 {
     return queryScalar(alloc, path, largestTableSql) catch |err| switch (err) {
-        error.SqliteDbstatUnavailable => try queryScalar(alloc, path, firstTableSql),
+        error.SqliteCliFailed => try queryScalar(alloc, path, firstTableSql),
         else => err,
     };
 }
@@ -34,10 +34,7 @@ fn queryScalar(alloc: std.mem.Allocator, path: []const u8, sql: []const u8) ![]u
 
     switch (result.term) {
         .Exited => |code| {
-            if (code != 0) {
-                if (util.containsIgnoreCase(result.stderr, "no such table: dbstat")) return error.SqliteDbstatUnavailable;
-                return error.SqliteCliFailed;
-            }
+            if (code != 0) return error.SqliteCliFailed;
         },
         else => return error.SqliteCliFailed,
     }
@@ -75,20 +72,8 @@ fn runSqlite(alloc: std.mem.Allocator, argv: []const []const u8) !std.process.Ch
 }
 
 //
-// testing
+// sql
 //
-
-test "quoteIdentifier escapes embedded quotes" {
-    const got = try quoteIdentifier(testing.allocator, "weird\"name");
-    defer testing.allocator.free(got);
-    try testing.expectEqualStrings("\"weird\"\"name\"", got);
-}
-
-test "largest table query is deterministic" {
-    try testing.expect(util.containsIgnoreCase(largestTableSql, "pragma_table_list"));
-    try testing.expect(util.containsIgnoreCase(largestTableSql, "order by total_size desc, name asc"));
-    try testing.expect(util.containsIgnoreCase(firstTableSql, "order by name"));
-}
 
 const firstTableSql =
     \\SELECT name
@@ -110,6 +95,42 @@ const largestTableSql =
     \\ORDER BY total_size DESC, name ASC
     \\LIMIT 1;
 ;
+
+//
+// testing
+//
+
+test "quoteIdentifier escapes identifiers" {
+    const cases = [_]struct {
+        input: []const u8,
+        want: []const u8,
+    }{
+        .{ .input = "plain", .want = "\"plain\"" },
+        .{ .input = "weird\"name", .want = "\"weird\"\"name\"" },
+    };
+
+    for (cases) |tc| {
+        const got = try quoteIdentifier(testing.allocator, tc.input);
+        defer testing.allocator.free(got);
+        try testing.expectEqualStrings(tc.want, got);
+    }
+}
+
+test "table selection queries are deterministic" {
+    const cases = [_]struct {
+        sql: []const u8,
+        want: []const []const u8,
+    }{
+        .{ .sql = firstTableSql, .want = &.{ "pragma_table_list", "order by name" } },
+        .{ .sql = largestTableSql, .want = &.{ "pragma_table_list", "order by total_size desc, name asc" } },
+    };
+
+    for (cases) |tc| {
+        for (tc.want) |needle| {
+            try testing.expect(util.containsIgnoreCase(tc.sql, needle));
+        }
+    }
+}
 
 const csv = @import("csv.zig");
 const Data = @import("data.zig").Data;

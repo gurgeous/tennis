@@ -174,17 +174,29 @@ setup() {
   [[ "$output" == *"bob"* ]]
 }
 
-@test "renders sqlite by picking the largest table" {
-  db="$(mktemp "$BATS_TEST_TMPDIR/tennis-sqlite-XXXXXX.db")"
-  sqlite3 "$db" "CREATE TABLE small(name TEXT); INSERT INTO small VALUES ('solo'); CREATE TABLE big(name TEXT, score INT); INSERT INTO big VALUES ('alice',1),('bob',2),('cara',3);"
+@test "renders sqlite with one table" {
+  run "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/sqlite-single.sqlite"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"name"* ]]
+  [[ "$output" == *"score"* ]]
+  [[ "$output" == *"alice"* ]]
+  [[ "$output" == *"cara"* ]]
+}
 
-  run "$TENNIS_BIN" --color=off --width 80 "$db"
+@test "renders sqlite by picking the largest table" {
+  run "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/sqlite-multi.sqlite"
   [ "$status" -eq 0 ]
   [[ "$output" == *"name"* ]]
   [[ "$output" == *"score"* ]]
   [[ "$output" == *"alice"* ]]
   [[ "$output" == *"cara"* ]]
   [[ "$output" != *"solo"* ]]
+}
+
+@test "fails on invalid sqlite input" {
+  run "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/sqlite-invalid.sqlite"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"tennis: Could not read that file with sqlite3"* ]]
 }
 
 @test "explicit delimiter overrides sniffing" {
