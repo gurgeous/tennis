@@ -125,6 +125,12 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 ### Changelog
 
+#### 0.5.0 (unreleased)
+
+- detect and justify percent cols
+- idea: max col width and/or better layout controls, this is driving me nuts
+- idea: better output for "list of columns" on col arg errors
+
 #### 0.4.0 (Apr '26)
 
 - `--border` styles based on `nushell` / `tabled` crate.

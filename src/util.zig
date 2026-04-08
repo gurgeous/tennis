@@ -316,10 +316,20 @@ test "inspect" {
 }
 
 test "containsIgnoreCase" {
-    try testing.expect(containsIgnoreCase("Hello", "ell"));
-    try testing.expect(containsIgnoreCase("Hello", "EL"));
-    try testing.expect(!containsIgnoreCase("Hello", "world"));
-    try testing.expect(containsIgnoreCase("Hello", ""));
+    const cases = [_]struct {
+        haystack: []const u8,
+        needle: []const u8,
+        want: bool,
+    }{
+        .{ .haystack = "Hello", .needle = "ell", .want = true },
+        .{ .haystack = "Hello", .needle = "EL", .want = true },
+        .{ .haystack = "Hello", .needle = "world", .want = false },
+        .{ .haystack = "Hello", .needle = "", .want = true },
+    };
+
+    for (cases) |tc| {
+        try testing.expectEqual(tc.want, containsIgnoreCase(tc.haystack, tc.needle));
+    }
 }
 
 test "readByte" {

@@ -94,8 +94,6 @@ fn statsConfig(alloc: std.mem.Allocator, config: Config) !Config {
 
 const dash = "—";
 
-const Edge = enum { min, max };
-
 const Stats = struct {
     fill: []u8,
     uniq: []u8,
@@ -134,33 +132,48 @@ fn columnStats(alloc: std.mem.Allocator, table: *Table, c: usize, t: ColumnType)
             var values: std.ArrayList(i64) = .empty;
             defer values.deinit(alloc);
             for (fields.items) |f| try values.append(alloc, try std.fmt.parseInt(i64, f, 10));
+            const mm = util.minmax(i64, values.items);
             return .{
                 .fill = fill,
                 .uniq = uniq,
-                .min = try fmtInt(alloc, values.items, .min),
-                .max = try fmtInt(alloc, values.items, .max),
+                .min = try fmtIntValue(alloc, if (mm) |value| value.min else null),
+                .max = try fmtIntValue(alloc, if (mm) |value| value.max else null),
             };
         },
         .float => {
             var values: std.ArrayList(f64) = .empty;
             defer values.deinit(alloc);
             for (fields.items) |f| try values.append(alloc, try std.fmt.parseFloat(f64, f));
+            const mm = util.minmax(f64, values.items);
             return .{
                 .fill = fill,
                 .uniq = uniq,
-                .min = try fmtFloat(alloc, values.items, .min),
-                .max = try fmtFloat(alloc, values.items, .max),
+                .min = try fmtFloatValue(alloc, if (mm) |value| value.min else null),
+                .max = try fmtFloatValue(alloc, if (mm) |value| value.max else null),
+            };
+        },
+        .percent => {
+            var values: std.ArrayList(f64) = .empty;
+            defer values.deinit(alloc);
+            for (fields.items) |f| try values.append(alloc, try std.fmt.parseFloat(f64, f[0 .. f.len - 1]));
+            const mm = util.minmax(f64, values.items);
+            return .{
+                .fill = fill,
+                .uniq = uniq,
+                .min = try fmtPercentValue(alloc, if (mm) |value| value.min else null),
+                .max = try fmtPercentValue(alloc, if (mm) |value| value.max else null),
             };
         },
         .string => {
             var values: std.ArrayList(usize) = .empty;
             defer values.deinit(alloc);
             for (fields.items) |f| try values.append(alloc, f.len);
+            const mm = util.minmax(usize, values.items);
             return .{
                 .fill = fill,
                 .uniq = uniq,
-                .min = try fmtLen(alloc, values.items, .min),
-                .max = try fmtLen(alloc, values.items, .max),
+                .min = try fmtLenValue(alloc, if (mm) |value| value.min else null),
+                .max = try fmtLenValue(alloc, if (mm) |value| value.max else null),
             };
         },
     }
@@ -176,24 +189,31 @@ fn fmtFill(alloc: std.mem.Allocator, fill: usize, nrows: usize) ![]u8 {
     return std.fmt.allocPrint(alloc, "{d}%", .{pct});
 }
 
-fn fmtInt(alloc: std.mem.Allocator, values: []const i64, edge: Edge) ![]u8 {
-    const mm = util.minmax(i64, values) orelse return alloc.dupe(u8, dash);
+fn fmtIntValue(alloc: std.mem.Allocator, value: ?i64) ![]u8 {
+    const num = value orelse return alloc.dupe(u8, dash);
     var buf: [32]u8 = undefined;
-    const raw = try std.fmt.bufPrint(&buf, "{d}", .{if (edge == .min) mm.min else mm.max});
+    const raw = try std.fmt.bufPrint(&buf, "{d}", .{num});
     return int.intFormat(alloc, raw);
 }
 
-fn fmtFloat(alloc: std.mem.Allocator, values: []const f64, edge: Edge) ![]u8 {
-    const mm = util.minmax(f64, values) orelse return alloc.dupe(u8, dash);
-    const raw = try std.fmt.allocPrint(alloc, "{d}", .{if (edge == .min) mm.min else mm.max});
+fn fmtFloatValue(alloc: std.mem.Allocator, value: ?f64) ![]u8 {
+    const num = value orelse return alloc.dupe(u8, dash);
+    const raw = try std.fmt.allocPrint(alloc, "{d}", .{num});
     defer alloc.free(raw);
     return float.floatFormat(alloc, raw, 3);
 }
 
-fn fmtLen(alloc: std.mem.Allocator, lens: []const usize, edge: Edge) ![]u8 {
-    const mm = util.minmax(usize, lens) orelse return alloc.dupe(u8, dash);
-    const len = if (edge == .min) mm.min else mm.max;
+fn fmtLenValue(alloc: std.mem.Allocator, value: ?usize) ![]u8 {
+    const len = value orelse return alloc.dupe(u8, dash);
     return std.fmt.allocPrint(alloc, "{d} {s}", .{ len, util.plural(len, "char") });
+}
+
+// Format percent min/max stats using the existing float formatter plus '%'.
+fn fmtPercentValue(alloc: std.mem.Allocator, value: ?f64) ![]u8 {
+    const formatted = try fmtFloatValue(alloc, value);
+    defer alloc.free(formatted);
+    if (std.mem.eql(u8, formatted, dash)) return alloc.dupe(u8, dash);
+    return std.fmt.allocPrint(alloc, "{s}%", .{formatted});
 }
 
 //
@@ -253,6 +273,16 @@ test "buildStatsTable truncates float min and max to three digits" {
     defer stats.deinit();
 
     try test_support.expectEqualRows(&.{ "score", "float", "100%", "2", "1.234", "20.999" }, stats.row(0));
+}
+
+test "buildStatsTable treats percent columns as numeric" {
+    const table = try Table.initCsv(testing.allocator, .{}, "score,other\n12%,x\n-3.5%,y\n,z\n");
+    defer table.deinit();
+
+    const stats = try buildStatsTable(testing.allocator, table);
+    defer stats.deinit();
+
+    try test_support.expectEqualRows(&.{ "score", "percent", "66%", "2", "-3.500%", "12.000%" }, stats.row(0));
 }
 
 const cloneRows = @import("data.zig").cloneRows;

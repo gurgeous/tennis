@@ -33,7 +33,7 @@ pub const Sqlite = struct {
         const sql = try std.fmt.allocPrint(self.alloc, "SELECT * FROM {s};", .{table});
         defer self.alloc.free(sql);
 
-        const out = try runSqlite(self.alloc, self.path, &.{ "-header", "-csv", self.path, sql });
+        const out = try runSqlite(self.alloc, &.{ "-header", "-csv", self.path, sql });
         defer self.alloc.free(out.stderr);
         defer self.alloc.free(out.stdout);
 
@@ -116,26 +116,17 @@ fn listTablesAlloc(alloc: std.mem.Allocator, path: []const u8) ![][]const u8 {
 
 // Run one query and return bytes
 fn runSql(alloc: std.mem.Allocator, path: []const u8, sql: []const u8) ![]u8 {
-    util.tdebug("sqlite path={s}", .{path});
-    util.tdebug("sqlite sql={s}", .{sql});
-
-    const result = try runSqlite(alloc, path, &.{ "-batch", "-noheader", path, sql });
+    const result = try runSqlite(alloc, &.{ "-batch", "-noheader", path, sql });
     defer alloc.free(result.stderr);
 
     switch (result.term) {
         .Exited => |code| {
             if (code != 0) {
-                const stderr = util.strip(u8, result.stderr);
-                const stdout = util.strip(u8, result.stdout);
-                util.tdebug("sqlite exit={d}", .{code});
-                if (stderr.len > 0) util.tdebug("sqlite stderr={s}", .{stderr});
-                if (stdout.len > 0) util.tdebug("sqlite stdout={s}", .{stdout});
                 alloc.free(result.stdout);
                 return error.SqliteCliFailed;
             }
         },
         else => {
-            util.tdebug("sqlite term={s}", .{@tagName(result.term)});
             alloc.free(result.stdout);
             return error.SqliteCliFailed;
         },
@@ -161,13 +152,11 @@ fn queryScalarOrNull(alloc: std.mem.Allocator, path: []const u8, sql: []const u8
 }
 
 // Run a single sqlite command
-fn runSqlite(alloc: std.mem.Allocator, path: []const u8, argv_in: []const []const u8) !std.process.Child.RunResult {
+fn runSqlite(alloc: std.mem.Allocator, argv_in: []const []const u8) !std.process.Child.RunResult {
     // SQLite export can legitimately be large for wide tables.
     const max_output_bytes = 64 * 1024 * 1024;
     const argv = try std.mem.concat(alloc, []const u8, &.{ &.{ "sqlite3", "-readonly" }, argv_in });
     defer alloc.free(argv);
-
-    util.tdebug("sqlite argv=sqlite3 -readonly {s} ...", .{path});
 
     return std.process.Child.run(.{
         .allocator = alloc,

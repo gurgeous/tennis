@@ -75,19 +75,28 @@ test "floatFormat uses requested digits" {
 }
 
 test "isFloat" {
-    try testing.expect(isFloat("1.0"));
-    try testing.expect(isFloat("-1.0"));
-    try testing.expect(isFloat("12.34"));
-    try testing.expect(!isFloat(""));
-    try testing.expect(!isFloat("1"));
-    try testing.expect(!isFloat("1."));
-    try testing.expect(!isFloat("1.0b"));
-    try testing.expect(!isFloat(".5"));
-    try testing.expect(!isFloat("-.5"));
-    try testing.expect(!isFloat("1e6"));
-    try testing.expect(!isFloat("1.2.3"));
-    try testing.expect(!isFloat("+1.0"));
-    try testing.expect(!isFloat("12345678901234567890123456789012345678901234567890123456789012345.0"));
+    const cases = [_]struct {
+        input: []const u8,
+        want: bool,
+    }{
+        .{ .input = "1.0", .want = true },
+        .{ .input = "-1.0", .want = true },
+        .{ .input = "12.34", .want = true },
+        .{ .input = "", .want = false },
+        .{ .input = "1", .want = false },
+        .{ .input = "1.", .want = false },
+        .{ .input = "1.0b", .want = false },
+        .{ .input = ".5", .want = false },
+        .{ .input = "-.5", .want = false },
+        .{ .input = "1e6", .want = false },
+        .{ .input = "1.2.3", .want = false },
+        .{ .input = "+1.0", .want = false },
+        .{ .input = "12345678901234567890123456789012345678901234567890123456789012345.0", .want = false },
+    };
+
+    for (cases) |tc| {
+        try testing.expectEqual(tc.want, isFloat(tc.input));
+    }
 }
 
 const int = @import("int.zig");
