@@ -200,7 +200,7 @@ pub const Render = struct {
             const field = if (is_placeholder) placeholder else str;
             const sep = if (col + 1 == self.layout.widths.len) self.border.right else self.border.mid;
             const al: Align = switch (column.type) {
-                .int, .float => .right,
+                .int, .float, .percent => .right,
                 .string => .left,
             };
             try self.renderField(cell_style, field, col, sep, al);
@@ -475,6 +475,14 @@ test "render with title and row numbers" {
     try testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "foo"));
     try testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "│ #  │ a  │ b  │"));
     try testing.expect(std.mem.containsAtLeast(u8, writer.buffered(), 1, "│  1 │ c  │ d  │"));
+}
+
+test "render right-aligns percent columns" {
+    const got = try renderTest("name,score\nalice,12%\nbob,-3.5%\n", .{ .color = .off, .width = 80 });
+    defer testing.allocator.free(got);
+
+    try testing.expect(std.mem.indexOf(u8, got, "alice │   12% │") != null);
+    try testing.expect(std.mem.indexOf(u8, got, "bob   │ -3.5% │") != null);
 }
 
 test "render header only table falls back to empty" {

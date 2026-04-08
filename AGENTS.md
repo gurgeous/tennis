@@ -40,5 +40,6 @@
 - Prefer straightforward Zig control flow.
 - In `src/*.zig`, add a one-line comment to each struct and function.
 - Keep imports sorted at the bottom of each file.
+- Branch names should match `^[a-z_]+$`.
 - When the user says `commit`, commit all current changes by default, including unrelated local edits.
 - With `gh pr create`, never use unescaped backticks; prefer `--body-file`.

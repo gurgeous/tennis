@@ -152,11 +152,7 @@ fn formatColumns(alloc: std.mem.Allocator, flag: []const u8, row: []const []cons
     var out = std.Io.Writer.Allocating.init(alloc);
     errdefer out.deinit();
     try out.writer.print("{s} didn't look right, should be a comma-separated list of columns.\n", .{flag});
-    try out.writer.writeAll("tennis: column names: ");
-    for (row, 0..) |header, ii| {
-        if (ii > 0) try out.writer.writeAll(", ");
-        try out.writer.writeAll(header);
-    }
+    try formatNameList(&out.writer, "Here are the columns in that file:", row);
     return out.toOwnedSlice();
 }
 
@@ -165,16 +161,21 @@ fn formatSqliteTables(alloc: std.mem.Allocator, table: []const u8, tables: []con
     var out = std.Io.Writer.Allocating.init(alloc);
     errdefer out.deinit();
     try out.writer.print("Table '{s}' was not found in that sqlite file.\n", .{table});
-    try out.writer.writeAll("Available tables: ");
-    if (tables.len == 0) {
-        try out.writer.writeAll("(none)");
-    } else {
-        for (tables, 0..) |name, ii| {
-            if (ii > 0) try out.writer.writeAll(", ");
-            try out.writer.writeAll(name);
-        }
-    }
+    try formatNameList(&out.writer, "Here are the tables in that file:", tables);
     return out.toOwnedSlice();
+}
+
+// Render one heading plus a one-name-per-line list with the standard prefix.
+fn formatNameList(writer: *std.Io.Writer, label: []const u8, names: []const []const u8) !void {
+    try writer.print("tennis: {s}\n", .{label});
+    if (names.len == 0) {
+        try writer.writeAll("tennis:   (none)");
+        return;
+    }
+    for (names, 0..) |name, ii| {
+        if (ii > 0) try writer.writeByte('\n');
+        try writer.print("tennis:   {s}", .{name});
+    }
 }
 
 //
@@ -237,28 +238,28 @@ test "write includes column headers" {
     const sort_msg = try string(testing.allocator, sort_failure);
     defer testing.allocator.free(sort_msg);
     try testing.expect(std.mem.indexOf(u8, sort_msg, "--sort") != null);
-    try testing.expect(std.mem.indexOf(u8, sort_msg, "name, score") != null);
+    try testing.expect(std.mem.indexOf(u8, sort_msg, "tennis: Here are the columns in that file:\ntennis:   name\ntennis:   score") != null);
 
     const select_failure = try Failure.fromTableError(testing.allocator, error.InvalidSelect, &.{ "name", "score" });
     defer select_failure.deinit(testing.allocator);
     const select_msg = try string(testing.allocator, select_failure);
     defer testing.allocator.free(select_msg);
     try testing.expect(std.mem.indexOf(u8, select_msg, "--select") != null);
-    try testing.expect(std.mem.indexOf(u8, select_msg, "name, score") != null);
+    try testing.expect(std.mem.indexOf(u8, select_msg, "tennis: Here are the columns in that file:\ntennis:   name\ntennis:   score") != null);
 
     const deselect_failure = try Failure.fromTableError(testing.allocator, error.InvalidDeselect, &.{ "name", "score" });
     defer deselect_failure.deinit(testing.allocator);
     const deselect_msg = try string(testing.allocator, deselect_failure);
     defer testing.allocator.free(deselect_msg);
     try testing.expect(std.mem.indexOf(u8, deselect_msg, "--deselect") != null);
-    try testing.expect(std.mem.indexOf(u8, deselect_msg, "name, score") != null);
+    try testing.expect(std.mem.indexOf(u8, deselect_msg, "tennis: Here are the columns in that file:\ntennis:   name\ntennis:   score") != null);
 
     const sqlite_failure = try Failure.fromSqliteTableError(testing.allocator, "missing", &.{ "players", "stats" });
     defer sqlite_failure.deinit(testing.allocator);
     const sqlite_msg = try string(testing.allocator, sqlite_failure);
     defer testing.allocator.free(sqlite_msg);
     try testing.expect(std.mem.indexOf(u8, sqlite_msg, "missing") != null);
-    try testing.expect(std.mem.indexOf(u8, sqlite_msg, "Available tables: players, stats") != null);
+    try testing.expect(std.mem.indexOf(u8, sqlite_msg, "tennis: Here are the tables in that file:\ntennis:   players\ntennis:   stats") != null);
 }
 
 const clap = @import("clap");

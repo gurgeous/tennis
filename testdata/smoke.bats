@@ -175,7 +175,7 @@ setup() {
 }
 
 @test "renders sqlite with one table" {
-  run env TENNIS_DEBUG=1 "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/sqlite-single.db"
+  run "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/sqlite-single.db"
   [ "$status" -eq 0 ]
   [[ "$output" == *"name"* ]]
   [[ "$output" == *"score"* ]]
@@ -184,7 +184,7 @@ setup() {
 }
 
 @test "renders named sqlite table" {
-  run env TENNIS_DEBUG=1 "$TENNIS_BIN" --color=off --width 80 --table players "$REPO_ROOT/testdata/sqlite-single.db"
+  run "$TENNIS_BIN" --color=off --width 80 --table players "$REPO_ROOT/testdata/sqlite-single.db"
   [ "$status" -eq 0 ]
   [[ "$output" == *"name"* ]]
   [[ "$output" == *"score"* ]]
@@ -193,7 +193,7 @@ setup() {
 }
 
 @test "renders sqlite by picking the largest table" {
-  run env TENNIS_DEBUG=1 "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/sqlite-multi.db"
+  run "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/sqlite-multi.db"
   [ "$status" -eq 0 ]
   [[ "$output" == *"name"* ]]
   [[ "$output" == *"score"* ]]
@@ -203,16 +203,16 @@ setup() {
 }
 
 @test "fails on invalid sqlite input" {
-  run env TENNIS_DEBUG=1 "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/sqlite-invalid.db"
+  run "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/sqlite-invalid.db"
   [ "$status" -eq 1 ]
   [[ "$output" == *"tennis: Could not read that file with sqlite3"* ]]
 }
 
 @test "fails when sqlite table is missing" {
-  run env TENNIS_DEBUG=1 "$TENNIS_BIN" --color=off --width 80 --table missing "$REPO_ROOT/testdata/sqlite-single.db"
+  run "$TENNIS_BIN" --color=off --width 80 --table missing "$REPO_ROOT/testdata/sqlite-single.db"
   [ "$status" -eq 1 ]
   [[ "$output" == *"tennis: Table 'missing' was not found in that sqlite file."* ]]
-  [[ "$output" == *"Available tables: players"* ]]
+  [[ "$output" == *$'tennis: Here are the tables in that file:\ntennis:   players'* ]]
 }
 
 @test "fails when --table is used for non-sqlite input" {
@@ -313,8 +313,8 @@ setup() {
   [[ "$output" == *"│ city   │ string"* ]]
   [[ "$output" == *"│ score  │ int    │ 100% │    3 │ 90"* ]]
   [[ "$output" == *"│ score  │ int    │ 100% │    3 │ 90       │ 5,678"* ]]
-  [[ "$output" == *"│ tags   │ string │ 33%  │    1 │ 10 chars │ 10 chars"* ]]
-  [[ "$output" == *"│ meta   │ string │ 33%  │    1 │ 11 chars │ 11 chars"* ]]
+  [[ "$output" == *"│ tags   │ string │  33% │    1 │ 10 chars │ 10 chars"* ]]
+  [[ "$output" == *"│ meta   │ string │  33% │    1 │ 11 chars │ 11 chars"* ]]
 }
 
 @test "renders peek footer when sample omits rows" {
@@ -365,21 +365,21 @@ setup() {
   run "$TENNIS_BIN" --color=off --sort version "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 1 ]
   [[ "$output" == *"tennis: --sort didn't look right, should be a comma-separated list of columns."* ]]
-  [[ "$output" == *"column names: carat, cut, color, clarity, depth, table, price, x, y, z"* ]]
+  [[ "$output" == *$'tennis: Here are the columns in that file:\ntennis:   carat\ntennis:   cut\ntennis:   color'* ]]
 }
 
 @test "rejects invalid select columns without panicking" {
   run "$TENNIS_BIN" --color=off --select version "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 1 ]
   [[ "$output" == *"tennis: --select didn't look right, should be a comma-separated list of columns."* ]]
-  [[ "$output" == *"column names: carat, cut, color, clarity, depth, table, price, x, y, z"* ]]
+  [[ "$output" == *$'tennis: Here are the columns in that file:\ntennis:   carat\ntennis:   cut\ntennis:   color'* ]]
 }
 
 @test "rejects invalid deselect columns without panicking" {
   run "$TENNIS_BIN" --color=off --deselect version "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 1 ]
   [[ "$output" == *"tennis: --deselect didn't look right, should be a comma-separated list of columns."* ]]
-  [[ "$output" == *"column names: carat, cut, color, clarity, depth, table, price, x, y, z"* ]]
+  [[ "$output" == *$'tennis: Here are the columns in that file:\ntennis:   carat\ntennis:   cut\ntennis:   color'* ]]
 }
 
 @test "rejects head and tail together" {

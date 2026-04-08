@@ -93,15 +93,24 @@ test "formatInto handles empty input" {
 }
 
 test "isInt" {
-    try testing.expect(isInt("0"));
-    try testing.expect(isInt("123"));
-    try testing.expect(isInt("-123"));
-    try testing.expect(!isInt(""));
-    try testing.expect(!isInt("-"));
-    try testing.expect(!isInt("1.0"));
-    try testing.expect(!isInt("+1"));
-    try testing.expect(!isInt("1e6"));
-    try testing.expect(!isInt("abc"));
+    const cases = [_]struct {
+        input: []const u8,
+        want: bool,
+    }{
+        .{ .input = "0", .want = true },
+        .{ .input = "123", .want = true },
+        .{ .input = "-123", .want = true },
+        .{ .input = "", .want = false },
+        .{ .input = "-", .want = false },
+        .{ .input = "1.0", .want = false },
+        .{ .input = "+1", .want = false },
+        .{ .input = "1e6", .want = false },
+        .{ .input = "abc", .want = false },
+    };
+
+    for (cases) |tc| {
+        try testing.expectEqual(tc.want, isInt(tc.input));
+    }
 }
 
 const Scanner = @import("scanner.zig").Scanner;

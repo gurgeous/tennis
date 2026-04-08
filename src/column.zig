@@ -23,7 +23,7 @@ pub const Column = struct {
             switch (column.type) {
                 .float => try column.formatColumn(formatFloat),
                 .int => try column.formatColumn(formatInt),
-                .string => {},
+                else => {},
             }
         }
 
@@ -68,10 +68,10 @@ pub const Column = struct {
     fn inferColumnType(self: Column) ColumnType {
         var floats: bool = false;
         var ints: bool = false;
+        var percents: bool = false;
 
         for (0..self.table.nrows()) |r| {
             const value = self.table.row(r)[self.index];
-
             // ignore blanks
             if (value.len == 0) continue;
 
@@ -83,6 +83,10 @@ pub const Column = struct {
                 floats = true;
                 continue;
             }
+            if (percent.isPercent(value)) {
+                percents = true;
+                continue;
+            }
 
             // early exit if we hit a string
             return .string;
@@ -90,6 +94,7 @@ pub const Column = struct {
 
         if (floats) return .float;
         if (ints) return .int;
+        if (percents) return .percent;
         return .string;
     }
 
@@ -130,7 +135,7 @@ pub const Column = struct {
 };
 
 // Display-oriented type inferred for a column.
-pub const ColumnType = enum { int, float, string };
+pub const ColumnType = enum { int, float, percent, string };
 
 //
 // testing
@@ -175,6 +180,7 @@ test "column formatting and inference cases" {
         .{ .name = "float blanks", .input = "a,b\n64,\n61.5,\n,\n", .index = 0, .want_type = .float, .want_width = 6, .want_fields = &.{ "64.000", "61.500", "" } },
         .{ .name = "infer int", .input = "a,b,c\n1,12.5,foo\n22,3.0,barbaz\n", .index = 0, .want_type = .int, .want_width = 2, .want_fields = &.{ "1", "22" } },
         .{ .name = "infer float", .input = "a,b,c\n1,12.5,foo\n22,3.0,barbaz\n", .index = 1, .want_type = .float, .want_width = 6, .want_fields = &.{ "12.500", "3.000" } },
+        .{ .name = "infer percent", .input = "a,b\n12%,\n-3.5%,\n,\n", .index = 0, .want_type = .percent, .want_width = 5, .want_fields = &.{ "12%", "-3.5%", "" } },
         .{ .name = "infer string", .input = "a,b,c\n1,12.5,foo\n22,3.0,barbaz\n", .index = 2, .want_type = .string, .want_width = 6, .want_fields = &.{ "foo", "barbaz" } },
     };
 
@@ -209,6 +215,7 @@ const doomicode = @import("doomicode.zig");
 const Field = @import("types.zig").Field;
 const float = @import("float.zig");
 const int = @import("int.zig");
+const percent = @import("percent.zig");
 const std = @import("std");
 const testing = std.testing;
 const Table = @import("table.zig").Table;
