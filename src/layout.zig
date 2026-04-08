@@ -40,13 +40,12 @@ fn layout(table: *Table) ![]usize {
     const alloc = table.alloc;
     if (table.isEmpty()) return alloc.alloc(usize, 0);
 
-    // 2. min
-    if (table.config.width == .min) return headerWidths(table);
+    // 2. min - use header width
+    if (table.config.width == .min) return measure(table, true);
 
-    // 3. max
-    const measured = try measureCells(table);
+    // 3. max - use max col size
+    const measured = try measure(table, false);
     defer alloc.free(measured);
-    const ncols = measured.len;
     if (table.config.width == .max) return try alloc.dupe(usize, measured);
 
     //
@@ -57,7 +56,8 @@ fn layout(table: *Table) ![]usize {
     // helps alleviate minor terminal layout snafus
     const fudge = 2;
 
-    // is the terminal big enough to contain the table without truncation?
+    // is the terminal big enough to contain the table without truncation? if
+    // not, abandon hope
     const input: Layout = .{ .widths = measured };
     const term_width = table.termWidth();
     const available = term_width -| (input.chromeWidth() + fudge);
@@ -69,12 +69,13 @@ fn layout(table: *Table) ![]usize {
     // grow up to 10 if we don't have a lot of columns.
     const lower_min = 2;
     const lower_max = 10;
-    const lower_bound = std.math.clamp(available / measured.len, lower_min, lower_max);
+    const ncols = measured.len;
+    const lower_bound = std.math.clamp(available / ncols, lower_min, lower_max);
 
     // calculate min & max for each column. min is the width of the widest cell
     // or lower_bound, whichever is smaller. max is the width of the widest
     // cell.
-    var min = try alloc.alloc(usize, measured.len);
+    var min = try alloc.alloc(usize, ncols);
     defer alloc.free(min);
     for (measured, 0..) |w, ii| {
         min[ii] = @min(w, lower_bound);
@@ -90,7 +91,7 @@ fn layout(table: *Table) ![]usize {
     const ratio = @as(f64, @floatFromInt(available - min_sum)) /
         @as(f64, @floatFromInt(max_sum - min_sum));
 
-    // shrink each column by ratio
+    // shrink each column by that ratio
     var diffs = try alloc.alloc(usize, ncols);
     defer alloc.free(diffs);
     var result = try alloc.alloc(usize, ncols);
@@ -121,8 +122,8 @@ fn layout(table: *Table) ![]usize {
     return result;
 }
 
-// Measure the natural width of every visible column.
-fn measureCells(table: *const Table) ![]usize {
+// Measure the natural width of the headers OR the entire col
+fn measure(table: *const Table, only_headers: bool) ![]usize {
     const alloc = table.alloc;
 
     // naive widths
@@ -131,7 +132,11 @@ fn measureCells(table: *const Table) ![]usize {
         try widths.append(alloc, util.digits(usize, table.nrows()));
     }
     for (table.columns) |column| {
-        try widths.append(alloc, column.width);
+        if (only_headers) {
+            try widths.append(alloc, doomicode.displayWidth(column.name));
+        } else {
+            try widths.append(alloc, column.width);
+        }
     }
 
     // min 2
@@ -140,21 +145,6 @@ fn measureCells(table: *const Table) ![]usize {
         widths.items[i] = @max(widths.items[i], min_col_width);
     }
 
-    return widths.toOwnedSlice(alloc);
-}
-
-// Measure header widths without considering data rows.
-fn headerWidths(table: *const Table) ![]usize {
-    const alloc = table.alloc;
-    var widths = std.ArrayList(usize).empty;
-    errdefer widths.deinit(alloc);
-
-    if (table.config.row_numbers) {
-        try widths.append(alloc, util.digits(usize, table.nrows()));
-    }
-    for (table.headers()) |header| {
-        try widths.append(alloc, @max(doomicode.displayWidth(header), 2));
-    }
     return widths.toOwnedSlice(alloc);
 }
 
@@ -190,16 +180,16 @@ test "layout handles tiny terminals without underflow" {
 test "measure includes row numbers and unicode width" {
     const table = try Table.initCsv(testing.allocator, .{ .row_numbers = true }, "a,\xc3\xa9\xc3\xa9\n10,x\n");
     defer table.deinit();
-    const widths = try measureCells(table);
+    const widths = try measure(table, false);
     defer testing.allocator.free(widths);
 
     try testing.expectEqualSlices(usize, &[_]usize{ 2, 2, 2 }, widths);
 }
 
-test "headerWidths uses header labels" {
+test "measure true uses header labels" {
     const table = try Table.initCsv(testing.allocator, .{}, "alpha,b\nx,longlonglong\n");
     defer table.deinit();
-    const widths = try headerWidths(table);
+    const widths = try measure(table, true);
     defer testing.allocator.free(widths);
 
     try testing.expectEqualSlices(usize, &[_]usize{ 5, 2 }, widths);
@@ -213,7 +203,7 @@ test "measure returns empty layout for empty inputs" {
 test "measure ignores empty data cell width" {
     const table = try Table.initCsv(testing.allocator, .{}, "alpha,beta\n,xyz\n");
     defer table.deinit();
-    const widths = try measureCells(table);
+    const widths = try measure(table, false);
     defer testing.allocator.free(widths);
 
     try testing.expectEqualSlices(usize, &[_]usize{ 5, 4 }, widths);
@@ -230,7 +220,7 @@ fn expectLayout(config: types.Config, input: []const u8, want: []const usize) !v
 fn expectMeasure(config: types.Config, input: []const u8, want: []const usize) !void {
     const table = try Table.initCsv(testing.allocator, config, input);
     defer table.deinit();
-    const got = try measureCells(table);
+    const got = try measure(table, false);
     defer testing.allocator.free(got);
     try testing.expectEqualSlices(usize, want, got);
 }
