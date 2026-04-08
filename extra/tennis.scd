@@ -109,9 +109,11 @@ $ tennis diamonds.csv
 *--vanilla*
 	Disable type inference and numeric formatting.
 
-*--width* <int>
-	Set the maximum table width in characters. By default, *tennis* uses the
-	current terminal width or *80* if it can't be detected.
+*--width* <width>
+	Set the width mode. Pass an integer for a maximum table width in
+	characters, *min* for header-width columns, or *max* for the natural
+	column widths. By default, *tennis* uses the current terminal width or
+	*80* if it can't be detected.
 
 # BORDERS
 

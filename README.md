@@ -70,7 +70,7 @@ $ zig build
       --table <table>        Select the db table (for sqlite)
       --theme <theme>        Select color theme (auto|dark|light)
       --vanilla              Disable numeric formatting
-      --width <int>          Set max table width in chars
+      --width <width>        Set width mode (int|min|max)
 
       --completion <shell>   Print shell completion (bash|zsh)
       --help                 Get help
@@ -88,7 +88,7 @@ Tennis works fine with Unicode and emoji content. Calculating non-ASCII display 
 
 ### Colors, Themes, Appearance
 
-Tennis picks a color theme based on the color of your terminal. Color is on by default. It also honors `NO_COLOR=1`. See `--color` and `--theme`. Max terminal width is pulled from your terminal, or defaults to 80 if we can't figure it out. See `--width` if you need to override it or want something predictable for CI/tests.
+Tennis picks a color theme based on the color of your terminal. Color is on by default. It also honors `NO_COLOR=1`. Terminal width is pulled from your terminal, or defaults to 80 if we can't figure it out. See `--width` if you need to override it, force header-width columns with `min`, or force natural column widths with `max` for CI/tests.
 
 Use `--border`, `--row-numbers`, `--title`, and `--zebra` for more bling. Tennis supports the same borders as `nushell`.
 
@@ -127,9 +127,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 #### 0.5.0 (unreleased)
 
-- detect and justify percent cols
 - idea: max col width and/or better layout controls, this is driving me nuts
-- idea: better output for "list of columns" on col arg errors
 
 #### 0.4.0 (Apr '26)
 

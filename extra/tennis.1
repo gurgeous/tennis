@@ -5,7 +5,7 @@
 .nh
 .ad l
 .\" Begin generated content:
-.TH "tennis" "1" "2026-04-07"
+.TH "tennis" "1" "2026-04-08"
 .P
 .SH NAME
 .P
@@ -158,10 +158,12 @@ is \fBauto\fR.\&
 Disable type inference and numeric formatting.\&
 .P
 .RE
-\fB--width\fR <int>
+\fB--width\fR <width>
 .RS 4
-Set the maximum table width in characters.\& By default, \fBtennis\fR uses the
-current terminal width or \fB80\fR if it can'\&t be detected.\&
+Set the width mode.\& Pass an integer for a maximum table width in
+characters, \fBmin\fR for header-width columns, or \fBmax\fR for the natural
+column widths.\& By default, \fBtennis\fR uses the current terminal width or
+\fB80\fR if it can'\&t be detected.\&
 .P
 .RE
 .SH BORDERS

@@ -137,7 +137,10 @@ pub const Table = struct {
     // Return the detected terminal width, caching the first probe.
     pub fn termWidth(self: *Self) usize {
         if (self._term_width == null) {
-            self._term_width = if (self.config.width > 0) self.config.width else util.termWidth();
+            self._term_width = switch (self.config.width) {
+                .chars => |width| width,
+                else => util.termWidth(),
+            };
         }
         return self._term_width.?;
     }
@@ -491,7 +494,7 @@ test "style respects config" {
 }
 
 test "termWidth respects config width" {
-    const table = try Table.initCsv(testing.allocator, .{ .width = 123 }, "a,b\nc,d\n");
+    const table = try Table.initCsv(testing.allocator, .{ .width = .{ .chars = 123 } }, "a,b\nc,d\n");
     defer table.deinit();
 
     try testing.expectEqual(@as(usize, 123), table.termWidth());

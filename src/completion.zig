@@ -188,6 +188,7 @@ fn valuesFor(shell: types.CompletionShell, long: []const u8) ?[]const u8 {
     }
     if (std.mem.eql(u8, long, "--digits")) return "1 2 3 4 5 6";
     if (std.mem.eql(u8, long, "--theme")) return enumValues(types.Theme);
+    if (std.mem.eql(u8, long, "--width")) return "min max";
     return null;
 }
 

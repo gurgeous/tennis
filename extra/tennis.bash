@@ -18,7 +18,7 @@ _tennis() {
     --digits) COMPREPLY=($(compgen -W "1 2 3 4 5 6" -- "${cur}")) ; return ;;
     --table) COMPREPLY=() ; return ;;
     --theme) COMPREPLY=($(compgen -W "auto dark light" -- "${cur}")) ; return ;;
-    --width) COMPREPLY=() ; return ;;
+    --width) COMPREPLY=($(compgen -W "min max" -- "${cur}")) ; return ;;
     --completion) COMPREPLY=($(compgen -W "bash zsh" -- "${cur}")) ; return ;;
   esac
 

@@ -431,6 +431,20 @@ setup() {
   [[ "$output" != *"0.230"* ]]
 }
 
+@test "supports --width min" {
+  run "$TENNIS_BIN" --color=off --width min "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"│ carat │ cut │ color │ clarity │ depth │ table │ price │ x  │ y  │ z  │"* ]]
+  [[ "$output" == *"│ 0.230 │ Id… │ E     │ SI2     │ 61.5… │    55 │   326 │ 3… │ 3… │ 2… │"* ]]
+}
+
+@test "supports --width max" {
+  run "$TENNIS_BIN" --color=off --width max "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"│ carat │ cut       │ color │ clarity │ depth"* ]]
+  [[ "$output" == *"│ 0.230 │ Ideal     │ E     │ SI2     │ 61.500"* ]]
+}
+
 @test "respects vanilla option" {
   run "$TENNIS_BIN" --color=off --width 120 --vanilla "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 0 ]

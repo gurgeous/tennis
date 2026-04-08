@@ -8,7 +8,7 @@ pub const Layout = struct {
 
     // Measure the table and choose per-column widths.
     pub fn init(table: *Table) !Layout {
-        return .{ .widths = try autolayout(table) };
+        return .{ .widths = try layout(table) };
     }
 
     // Release the owned width array.
@@ -34,42 +34,41 @@ pub const Layout = struct {
     }
 };
 
-// Fit measured column widths into the available terminal width.
-fn autolayout(table: *Table) ![]usize {
+// Calculate table layout, returns column widths
+fn layout(table: *Table) ![]usize {
+    // 1. empty
     const alloc = table.alloc;
     if (table.isEmpty()) return alloc.alloc(usize, 0);
 
-    // measure staring col widths
-    const widths = try measure(table);
-    defer alloc.free(widths);
+    // 2. min
+    if (table.config.width == .min) return headerWidths(table);
+
+    // 3. max
+    const measured = try measureCells(table);
+    defer alloc.free(measured);
+    const ncols = measured.len;
+    if (table.config.width == .max) return try alloc.dupe(usize, measured);
+
+    //
+    // auto. This is the default, where we try to squeeze into termwidth
+    //
+
+    // how wide is the data in each column? this is our "max" width
+    const min = try minWidths(alloc, measured, table.termWidth());
+    const max = measured;
+    defer alloc.free(min);
 
     // a little breathing room on the right side, which is nice visually and
     // helps with minor terminal layout snafus
     const fudge = 2;
 
     // is the terminal big enough to contain the table without truncation?
-    const input: Layout = .{ .widths = widths };
+    const input: Layout = .{ .widths = measured };
     const term_width = table.termWidth();
     const available = term_width -| (input.chromeWidth() + fudge);
     if (available >= input.dataWidth()) {
-        return try alloc.dupe(usize, widths);
+        return try alloc.dupe(usize, measured);
     }
-
-    // what is the lower bound for a column width? 2 is pretty severe, let it
-    // grow up to 10 if we don't have a lot of columns.
-    const lower_min = 2;
-    const lower_max = 10;
-    const lower_bound = std.math.clamp(available / widths.len, lower_min, lower_max);
-
-    // calculate min & max for each column. min is the width of the widest cell
-    // or lower_bound, whichever is smaller. max is the width of the widest
-    // cell.
-    var min = try alloc.alloc(usize, widths.len);
-    defer alloc.free(min);
-    for (widths, 0..) |w, ii| {
-        min[ii] = @min(w, lower_bound);
-    }
-    const max = widths;
 
     // calculate the ratio betweein min/max
     const min_sum = util.sum(usize, min);
@@ -81,19 +80,19 @@ fn autolayout(table: *Table) ![]usize {
         @as(f64, @floatFromInt(max_sum - min_sum));
 
     // shrink each column by ratio
-    var diffs = try alloc.alloc(usize, widths.len);
+    var diffs = try alloc.alloc(usize, ncols);
     defer alloc.free(diffs);
-    var layout = try alloc.alloc(usize, widths.len);
-    errdefer alloc.free(layout);
-    for (0..widths.len) |i| {
+    var result = try alloc.alloc(usize, ncols);
+    errdefer alloc.free(result);
+    for (0..ncols) |i| {
         diffs[i] = max[i] - min[i];
-        layout[i] = min[i] + @as(usize, @intFromFloat(@as(f64, @floatFromInt(diffs[i])) * ratio));
+        result[i] = min[i] + @as(usize, @intFromFloat(@as(f64, @floatFromInt(diffs[i])) * ratio));
     }
 
     // due to rounding, there might be a few extra chars. hand those out too
-    const extra = available -| util.sum(usize, layout);
+    const extra = available -| util.sum(usize, result);
     if (extra > 0) {
-        const indexes = try util.range(alloc, widths.len);
+        const indexes = try util.range(alloc, ncols);
         defer alloc.free(indexes);
         std.sort.block(usize, indexes, diffs, struct {
             // Sort indexes by descending spare width.
@@ -104,15 +103,15 @@ fn autolayout(table: *Table) ![]usize {
 
         const take = @min(extra, indexes.len);
         for (0..take) |k| {
-            layout[indexes[k]] += 1;
+            result[indexes[k]] += 1;
         }
     }
 
-    return layout;
+    return result;
 }
 
 // Measure the natural width of every visible column.
-fn measure(table: *const Table) ![]usize {
+fn measureCells(table: *const Table) ![]usize {
     const alloc = table.alloc;
 
     // naive widths
@@ -133,29 +132,70 @@ fn measure(table: *const Table) ![]usize {
     return widths.toOwnedSlice(alloc);
 }
 
+// Measure header widths without considering data rows.
+fn headerWidths(table: *const Table) ![]usize {
+    const alloc = table.alloc;
+    var widths = std.ArrayList(usize).empty;
+    errdefer widths.deinit(alloc);
+
+    if (table.config.row_numbers) {
+        try widths.append(alloc, util.digits(usize, table.nrows()));
+    }
+    for (table.headers()) |header| {
+        try widths.append(alloc, @max(doomicode.displayWidth(header), 2));
+    }
+    return widths.toOwnedSlice(alloc);
+}
+
+// Calculate the lower-bound width for each column at one target width.
+fn minWidths(alloc: std.mem.Allocator, widths: []const usize, term_width: usize) ![]usize {
+    const out = try alloc.alloc(usize, widths.len);
+    errdefer alloc.free(out);
+
+    // a little breathing room on the right side, which is nice visually and
+    // helps with minor terminal layout snafus
+    const fudge = 2;
+    const chrome_width = widths.len * 3 + 1;
+    const available = term_width -| (chrome_width + fudge);
+
+    // what is the lower bound for a column width? 2 is pretty severe, let it
+    // grow up to 10 if we don't have a lot of columns.
+    const lower_min = 2;
+    const lower_max = 10;
+    const lower_bound = if (widths.len == 0) 0 else std.math.clamp(available / widths.len, lower_min, lower_max);
+
+    for (widths, 0..) |w, ii| {
+        out[ii] = @min(w, lower_bound);
+    }
+    return out;
+}
+
+
 //
 // testing
 //
 
-test "autolayout cases" {
+test "layout cases" {
     const cases = [_]struct {
         config: types.Config,
         input: []const u8,
         want: []const usize,
     }{
-        .{ .config = .{ .width = 100 }, .input = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,bbbbbbbbbbbbbbbbbbbb,cccccccccc\nx,y,z\n", .want = &.{ 32, 20, 10 } },
-        .{ .config = .{ .width = 50 }, .input = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,bbbbbbbbbbbbbbbbbbbb,cccccccccc\nx,y,z\n", .want = &.{ 16, 12, 10 } },
-        .{ .config = .{ .width = 39 }, .input = "1234567,123456789,12345678901\nx,y,z\n", .want = &.{ 7, 9, 11 } },
-        .{ .config = .{ .width = 80 }, .input = "", .want = &.{} },
+        .{ .config = .{ .width = .{ .chars = 100 } }, .input = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,bbbbbbbbbbbbbbbbbbbb,cccccccccc\nx,y,z\n", .want = &.{ 32, 20, 10 } },
+        .{ .config = .{ .width = .{ .chars = 50 } }, .input = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,bbbbbbbbbbbbbbbbbbbb,cccccccccc\nx,y,z\n", .want = &.{ 16, 12, 10 } },
+        .{ .config = .{ .width = .{ .chars = 39 } }, .input = "1234567,123456789,12345678901\nx,y,z\n", .want = &.{ 7, 9, 11 } },
+        .{ .config = .{ .width = .max }, .input = "1234567,123456789,12345678901\nx,y,z\n", .want = &.{ 7, 9, 11 } },
+        .{ .config = .{ .width = .min }, .input = "alpha,beta,gamma\nx,y,z\n", .want = &.{ 5, 4, 5 } },
+        .{ .config = .{ .width = .{ .chars = 80 } }, .input = "", .want = &.{} },
     };
 
-    for (cases) |tc| try expectAutolayout(tc.config, tc.input, tc.want);
+    for (cases) |tc| try expectLayout(tc.config, tc.input, tc.want);
 }
 
 test "layout handles tiny terminals without underflow" {
-    const table = try Table.initCsv(testing.allocator, .{ .width = 40 }, "12345678,12345678,12345678,12345678,12345678,12345678,12345678,12345678\nx,x,x,x,x,x,x,x\n");
+    const table = try Table.initCsv(testing.allocator, .{ .width = .{ .chars = 40 } }, "12345678,12345678,12345678,12345678,12345678,12345678,12345678,12345678\nx,x,x,x,x,x,x,x\n");
     defer table.deinit();
-    const l = try autolayout(table);
+    const l = try layout(table);
     defer testing.allocator.free(l);
     try testing.expectEqual(@as(usize, 8), l.len);
 }
@@ -163,10 +203,19 @@ test "layout handles tiny terminals without underflow" {
 test "measure includes row numbers and unicode width" {
     const table = try Table.initCsv(testing.allocator, .{ .row_numbers = true }, "a,\xc3\xa9\xc3\xa9\n10,x\n");
     defer table.deinit();
-    const widths = try measure(table);
+    const widths = try measureCells(table);
     defer testing.allocator.free(widths);
 
     try testing.expectEqualSlices(usize, &[_]usize{ 2, 2, 2 }, widths);
+}
+
+test "headerWidths uses header labels" {
+    const table = try Table.initCsv(testing.allocator, .{}, "alpha,b\nx,longlonglong\n");
+    defer table.deinit();
+    const widths = try headerWidths(table);
+    defer testing.allocator.free(widths);
+
+    try testing.expectEqualSlices(usize, &[_]usize{ 5, 2 }, widths);
 }
 
 test "measure returns empty layout for empty inputs" {
@@ -177,16 +226,16 @@ test "measure returns empty layout for empty inputs" {
 test "measure ignores empty data cell width" {
     const table = try Table.initCsv(testing.allocator, .{}, "alpha,beta\n,xyz\n");
     defer table.deinit();
-    const widths = try measure(table);
+    const widths = try measureCells(table);
     defer testing.allocator.free(widths);
 
     try testing.expectEqualSlices(usize, &[_]usize{ 5, 4 }, widths);
 }
 
-fn expectAutolayout(config: types.Config, input: []const u8, want: []const usize) !void {
+fn expectLayout(config: types.Config, input: []const u8, want: []const usize) !void {
     const table = try Table.initCsv(testing.allocator, config, input);
     defer table.deinit();
-    const got = try autolayout(table);
+    const got = try layout(table);
     defer testing.allocator.free(got);
     try testing.expectEqualSlices(usize, want, got);
 }
@@ -194,13 +243,14 @@ fn expectAutolayout(config: types.Config, input: []const u8, want: []const usize
 fn expectMeasure(config: types.Config, input: []const u8, want: []const usize) !void {
     const table = try Table.initCsv(testing.allocator, config, input);
     defer table.deinit();
-    const got = try measure(table);
+    const got = try measureCells(table);
     defer testing.allocator.free(got);
     try testing.expectEqualSlices(usize, want, got);
 }
 
+const doomicode = @import("doomicode.zig");
 const std = @import("std");
-const testing = std.testing;
 const Table = @import("table.zig").Table;
+const testing = std.testing;
 const types = @import("types.zig");
 const util = @import("util.zig");
