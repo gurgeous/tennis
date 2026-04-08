@@ -478,7 +478,7 @@ test "render with title and row numbers" {
 }
 
 test "render right-aligns percent columns" {
-    const got = try renderTest("name,score\nalice,12%\nbob,-3.5%\n", .{ .color = .off, .width = 80 });
+    const got = try renderTest("name,score\nalice,12%\nbob,-3.5%\n", .{ .color = .off, .width = .{ .chars = 80 } });
     defer testing.allocator.free(got);
 
     try testing.expect(std.mem.indexOf(u8, got, "alice │   12% │") != null);
@@ -540,7 +540,7 @@ fn applyRenderConfig(table: *Table, config: types.Config) !void {
     if (config.title.len > 0) table.config.title = try table.alloc.dupe(u8, config.title);
     if (config.footer.len > 0) table.config.footer = try table.alloc.dupe(u8, config.footer);
     table.config.zebra = config.zebra;
-    if (config.width > 0) table.config.width = config.width;
+    table.config.width = config.width;
 }
 
 const ansi = @import("ansi.zig");

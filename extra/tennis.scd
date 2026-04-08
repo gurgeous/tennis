@@ -47,6 +47,10 @@ $ tennis diamonds.csv
 *-n*, *--row-numbers*
 	Show row numbers.
 
+*-p*, *--pager*
+	Send output through *$PAGER* or *less*. If *LESS* is unset, it defaults to
+	*FRX*.
+
 *-t*, *--title* <string>
 	Add a title above the table.
 
@@ -98,10 +102,6 @@ $ tennis diamonds.csv
 	Set the number of digits after the decimal for float columns. Valid values
 	*1* through *6*, the default is *3*.
 
-*--pager*
-	Send output through *$PAGER* or *less*. If *LESS* is unset, it defaults to
-	*FRX*.
-
 *--theme* <theme>
 	Select the color theme. Valid values: *auto*, *dark*, *light*. The default
 	is *auto*.
@@ -109,9 +109,14 @@ $ tennis diamonds.csv
 *--vanilla*
 	Disable type inference and numeric formatting.
 
-*--width* <int>
-	Set the maximum table width in characters. By default, *tennis* uses the
-	current terminal width or *80* if it can't be detected.
+*--width* <width>
+
+	Set the table width. If you specify an integer, it will be used as the
+	max table width and tennis will truncate to fit if necessary. By default,
+	*tennis* uses the current terminal width or *80* if it can't be detected.
+
+	Also supports two special values - *min* to layout based on header
+	width, *max* to disable truncation entirely.
 
 # BORDERS
 

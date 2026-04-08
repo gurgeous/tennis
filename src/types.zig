@@ -26,7 +26,7 @@ pub const Config = struct {
     title: []const u8 = "",
     footer: []const u8 = "",
     vanilla: bool = false,
-    width: usize = 0,
+    width: Width = .auto,
     zebra: bool = false,
     // Bound header indexes populated after data load for select/deselect/sort.
     deselect_cols: []usize = &.{},
@@ -56,6 +56,14 @@ pub const Config = struct {
         alloc.free(self.select_cols);
         alloc.free(self.sort_cols);
     }
+};
+
+// Width selection mode for the table layout engine.
+pub const Width = union(enum) {
+    auto,
+    chars: usize,
+    min,
+    max,
 };
 
 // Resolve a comma-separated column spec into header indexes.

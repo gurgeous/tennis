@@ -5,7 +5,7 @@
 .nh
 .ad l
 .\" Begin generated content:
-.TH "tennis" "1" "2026-04-07"
+.TH "tennis" "1" "2026-04-08"
 .P
 .SH NAME
 .P
@@ -60,6 +60,12 @@ Show the shape, some sample rows, and compact per-column stats.\&
 \fB-n\fR, \fB--row-numbers\fR
 .RS 4
 Show row numbers.\&
+.P
+.RE
+\fB-p\fR, \fB--pager\fR
+.RS 4
+Send output through \fB$PAGER\fR or \fBless\fR.\& If \fBLESS\fR is unset, it defaults to
+\fBFRX\fR.\&
 .P
 .RE
 \fB-t\fR, \fB--title\fR <string>
@@ -141,12 +147,6 @@ Set the number of digits after the decimal for float columns.\& Valid values
 \fB1\fR through \fB6\fR, the default is \fB3\fR.\&
 .P
 .RE
-\fB--pager\fR
-.RS 4
-Send output through \fB$PAGER\fR or \fBless\fR.\& If \fBLESS\fR is unset, it defaults to
-\fBFRX\fR.\&
-.P
-.RE
 \fB--theme\fR <theme>
 .RS 4
 Select the color theme.\& Valid values: \fBauto\fR, \fBdark\fR, \fBlight\fR.\& The default
@@ -158,10 +158,15 @@ is \fBauto\fR.\&
 Disable type inference and numeric formatting.\&
 .P
 .RE
-\fB--width\fR <int>
+\fB--width\fR <width>
+.P
 .RS 4
-Set the maximum table width in characters.\& By default, \fBtennis\fR uses the
-current terminal width or \fB80\fR if it can'\&t be detected.\&
+Set the table width.\& If you specify an integer, it will be used as the
+max table width and tennis will truncate to fit if necessary.\& By default,
+\fBtennis\fR uses the current terminal width or \fB80\fR if it can'\&t be detected.\&
+.P
+Also supports two special values - \fBmin\fR to layout based on header
+width, \fBmax\fR to disable truncation entirely.\&
 .P
 .RE
 .SH BORDERS

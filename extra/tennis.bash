@@ -18,12 +18,12 @@ _tennis() {
     --digits) COMPREPLY=($(compgen -W "1 2 3 4 5 6" -- "${cur}")) ; return ;;
     --table) COMPREPLY=() ; return ;;
     --theme) COMPREPLY=($(compgen -W "auto dark light" -- "${cur}")) ; return ;;
-    --width) COMPREPLY=() ; return ;;
+    --width) COMPREPLY=($(compgen -W "min max" -- "${cur}")) ; return ;;
     --completion) COMPREPLY=($(compgen -W "bash zsh" -- "${cur}")) ; return ;;
   esac
 
   if [[ "${cur}" == -* ]]; then
-    COMPREPLY=($(compgen -W "-n --row-numbers -t --title --border --peek --zebra --deselect --select --sort -r --reverse --shuffle --shuf --head --tail --filter --color --delimiter --digits -p --pager --table --theme --vanilla --width --completion --help --version " -- "${cur}"))
+    COMPREPLY=($(compgen -W "-n --row-numbers -t --title --border -p --pager --peek --zebra --deselect --select --sort -r --reverse --shuffle --shuf --head --tail --filter --color --delimiter --digits --table --theme --vanilla --width --completion --help --version " -- "${cur}"))
   else
     _filedir csv
     [[ ${#COMPREPLY[@]} -eq 0 ]] && _filedir

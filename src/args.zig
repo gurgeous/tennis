@@ -12,6 +12,7 @@ pub const Args = struct {
         \\  -n, --row-numbers          Turn on row numbers
         \\  -t, --title <string>       Add a title to the table
         \\      --border <border>      Table border style (rounded|thin|double|...)
+        \\  -p, --pager                Send output through $PAGER or less
         \\      --peek                 Show csv shape, sample, and handy stats
         \\      --zebra                Turn on zebra stripes
         \\
@@ -29,11 +30,10 @@ pub const Args = struct {
         \\      --color <color>        Turn color off and on (on|off|auto)
         \\      --delimiter <char>     Set CSV delim (can be any char or "tab")
         \\      --digits <int>         Digits after decimal for float columns
-        \\  -p, --pager                Send output through $PAGER or less
         \\      --table <table>        Select the db table (for sqlite)
         \\      --theme <theme>        Select color theme (auto|dark|light)
         \\      --vanilla              Disable numeric formatting
-        \\      --width <int>          Set max table width in chars
+        \\      --width <width>        Set table width, or try (min|max)
         \\
         \\      --completion <shell>   Print shell completion (bash|zsh)
         \\      --help                 Get help
@@ -59,7 +59,7 @@ pub const Args = struct {
         \\    --tail <INT>
         \\    --theme <THEME>
         \\    --vanilla
-        \\    --width <INT>
+        \\    --width <WIDTH>
         \\-d, --delimiter <CHAR>
         \\-h, --help
         \\-n, --row-numbers
@@ -80,6 +80,7 @@ pub const Args = struct {
         .SHELL = clap.parsers.enumeration(types.CompletionShell),
         .STRING = clap.parsers.string,
         .THEME = clap.parsers.enumeration(types.Theme),
+        .WIDTH = parseWidth,
     };
 
     // Parse a delimiter argument into one ASCII byte.
@@ -88,6 +89,15 @@ pub const Args = struct {
         if (std.mem.eql(u8, input, "tab")) return '\t';
         if (std.mem.eql(u8, input, "\\t")) return '\t';
         return error.InvalidArgument;
+    }
+
+    // Parse one width mode argument.
+    fn parseWidth(input: []const u8) error{InvalidArgument}!types.Width {
+        if (std.mem.eql(u8, input, "min")) return .min;
+        if (std.mem.eql(u8, input, "max")) return .max;
+        const value = std.fmt.parseInt(usize, input, 10) catch return error.InvalidArgument;
+        if (value == 0) return .auto;
+        return .{ .chars = value };
     }
 
     // Parse argv into one top-level main event.
@@ -262,7 +272,7 @@ test "parse option config case" {
     try testing.expectEqual(types.Theme.light, out.run.theme);
     try testing.expectEqualStrings("foo", out.run.title);
     try testing.expect(out.run.vanilla);
-    try testing.expectEqual(80, out.run.width);
+    try testing.expectEqual(types.Width{ .chars = 80 }, out.run.width);
     try testing.expect(out.run.row_numbers);
     try testing.expectEqualStrings("-", out.run.filename.?);
 }
@@ -288,6 +298,9 @@ test "parse option event cases" {
         .{ .argv = &.{ "--shuf", "-" } },
         .{ .argv = &.{ "--sort", "score,name", "-" } },
         .{ .argv = &.{ "--table", "players", "-" } },
+        .{ .argv = &.{ "--width", "min", "-" } },
+        .{ .argv = &.{ "--width", "max", "-" } },
+        .{ .argv = &.{ "--width", "80", "-" } },
         .{ .argv = &.{ "--completion", "zsh" }, .event = .{ .completion = .zsh } },
         .{ .argv = &.{"--help"}, .event = .help },
         .{ .argv = &.{"--version"}, .event = .version },
@@ -306,6 +319,9 @@ test "parse option event cases" {
             try testing.expect(parsed.run.shuffle);
         }
         if (std.mem.eql(u8, tc.argv[0], "--table")) try testing.expectEqualStrings("players", parsed.run.table);
+        if (std.mem.eql(u8, tc.argv[0], "--width") and std.mem.eql(u8, tc.argv[1], "min")) try testing.expectEqual(types.Width.min, parsed.run.width);
+        if (std.mem.eql(u8, tc.argv[0], "--width") and std.mem.eql(u8, tc.argv[1], "max")) try testing.expectEqual(types.Width.max, parsed.run.width);
+        if (std.mem.eql(u8, tc.argv[0], "--width") and std.mem.eql(u8, tc.argv[1], "80")) try testing.expectEqual(types.Width{ .chars = 80 }, parsed.run.width);
         if (std.mem.eql(u8, tc.argv[0], "--zebra")) try testing.expect(parsed.run.zebra);
         if (tc.event) |event| try testing.expectEqual(event, parsed);
     }
@@ -344,6 +360,7 @@ test "parse reject cases" {
         .{ .argv = &.{ "--head", "1", "--tail", "1" }, .err = error.InvalidHeadTail },
         .{ .argv = &.{ "--head", "0" }, .err = error.InvalidHeadValue },
         .{ .argv = &.{ "--tail", "0" }, .err = error.InvalidTailValue },
+        .{ .argv = &.{ "--width", "bogus" }, .err = error.InvalidArgument },
     };
 
     for (cases) |tc| try expectParseError(tc.err, tc.argv);
