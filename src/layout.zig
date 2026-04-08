@@ -50,16 +50,11 @@ fn layout(table: *Table) ![]usize {
     if (table.config.width == .max) return try alloc.dupe(usize, measured);
 
     //
-    // auto. This is the default, where we try to squeeze into termwidth
+    // This is the default, where we squeeze into termwidth (auto)
     //
 
-    // how wide is the data in each column? this is our "max" width
-    const min = try minWidths(alloc, measured, table.termWidth());
-    const max = measured;
-    defer alloc.free(min);
-
     // a little breathing room on the right side, which is nice visually and
-    // helps with minor terminal layout snafus
+    // helps alleviate minor terminal layout snafus
     const fudge = 2;
 
     // is the terminal big enough to contain the table without truncation?
@@ -69,6 +64,22 @@ fn layout(table: *Table) ![]usize {
     if (available >= input.dataWidth()) {
         return try alloc.dupe(usize, measured);
     }
+
+    // what is the lower bound for a column width? 2 is pretty severe, let it
+    // grow up to 10 if we don't have a lot of columns.
+    const lower_min = 2;
+    const lower_max = 10;
+    const lower_bound = std.math.clamp(available / measured.len, lower_min, lower_max);
+
+    // calculate min & max for each column. min is the width of the widest cell
+    // or lower_bound, whichever is smaller. max is the width of the widest
+    // cell.
+    var min = try alloc.alloc(usize, measured.len);
+    defer alloc.free(min);
+    for (measured, 0..) |w, ii| {
+        min[ii] = @min(w, lower_bound);
+    }
+    const max = measured;
 
     // calculate the ratio betweein min/max
     const min_sum = util.sum(usize, min);
@@ -146,30 +157,6 @@ fn headerWidths(table: *const Table) ![]usize {
     }
     return widths.toOwnedSlice(alloc);
 }
-
-// Calculate the lower-bound width for each column at one target width.
-fn minWidths(alloc: std.mem.Allocator, widths: []const usize, term_width: usize) ![]usize {
-    const out = try alloc.alloc(usize, widths.len);
-    errdefer alloc.free(out);
-
-    // a little breathing room on the right side, which is nice visually and
-    // helps with minor terminal layout snafus
-    const fudge = 2;
-    const chrome_width = widths.len * 3 + 1;
-    const available = term_width -| (chrome_width + fudge);
-
-    // what is the lower bound for a column width? 2 is pretty severe, let it
-    // grow up to 10 if we don't have a lot of columns.
-    const lower_min = 2;
-    const lower_max = 10;
-    const lower_bound = if (widths.len == 0) 0 else std.math.clamp(available / widths.len, lower_min, lower_max);
-
-    for (widths, 0..) |w, ii| {
-        out[ii] = @min(w, lower_bound);
-    }
-    return out;
-}
-
 
 //
 // testing
