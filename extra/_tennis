@@ -7,6 +7,8 @@ _tennis() {
     '-t[Add a title to the table]:string:' \
     '--title[Add a title to the table]:string:' \
     '--border[Table border style (rounded|thin|double|...)]:border:(ascii_rounded basic basic_compact compact compact_double dots double heavy light markdown none psql reinforced restructured rounded single thin with_love)' \
+    '-p[Send output through $PAGER or less]' \
+    '--pager[Send output through $PAGER or less]' \
     '--peek[Show csv shape, sample, and handy stats]' \
     '--zebra[Turn on zebra stripes]' \
     '--deselect[De-select comma-separated headers]:headers:' \
@@ -22,12 +24,10 @@ _tennis() {
     '--color[Turn color off and on (on|off|auto)]:color:(auto off on)' \
     '--delimiter[Set CSV delim (can be any char or "tab")]:char:(tab , \; \|)' \
     '--digits[Digits after decimal for float columns]:int:(1 2 3 4 5 6)' \
-    '-p[Send output through $PAGER or less]' \
-    '--pager[Send output through $PAGER or less]' \
     '--table[Select the db table (for sqlite)]:table:' \
     '--theme[Select color theme (auto|dark|light)]:theme:(auto dark light)' \
     '--vanilla[Disable numeric formatting]' \
-    '--width[Set width mode (int|min|max)]:width:(min max)' \
+    '--width[Set table width, or try (min|max)]:width:(min max)' \
     '--completion[Print shell completion (bash|zsh)]:shell:(bash zsh)' \
     '--help[Get help]' \
     '--version[Show version number and exit]' \

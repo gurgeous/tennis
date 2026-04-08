@@ -62,6 +62,12 @@ Show the shape, some sample rows, and compact per-column stats.\&
 Show row numbers.\&
 .P
 .RE
+\fB-p\fR, \fB--pager\fR
+.RS 4
+Send output through \fB$PAGER\fR or \fBless\fR.\& If \fBLESS\fR is unset, it defaults to
+\fBFRX\fR.\&
+.P
+.RE
 \fB-t\fR, \fB--title\fR <string>
 .RS 4
 Add a title above the table.\&
@@ -141,12 +147,6 @@ Set the number of digits after the decimal for float columns.\& Valid values
 \fB1\fR through \fB6\fR, the default is \fB3\fR.\&
 .P
 .RE
-\fB--pager\fR
-.RS 4
-Send output through \fB$PAGER\fR or \fBless\fR.\& If \fBLESS\fR is unset, it defaults to
-\fBFRX\fR.\&
-.P
-.RE
 \fB--theme\fR <theme>
 .RS 4
 Select the color theme.\& Valid values: \fBauto\fR, \fBdark\fR, \fBlight\fR.\& The default
@@ -159,11 +159,14 @@ Disable type inference and numeric formatting.\&
 .P
 .RE
 \fB--width\fR <width>
+.P
 .RS 4
-Set the width mode.\& Pass an integer for a maximum table width in
-characters, \fBmin\fR for header-width columns, or \fBmax\fR for the natural
-column widths.\& By default, \fBtennis\fR uses the current terminal width or
-\fB80\fR if it can'\&t be detected.\&
+Set the table width.\& If you specify an integer, it will be used as the
+max table width and tennis will truncate to fit if necessary.\& By default,
+\fBtennis\fR uses the current terminal width or \fB80\fR if it can'\&t be detected.\&
+.P
+Tennis also supports two special values - \fBmin\fR to layout based on header
+width, \fBmax\fR to turn off truncation entirely.\&
 .P
 .RE
 .SH BORDERS

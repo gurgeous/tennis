@@ -49,6 +49,7 @@ $ zig build
   -n, --row-numbers          Turn on row numbers
   -t, --title <string>       Add a title to the table
       --border <border>      Table border style (rounded|thin|double|...)
+  -p, --pager                Send output through $PAGER or less
       --peek                 Show csv shape, sample, and handy stats
       --zebra                Turn on zebra stripes
 
@@ -66,11 +67,10 @@ $ zig build
       --color <color>        Turn color off and on (on|off|auto)
       --delimiter <char>     Set CSV delim (can be any char or "tab")
       --digits <int>         Digits after decimal for float columns
-  -p, --pager                Send output through $PAGER or less
       --table <table>        Select the db table (for sqlite)
       --theme <theme>        Select color theme (auto|dark|light)
       --vanilla              Disable numeric formatting
-      --width <width>        Set width mode (int|min|max)
+      --width <width>        Set table width, or try (min|max)
 
       --completion <shell>   Print shell completion (bash|zsh)
       --help                 Get help
@@ -88,9 +88,11 @@ Tennis works fine with Unicode and emoji content. Calculating non-ASCII display 
 
 ### Colors, Themes, Appearance
 
-Tennis picks a color theme based on the color of your terminal. Color is on by default. It also honors `NO_COLOR=1`. Terminal width is pulled from your terminal, or defaults to 80 if we can't figure it out. See `--width` if you need to override it, force header-width columns with `min`, or force natural column widths with `max` for CI/tests.
+Tennis picks a color theme based on the color of your terminal. Color is on by default. It also honors `NO_COLOR=1`. Terminal width is pulled from your terminal, or defaults to 80 if we can't figure it out. See `--width` if you want to override layout.
 
 Use `--border`, `--row-numbers`, `--title`, and `--zebra` for more bling. Tennis supports the same borders as `nushell`.
+
+It's common to use `--pager` to send output through $PAGER or less.
 
 <img src="./bling.png" width="60%">
 
@@ -127,7 +129,9 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 #### 0.5.0 (unreleased)
 
-- idea: max col width and/or better layout controls, this is driving me nuts
+-- `--width min` to calculate layout using just the headers
+-- `--width max` to never truncate
+-- percent columns are justified (thanks @nkriege)
 
 #### 0.4.0 (Apr '26)
 

@@ -12,6 +12,7 @@ pub const Args = struct {
         \\  -n, --row-numbers          Turn on row numbers
         \\  -t, --title <string>       Add a title to the table
         \\      --border <border>      Table border style (rounded|thin|double|...)
+        \\  -p, --pager                Send output through $PAGER or less
         \\      --peek                 Show csv shape, sample, and handy stats
         \\      --zebra                Turn on zebra stripes
         \\
@@ -29,11 +30,10 @@ pub const Args = struct {
         \\      --color <color>        Turn color off and on (on|off|auto)
         \\      --delimiter <char>     Set CSV delim (can be any char or "tab")
         \\      --digits <int>         Digits after decimal for float columns
-        \\  -p, --pager                Send output through $PAGER or less
         \\      --table <table>        Select the db table (for sqlite)
         \\      --theme <theme>        Select color theme (auto|dark|light)
         \\      --vanilla              Disable numeric formatting
-        \\      --width <width>        Set width mode (int|min|max)
+        \\      --width <width>        Set table width, or try (min|max)
         \\
         \\      --completion <shell>   Print shell completion (bash|zsh)
         \\      --help                 Get help
