@@ -119,7 +119,7 @@ pub const Render = struct {
 
         try self.writeChrome(self.border.left);
         try out.writeByte(' ');
-        try fill(out, self.table.style().title, "", self.table.config.title, width, .center);
+        try fill(out, self.table.style().title, true, "", self.table.config.title, width, .center);
         try out.writeByte(' ');
         try self.writeChrome(self.border.right);
         try self.newline();
@@ -133,7 +133,7 @@ pub const Render = struct {
 
         try self.writeChrome(self.border.left);
         try out.writeByte(' ');
-        try fill(out, self.table.style().chrome, "", self.table.config.footer, width, .center);
+        try fill(out, self.table.style().chrome, false, "", self.table.config.footer, width, .center);
         try out.writeByte(' ');
         try self.writeChrome(self.border.right);
         try self.newline();
@@ -162,7 +162,7 @@ pub const Render = struct {
     fn renderHeaderField(self: *Render, col: usize, text: []const u8) !void {
         const style = self.table.style();
         const sep = if (col + 1 == self.layout.widths.len) self.border.right else self.border.mid;
-        try self.renderField(style.headers[col % style.headers.len], text, col, sep, .left);
+        try self.renderField(style.headers[col % style.headers.len], true, text, col, sep, .left);
     }
 
     //
@@ -188,7 +188,7 @@ pub const Render = struct {
             var num_buf: [32]u8 = undefined;
             const label = try std.fmt.bufPrint(&num_buf, "{d}", .{index + 1});
             const sep = if (col + 1 == self.layout.widths.len) self.border.right else self.border.mid;
-            try self.renderField(style.chrome, label, col, sep, .right);
+            try self.renderField(style.chrome, false, label, col, sep, .right);
             col += 1;
         }
 
@@ -196,14 +196,19 @@ pub const Render = struct {
         for (self.table.columns) |column| {
             const str = column.field(index);
             const is_placeholder = str.len == 0;
-            const cell_style = if (is_placeholder) style.chrome else style.field;
+            const cell_style = if (is_placeholder)
+                style.chrome
+            else switch (column.type) {
+                .int, .float, .percent => style.headers[col % style.headers.len],
+                .string => style.field,
+            };
             const field = if (is_placeholder) placeholder else str;
             const sep = if (col + 1 == self.layout.widths.len) self.border.right else self.border.mid;
             const al: Align = switch (column.type) {
                 .int, .float, .percent => .right,
                 .string => .left,
             };
-            try self.renderField(cell_style, field, col, sep, al);
+            try self.renderField(cell_style, false, field, col, sep, al);
             col += 1;
         }
         try self.newline();
@@ -233,7 +238,7 @@ pub const Render = struct {
         const out = &self.buf.writer;
         try self.writeChrome(self.border.left);
         try out.writeByte(' ');
-        try fill(out, text_style, "", text, width, .center);
+        try fill(out, text_style, false, "", text, width, .center);
         try out.writeByte(' ');
         try self.writeChrome(self.border.right);
         try self.newline();
@@ -244,10 +249,10 @@ pub const Render = struct {
     //
 
     // Render one cell followed by its separator.
-    fn renderField(self: *Render, field_style: []const u8, text: []const u8, col: usize, sep: []const u8, al: Align) !void {
+    fn renderField(self: *Render, field_style: []const u8, is_bold: bool, text: []const u8, col: usize, sep: []const u8, al: Align) !void {
         const out = &self.buf.writer;
         try out.writeByte(' ');
-        try fill(out, field_style, self.reset, text, self.layout.widths[col], al);
+        try fill(out, field_style, is_bold, self.reset, text, self.layout.widths[col], al);
         try out.writeByte(' ');
         try self.writeChrome(sep);
     }
@@ -323,10 +328,12 @@ fn footerRule(row: border.BorderRule, bottom: border.BorderRule) border.BorderRu
 }
 
 // Write one aligned cell, truncating and padding as needed.
-fn fill(writer: *std.Io.Writer, codes: []const u8, reset: []const u8, text: []const u8, width: usize, al: Align) !void {
-    if (codes.len > 0) try writer.writeAll(codes);
-    defer if (reset.len > 0) {
-        writer.writeAll(reset) catch {};
+fn fill(writer: *std.Io.Writer, codes: []const u8, is_bold: bool, reset: []const u8, text: []const u8, width: usize, al: Align) !void {
+    const has_ansi = codes.len > 0;
+    if (is_bold and has_ansi) try writer.writeAll(ansi.bold);
+    if (has_ansi) try writer.writeAll(codes);
+    defer if (has_ansi) {
+        writer.writeAll(if (reset.len > 0) reset else ansi.reset) catch {};
     };
 
     const display_width = doomicode.displayWidth(text);
@@ -375,16 +382,23 @@ test "fill padding and truncation" {
     var buf: [256]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
 
-    try fill(&writer, "", "", "12", 2, .left);
+    try fill(&writer, "", false, "", "12", 2, .left);
     try testing.expectEqualStrings("12", writer.buffered());
 
     writer.end = 0;
-    try fill(&writer, "", "", "hi", 6, .center);
+    try fill(&writer, "", false, "", "hi", 6, .center);
     try testing.expectEqualStrings("  hi  ", writer.buffered());
 
     writer.end = 0;
-    try fill(&writer, "", "", "hi", 6, .right);
+    try fill(&writer, "", false, "", "hi", 6, .right);
     try testing.expectEqualStrings("    hi", writer.buffered());
+}
+
+test "fill can add bold before the color codes" {
+    var buf: [256]u8 = undefined;
+    var writer = std.Io.Writer.fixed(&buf);
+    try fill(&writer, "\x1b[38;2;1;2;3m", true, "", "x", 1, .left);
+    try testing.expectEqualStrings("\x1b[1m\x1b[38;2;1;2;3mx\x1b[0m", writer.buffered());
 }
 
 test "spanRule removes interior separators" {

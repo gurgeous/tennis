@@ -25,32 +25,32 @@ pub const Style = struct {
     //
 
     const dark: Style = .{
-        .chrome = fg("#6b7280", false),
-        .field = fg("#e5e7eb", false),
+        .chrome = fg("#6b7280"),
+        .field = fg("#e5e7eb"),
         .zebra = fgbg("#ffffff", "#222222"),
-        .title = fg("#60a5fa", true),
+        .title = fg("#60a5fa"),
         .headers = &.{
-            fg("#ff6188", true),
-            fg("#fc9867", true),
-            fg("#ffd866", true),
-            fg("#a9dc76", true),
-            fg("#78dce8", true),
-            fg("#ab9df2", true),
+            fg("#ff6188"),
+            fg("#fc9867"),
+            fg("#ffd866"),
+            fg("#a9dc76"),
+            fg("#78dce8"),
+            fg("#ab9df2"),
         },
     };
 
     const light: Style = .{
-        .chrome = fg("#6b7280", false),
-        .field = fg("#1f2937", false),
+        .chrome = fg("#6b7280"),
+        .field = fg("#1f2937"),
         .zebra = fgbg("#000000", "#e5e7eb"),
-        .title = fg("#2563eb", true),
+        .title = fg("#2563eb"),
         .headers = &.{
-            fg("#ee4066", true),
-            fg("#da7645", true),
-            fg("#ddb644", true),
-            fg("#87ba54", true),
-            fg("#56bac6", true),
-            fg("#897bd0", true),
+            fg("#ee4066"),
+            fg("#da7645"),
+            fg("#ddb644"),
+            fg("#87ba54"),
+            fg("#56bac6"),
+            fg("#897bd0"),
         },
     };
 
@@ -64,10 +64,9 @@ pub const Style = struct {
 //
 
 // Build one ANSI foreground sequence at comptime.
-fn fg(comptime hex: []const u8, comptime is_bold: bool) []const u8 {
+fn fg(comptime hex: []const u8) []const u8 {
     const c = comptime Color.initHex(hex) catch @compileError("invalid hex color");
-    const bold_prefix = if (is_bold) "1;" else "";
-    const csi = comptime std.fmt.comptimePrint("{s}38;2;{d};{d};{d}m", .{ bold_prefix, c.r, c.g, c.b });
+    const csi = comptime std.fmt.comptimePrint("38;2;{d};{d};{d}m", .{ c.r, c.g, c.b });
     return mibu.utils.comptimeCsi(csi, .{});
 }
 
@@ -108,9 +107,9 @@ test "color title style" {
     const s1 = Style.init(testing.allocator, .off, .dark);
     try testing.expectEqualStrings("", s1.title);
     const s2 = Style.init(testing.allocator, .on, .dark);
-    try testing.expectEqualStrings("\x1b[1;38;2;96;165;250m", s2.title);
+    try testing.expectEqualStrings("\x1b[38;2;96;165;250m", s2.title);
     const s3 = Style.init(testing.allocator, .on, .light);
-    try testing.expectEqualStrings("\x1b[1;38;2;37;99;235m", s3.title);
+    try testing.expectEqualStrings("\x1b[38;2;37;99;235m", s3.title);
 }
 
 test "zebra style colors match table_tennis" {
