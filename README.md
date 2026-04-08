@@ -129,9 +129,8 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 #### 0.5.0 (unreleased)
 
--- `--width min` to calculate layout using just the headers
--- `--width max` to never truncate
--- percent columns are justified (thanks @nkriege)
+- `--width min` to layout based on header width, or `--width max` to disable truncation
+- percent columns are justified (thanks @nkriege)
 
 #### 0.4.0 (Apr '26)
 

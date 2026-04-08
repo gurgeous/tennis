@@ -43,3 +43,4 @@
 - Branch names should match `^[a-z_]+$`.
 - When the user says `commit`, commit all current changes by default, including unrelated local edits.
 - With `gh pr create`, never use unescaped backticks; prefer `--body-file`.
+- commit & pr messages should be incredibly succinct, ideally just one or two bulleted lines
