@@ -1,4 +1,8 @@
+//
+// main entrypoint
 // Owns process flow, input detection, loading, and top-level CLI behavior.
+//
+
 pub fn main() !void {
     var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer {
@@ -7,28 +11,27 @@ pub fn main() !void {
     }
     const alloc = gpa.allocator();
 
-    if (main0(alloc) catch |err| switch (err) {
-        error.BrokenPipe, error.WriteFailed => {
-            std.process.exit(0);
-        },
-        else => return err,
-    }) |fatal| {
-        defer fatal.deinit(alloc);
-        try fatal.print();
-        flushPipe() catch |err| switch (err) {
-            error.BrokenPipe, error.WriteFailed => std.process.exit(0),
-            else => return err,
-        };
-        std.process.exit(1);
-    }
-    flushPipe() catch |err| switch (err) {
-        error.BrokenPipe, error.WriteFailed => std.process.exit(0),
+    var exit: u8 = 0;
+    const fatal = main0(alloc) catch |err| switch (err) {
+        error.BrokenPipe, error.WriteFailed => null,
         else => return err,
     };
-    std.process.exit(0);
+    if (fatal) |value| {
+        defer value.deinit(alloc);
+        try value.print();
+        exit = 1;
+    }
+
+    util.stdout.flush() catch {};
+    util.stderr.flush() catch {};
+    std.process.exit(exit);
 }
 
+//
+// main0
 // Run the CLI and return a printable failure when the command should fail.
+//
+
 fn main0(alloc: std.mem.Allocator) !?failure.Failure {
     // timer
     var total = try std.time.Timer.start();
@@ -102,27 +105,27 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
     // input => data rows
     var data = load(alloc, config, input) catch |err| {
         if (err == error.SqliteInvalidTable) {
-            const path = config.filename orelse return err;
-            var db = try sqlite.Sqlite.init(alloc, path);
+            var db = try sqlite.Sqlite.init(alloc, config.filename.?);
             defer db.deinit();
             return try failure.Failure.fromSqliteTableError(alloc, config.table, db.tables);
         }
         return failure.Failure.fromError(err) orelse return err;
     };
-    errdefer data.deinit(alloc);
 
     // plug data headers into config, for validation
     config.bind(alloc, data.headers()) catch |err| {
+        const fatal = try failure.Failure.fromTableError(alloc, err, data.headers());
+        data.deinit(alloc);
         config.deinit(alloc);
-        return try failure.Failure.fromTableError(alloc, err, data.headers());
+        return fatal;
     };
 
     //
     // data => table
     //
 
+    // Hand off both config and data here; Table.init owns cleanup from this point on.
     const table = try Table.init(alloc, config, data);
-    data = .{ .rows = &.{} };
     defer table.deinit();
     util.benchmark("table.init", timer.read());
 
@@ -141,21 +144,23 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
     return null;
 }
 
+//
+// loading input data
+//
+
 // Load the configured input into table data, dispatching by detected format.
 fn load(alloc: std.mem.Allocator, config: types.Config, input: std.fs.File) !Data {
     // typically we read the whole file into memory for processing. That won't
-    // work if we are using `sqlite3`, though
-    if (config.filename) |path| {
-        if (detect.formatFromFilename(path) == .sqlite) {
-            var db = try sqlite.Sqlite.init(alloc, path);
-            defer db.deinit();
-            return try db.load(config.table);
-        }
+    // work if we are using `sqlite3`, though.
+    if (try detect.isSqliteFile(alloc, config.filename, input)) {
+        var db = try sqlite.Sqlite.init(alloc, config.filename.?);
+        defer db.deinit();
+        return try db.load(config.table);
     }
 
-    const input_bytes = try input.readToEndAlloc(alloc, std.math.maxInt(usize));
-    defer alloc.free(input_bytes);
-    return try loadBytes(alloc, config, input_bytes);
+    const bytes = try input.readToEndAlloc(alloc, std.math.maxInt(usize));
+    defer alloc.free(bytes);
+    return try loadBytes(alloc, config, bytes);
 }
 
 // Load in-memory bytes into table data using the existing text format loaders.
@@ -166,22 +171,23 @@ fn loadBytes(alloc: std.mem.Allocator, config: types.Config, bytes_in: []const u
         bytes = bytes[3..];
     }
 
+    // sqlite3 and stray --table
     const format = try detect.detectFormat(alloc, config.filename, bytes);
-
-    // sqlite3 concerns
     if (format == .sqlite) return error.SqliteRequiresFile;
     if (config.table.len > 0) return error.SqliteTableRequiresSqlite;
+
+    // json
     if (format == .json) return try json.load(alloc, bytes);
 
+    // csv (our default)
     var delimiter = config.delimiter;
     if (delimiter == 0) delimiter = sniffer.sniff(bytes) orelse ',';
     return try csv.load(alloc, bytes, delimiter);
 }
 
-fn flushPipe() anyerror!void {
-    try util.stdout.flush();
-    try util.stderr.flush();
-}
+//
+// rendering
+//
 
 fn renderToPager(alloc: std.mem.Allocator, config: types.Config, table: *Table) !void {
     const cmd = std.posix.getenv("PAGER") orelse "less";
