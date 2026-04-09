@@ -155,32 +155,17 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
 
 // Load the configured input into table data, dispatching by detected format.
 fn load(alloc: std.mem.Allocator, config: types.Config, input: std.fs.File) !Data {
-    util.tdebug("load filename={?s} seekable={}", .{ config.filename, util.isSeekable(input) });
-
     // typically we read the whole file into memory for processing. That won't
-    // work if we are using `sqlite3`, though
-    if (config.filename) |path| {
-        if (!std.mem.eql(u8, path, "-") and try sampleFormat(alloc, path, input) == .sqlite) {
-            var db = try sqlite.Sqlite.init(alloc, path);
-            defer db.deinit();
-            return try db.load(config.table);
-        }
+    // work if we are using `sqlite3`, though.
+    if (try detect.isSqliteFile(alloc, config.filename, input)) {
+        var db = try sqlite.Sqlite.init(alloc, config.filename.?);
+        defer db.deinit();
+        return try db.load(config.table);
     }
 
     const input_bytes = try input.readToEndAlloc(alloc, std.math.maxInt(usize));
     defer alloc.free(input_bytes);
     return try loadBytes(alloc, config, input_bytes);
-}
-
-// Detect the format of one named file, falling back to magic bytes when the extension is unknown.
-fn sampleFormat(alloc: std.mem.Allocator, path: []const u8, input: std.fs.File) !detect.InputFormat {
-    if (detect.formatFromFilename(path)) |format| return format;
-    if (!util.isSeekable(input)) return .csv;
-
-    var sample_buf: [512]u8 = undefined;
-    const n = try input.readAll(&sample_buf);
-    try input.seekTo(0);
-    return try detect.detectFormat(alloc, path, sample_buf[0..n]);
 }
 
 // Load in-memory bytes into table data using the existing text format loaders.
