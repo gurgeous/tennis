@@ -16,7 +16,7 @@ pub const Style = struct {
         return switch (theme) {
             .dark => dark,
             .light => light,
-            .auto => if (builtin.os.tag == .windows) dark else if (termbg.isDark(alloc) catch true) dark else light,
+            .auto => if (termbg.isDark(alloc) catch true) dark else light,
         };
     }
 

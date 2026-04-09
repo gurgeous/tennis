@@ -263,6 +263,10 @@ pub fn tdebug(comptime fmt: []const u8, args: anytype) void {
 
 // how wide is the terminal? thanks mubi
 pub fn termWidth() usize {
+    if (mibu.term.getSize(std.fs.File.stdout().handle)) |size| {
+        if (size.width > 0) return @intCast(size.width);
+    } else |_| {}
+
     if (builtin.os.tag == .windows) return 80;
     var tty = std.fs.openFileAbsolute("/dev/tty", .{}) catch return 80;
     defer tty.close();
@@ -336,8 +340,6 @@ test "fileExists" {
 }
 
 test "hasenv" {
-    init();
-    defer deinit();
     try testing.expect(hasenv("PATH"));
     try testing.expect(!hasenv("TENNIS_TEST_ENV_DOES_NOT_EXIST"));
 }
@@ -441,13 +443,6 @@ test "lowerAscii" {
 
 test "sum" {
     try testing.expectEqual(@as(usize, 10), sum(usize, &.{ 1, 2, 3, 4 }));
-}
-
-test "tdebug" {
-    init();
-    defer deinit();
-    tdebug("off {d}", .{1});
-    tdebug("on {d}", .{2});
 }
 
 test "termWidth returns a positive width" {

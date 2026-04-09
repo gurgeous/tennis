@@ -7,8 +7,8 @@
             .hash = "clap-0.11.0-oBajB-HnAQDPCKYzwF7rO3qDFwRcD39Q0DALlTSz5H7e",
         },
         .mibu = .{
-            .url = "git+https://github.com/xyaman/mibu#b1644432384ac31ffeb45e83d3d3501a911e8865",
-            .hash = "mibu-0.0.1-dev-Ddr1rojEAABcqJWjDNhdeK_CWYjQUZlaGIvJwZOHJWf_",
+            .url = "git+https://github.com/xyaman/mibu#fa883b8d903573ca6ac44279f31d1317f0bcb595",
+            .hash = "mibu-0.0.1-dev-Ddr1rrDIAACi6HKDko6IdyxEpm_XaGYrPpAxyGnH2B3I",
         },
     },
     .fingerprint = 0x9420803bbcaa5265,
