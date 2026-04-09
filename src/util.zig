@@ -232,15 +232,13 @@ fn ensureEnv() void {
 
 // does this env var exist?
 pub fn hasenv(name: []const u8) bool {
-    ensureEnv();
-    return env.?.get(name) != null;
+    return getenv(name) != null;
 }
 
-// Return one owned env var value when present.
-pub fn getenv(alloc: std.mem.Allocator, name: []const u8) !?[]u8 {
+// Return one borrowed env var value when present.
+pub fn getenv(name: []const u8) ?[]const u8 {
     ensureEnv();
-    const value = env.?.get(name) orelse return null;
-    return try alloc.dupe(u8, value);
+    return env.?.get(name);
 }
 
 //

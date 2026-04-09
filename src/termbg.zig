@@ -9,8 +9,7 @@
 pub fn isDark(alloc: std.mem.Allocator) !bool {
     if (builtin.os.tag == .windows) return error.NotSupported;
 
-    const term = try util.getenv(alloc, "TERM");
-    defer if (term) |value| alloc.free(value);
+    const term = util.getenv("TERM");
 
     // open dev/tty
     var devtty = std.fs.openFileAbsolute("/dev/tty", .{ .mode = .read_write }) catch |err| {

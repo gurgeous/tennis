@@ -193,8 +193,7 @@ fn loadBytes(alloc: std.mem.Allocator, config: types.Config, bytes_in: []const u
 //
 
 fn renderToPager(alloc: std.mem.Allocator, config: types.Config, table: *Table) !void {
-    const cmd = (try util.getenv(alloc, "PAGER")) orelse try alloc.dupe(u8, "less");
-    defer alloc.free(cmd);
+    const cmd = util.getenv("PAGER") orelse "less";
     if (std.mem.eql(u8, cmd, "cat")) return renderToWriter(alloc, config, table, util.stdout);
 
     var env = try std.process.getEnvMap(alloc);
