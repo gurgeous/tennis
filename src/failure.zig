@@ -69,7 +69,7 @@ pub const Failure = struct {
 
     // Render one failure with the standard banner/footer behavior.
     pub fn print(self: Failure) !void {
-        try printBanner(util.stderr, self);
+        try printBanner(util.stderr(), self);
     }
 
     // Write one failure to the provided writer.

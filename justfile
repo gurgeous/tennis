@@ -10,6 +10,9 @@ build:
 build-release:
   zig build -Doptimize=ReleaseSmall
 
+build-windows:
+  zig build -Dtarget=x86_64-windows-gnu
+
 clean:
   rm -rf tmp zig-out
   mkdir tmp
@@ -27,8 +30,10 @@ run *ARGS:
 check: clean-weekly build lint test test-bats
   just banner "✓ check ✓"
 
+[unix]
 ci: check
-  just banner "✓ ci ✓"
+[windows]
+ci: build-windows
 
 clean-weekly:
   if [ -d tmp ] && [ "$(find tmp -type d -prune -mtime +7 | wc -l)" -gt 0 ]; then \

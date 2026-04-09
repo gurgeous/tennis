@@ -5,11 +5,20 @@
 var stdout_buf: [4096]u8 = undefined;
 var stderr_buf: [4096]u8 = undefined;
 
-var stdout0: std.fs.File.Writer = .init(std.fs.File.stdout(), &stdout_buf);
-var stderr0: std.fs.File.Writer = .init(std.fs.File.stderr(), &stderr_buf);
+var stdout0: ?std.fs.File.Writer = null;
+var stderr0: ?std.fs.File.Writer = null;
 
-pub const stdout = &stdout0.interface;
-pub const stderr = &stderr0.interface;
+// Return the shared buffered stdout writer, initializing it on first use.
+pub fn stdout() *std.Io.Writer {
+    if (stdout0 == null) stdout0 = .init(std.fs.File.stdout(), &stdout_buf);
+    return &stdout0.?.interface;
+}
+
+// Return the shared buffered stderr writer, initializing it on first use.
+pub fn stderr() *std.Io.Writer {
+    if (stderr0 == null) stderr0 = .init(std.fs.File.stderr(), &stderr_buf);
+    return &stderr0.?.interface;
+}
 
 //
 // files
@@ -27,6 +36,11 @@ pub fn isSeekable(file: std.fs.File) bool {
     const pos = file.getPos() catch return false;
     file.seekTo(pos) catch return false;
     return true;
+}
+
+// Report whether one file handle refers to a TTY.
+pub fn isTty(file: std.fs.File) bool {
+    return file.isTty();
 }
 
 // read a single byte from an fd
@@ -213,24 +227,35 @@ pub fn benchmark(label: []const u8, elapsed_ns: u64) void {
     if (!hasenv("BENCHMARK")) return;
     const ms = elapsed_ns / std.time.ns_per_ms;
     const frac = (elapsed_ns % std.time.ns_per_ms) / std.time.ns_per_us;
-    stderr.print("{s:<17} {d:>8}.{d:0>3} ms\n", .{ label, ms, frac }) catch {};
-    stderr.flush() catch {};
+    stderr().print("{s:<17} {d:>8}.{d:0>3} ms\n", .{ label, ms, frac }) catch {};
+    stderr().flush() catch {};
 }
 
 // does this env var exist?
 pub fn hasenv(name: []const u8) bool {
-    return std.posix.getenv(name) != null;
+    const value = std.process.getEnvVarOwned(std.heap.page_allocator, name) catch return false;
+    defer std.heap.page_allocator.free(value);
+    return true;
+}
+
+// Return one owned env var value when present.
+pub fn getenvOwned(alloc: std.mem.Allocator, name: []const u8) !?[]u8 {
+    return std.process.getEnvVarOwned(alloc, name) catch |err| switch (err) {
+        error.EnvironmentVariableNotFound => null,
+        else => return err,
+    };
 }
 
 // debug logging to stderr, enabled only with TENNIS_DEBUG=1 (or any value)
 pub fn tdebug(comptime fmt: []const u8, args: anytype) void {
     if (!hasenv("TENNIS_DEBUG")) return;
-    stderr.print("tennis: " ++ fmt ++ "\n", args) catch {};
-    stderr.flush() catch {};
+    stderr().print("tennis: " ++ fmt ++ "\n", args) catch {};
+    stderr().flush() catch {};
 }
 
 // how wide is the terminal? thanks mubi
 pub fn termWidth() usize {
+    if (builtin.os.tag == .windows) return 80;
     var tty = std.fs.openFileAbsolute("/dev/tty", .{}) catch return 80;
     defer tty.close();
 
@@ -417,6 +442,7 @@ test "termWidth returns a positive width" {
     try testing.expect(termWidth() > 0);
 }
 
+const builtin = @import("builtin");
 const int = @import("int.zig");
 const mibu = @import("mibu");
 const std = @import("std");
