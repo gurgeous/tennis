@@ -22,13 +22,9 @@ pub fn main() !void {
         exit = 1;
     }
 
-    flushPipe();
-    std.process.exit(exit);
-}
-
-fn flushPipe() void {
     util.stdout.flush() catch {};
     util.stderr.flush() catch {};
+    std.process.exit(exit);
 }
 
 //
