@@ -109,8 +109,7 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
     // input => data rows
     var data = load(alloc, config, input) catch |err| {
         if (err == error.SqliteInvalidTable) {
-            const path = config.filename orelse unreachable;
-            var db = try sqlite.Sqlite.init(alloc, path);
+            var db = try sqlite.Sqlite.init(alloc, config.filename.?);
             defer db.deinit();
             return try failure.Failure.fromSqliteTableError(alloc, config.table, db.tables);
         }
