@@ -8,16 +8,15 @@ var stderr_buf: [4096]u8 = undefined;
 var stdout0: ?std.fs.File.Writer = null;
 var stderr0: ?std.fs.File.Writer = null;
 
-// Return the shared buffered stdout writer, initializing it on first use.
-pub fn stdout() *std.Io.Writer {
-    if (stdout0 == null) stdout0 = .init(std.fs.File.stdout(), &stdout_buf);
-    return &stdout0.?.interface;
-}
+pub var stdout: *std.Io.Writer = undefined;
+pub var stderr: *std.Io.Writer = undefined;
 
-// Return the shared buffered stderr writer, initializing it on first use.
-pub fn stderr() *std.Io.Writer {
-    if (stderr0 == null) stderr0 = .init(std.fs.File.stderr(), &stderr_buf);
-    return &stderr0.?.interface;
+// Initialize the shared buffered stdout/stderr writers.
+pub fn init() void {
+    stdout0 = .init(std.fs.File.stdout(), &stdout_buf);
+    stderr0 = .init(std.fs.File.stderr(), &stderr_buf);
+    stdout = &stdout0.?.interface;
+    stderr = &stderr0.?.interface;
 }
 
 //
@@ -227,8 +226,8 @@ pub fn benchmark(label: []const u8, elapsed_ns: u64) void {
     if (!hasenv("BENCHMARK")) return;
     const ms = elapsed_ns / std.time.ns_per_ms;
     const frac = (elapsed_ns % std.time.ns_per_ms) / std.time.ns_per_us;
-    stderr().print("{s:<17} {d:>8}.{d:0>3} ms\n", .{ label, ms, frac }) catch {};
-    stderr().flush() catch {};
+    stderr.print("{s:<17} {d:>8}.{d:0>3} ms\n", .{ label, ms, frac }) catch {};
+    stderr.flush() catch {};
 }
 
 // does this env var exist?
@@ -249,8 +248,8 @@ pub fn getenvOwned(alloc: std.mem.Allocator, name: []const u8) !?[]u8 {
 // debug logging to stderr, enabled only with TENNIS_DEBUG=1 (or any value)
 pub fn tdebug(comptime fmt: []const u8, args: anytype) void {
     if (!hasenv("TENNIS_DEBUG")) return;
-    stderr().print("tennis: " ++ fmt ++ "\n", args) catch {};
-    stderr().flush() catch {};
+    stderr.print("tennis: " ++ fmt ++ "\n", args) catch {};
+    stderr.flush() catch {};
 }
 
 // how wide is the terminal? thanks mubi

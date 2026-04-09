@@ -4,6 +4,8 @@
 //
 
 pub fn main() !void {
+    util.init();
+
     var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer {
         const check = gpa.deinit();
@@ -22,8 +24,8 @@ pub fn main() !void {
         exit = 1;
     }
 
-    util.stdout().flush() catch {};
-    util.stderr().flush() catch {};
+    util.stdout.flush() catch {};
+    util.stderr.flush() catch {};
     std.process.exit(exit);
 }
 
@@ -59,7 +61,7 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
     var config = switch (event) {
         .banner => {
             // plain `tennis` with no file/stdin prints the banner
-            try failure.printBanner(util.stdout(), null);
+            try failure.printBanner(util.stdout, null);
             return null;
         },
         .completion => |shell| {
@@ -71,12 +73,12 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
         .fatal => return event.takeFailure(),
         .help => {
             // help text bypasses the rest of the CLI
-            try util.stdout().writeAll(Args.help);
+            try util.stdout.writeAll(Args.help);
             return null;
         },
         .version => {
             // version is another direct early exit
-            try util.stdout().print("tennis: {s}\n", .{version});
+            try util.stdout.print("tennis: {s}\n", .{version});
             return null;
         },
         // otherwise keep the parsed config and continue
@@ -137,7 +139,7 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
     if (config.pager and builtin.os.tag != .windows and util.isTty(std.fs.File.stdout())) {
         try renderToPager(alloc, config, table);
     } else {
-        try renderToWriter(alloc, config, table, util.stdout());
+        try renderToWriter(alloc, config, table, util.stdout);
     }
 
     util.benchmark("table.render", timer.read());
@@ -192,7 +194,7 @@ fn loadBytes(alloc: std.mem.Allocator, config: types.Config, bytes_in: []const u
 fn renderToPager(alloc: std.mem.Allocator, config: types.Config, table: *Table) !void {
     const cmd = (try util.getenvOwned(alloc, "PAGER")) orelse try alloc.dupe(u8, "less");
     defer alloc.free(cmd);
-    if (std.mem.eql(u8, cmd, "cat")) return renderToWriter(alloc, config, table, util.stdout());
+    if (std.mem.eql(u8, cmd, "cat")) return renderToWriter(alloc, config, table, util.stdout);
 
     var env = try std.process.getEnvMap(alloc);
     defer env.deinit();
