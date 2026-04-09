@@ -37,11 +37,6 @@ pub fn isSeekable(file: std.fs.File) bool {
     return true;
 }
 
-// Report whether one file handle refers to a TTY.
-pub fn isTty(file: std.fs.File) bool {
-    return file.isTty();
-}
-
 // read a single byte from an fd
 pub fn readByte(fd: std.posix.fd_t) !u8 {
     var buf: [1]u8 = undefined;

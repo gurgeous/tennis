@@ -136,7 +136,7 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
     //
 
     timer = try std.time.Timer.start();
-    if (config.pager and builtin.os.tag != .windows and util.isTty(std.fs.File.stdout())) {
+    if (config.pager and builtin.os.tag != .windows and std.fs.File.stdout().isTty()) {
         try renderToPager(alloc, config, table);
     } else {
         try renderToWriter(alloc, config, table, util.stdout);

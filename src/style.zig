@@ -93,7 +93,7 @@ fn colorEnabled(color: types.Color) bool {
         .auto => blk: {
             if (util.hasenv("NO_COLOR")) break :blk false;
             if (util.hasenv("FORCE_COLOR")) break :blk true;
-            if (!util.isTty(std.fs.File.stdout())) break :blk false;
+            if (!std.fs.File.stdout().isTty()) break :blk false;
             break :blk true;
         },
     };
