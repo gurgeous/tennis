@@ -155,6 +155,8 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
 
 // Load the configured input into table data, dispatching by detected format.
 fn load(alloc: std.mem.Allocator, config: types.Config, input: std.fs.File) !Data {
+    util.tdebug("load filename={?s} seekable={}", .{ config.filename, util.isSeekable(input) });
+
     // typically we read the whole file into memory for processing. That won't
     // work if we are using `sqlite3`, though
     if (config.filename) |path| {
@@ -173,6 +175,7 @@ fn load(alloc: std.mem.Allocator, config: types.Config, input: std.fs.File) !Dat
 // Detect the format of one named file, falling back to magic bytes when the extension is unknown.
 fn sampleFormat(alloc: std.mem.Allocator, path: []const u8, input: std.fs.File) !detect.InputFormat {
     if (detect.formatFromFilename(path)) |format| return format;
+    if (!util.isSeekable(input)) return .csv;
 
     var sample_buf: [512]u8 = undefined;
     const n = try input.readAll(&sample_buf);

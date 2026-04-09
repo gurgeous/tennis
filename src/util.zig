@@ -22,6 +22,13 @@ pub fn fileExists(path: []const u8) bool {
     return true;
 }
 
+// Report whether the file handle supports seeking to the current position.
+pub fn isSeekable(file: std.fs.File) bool {
+    const pos = file.getPos() catch return false;
+    file.seekTo(pos) catch return false;
+    return true;
+}
+
 // read a single byte from an fd
 pub fn readByte(fd: std.posix.fd_t) !u8 {
     var buf: [1]u8 = undefined;
@@ -256,6 +263,22 @@ test "minmax handles floats" {
     const got = minmax(f64, &floats).?;
     try testing.expectEqual(@as(f64, -3.0), got.min);
     try testing.expectEqual(@as(f64, 9.25), got.max);
+}
+
+test "isSeekable handles file and pipe" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const file = try tmp.dir.createFile("seekable.txt", .{ .read = true });
+    defer file.close();
+    try testing.expect(isSeekable(file));
+
+    const pipe_fds = try std.posix.pipe();
+    defer std.posix.close(pipe_fds[0]);
+    defer std.posix.close(pipe_fds[1]);
+
+    const pipe_file = std.fs.File{ .handle = pipe_fds[0] };
+    try testing.expect(!isSeekable(pipe_file));
 }
 
 test "plural returns the right form" {
