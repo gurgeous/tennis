@@ -263,15 +263,17 @@ pub fn tdebug(comptime fmt: []const u8, args: anytype) void {
 
 // how wide is the terminal? thanks mubi
 pub fn termWidth() usize {
-    if (mibu.term.getSize(std.fs.File.stdout().handle)) |size| {
-        if (size.width > 0) return @intCast(size.width);
-    } else |_| {}
+    const handle = switch (builtin.os.tag) {
+        .linux, .macos => blk: {
+            var tty = std.fs.openFileAbsolute("/dev/tty", .{}) catch return 80;
+            defer tty.close();
+            break :blk tty.handle;
+        },
+        .windows => std.fs.File.stdout().handle,
+        else => unreachable,
+    };
 
-    if (builtin.os.tag == .windows) return 80;
-    var tty = std.fs.openFileAbsolute("/dev/tty", .{}) catch return 80;
-    defer tty.close();
-
-    if (mibu.term.getSize(tty.handle)) |size| {
+    if (mibu.term.getSize(handle)) |size| {
         if (size.width > 0) return @intCast(size.width);
     } else |_| {}
     return 80;

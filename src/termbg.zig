@@ -7,17 +7,15 @@
 
 // Probe the terminal and report whether its background is dark.
 pub fn isDark(alloc: std.mem.Allocator) !bool {
-    if (builtin.os.tag == .windows) {
+    if (builtin.os.tag == .windows) return error.NotSupported; // not yet
+
+    // open dev/tty. note - also fails on windows, which is totally fine
+    var devtty = std.fs.openFileAbsolute("/dev/tty", .{ .mode = .read_write }) catch |err| {
+        util.tdebug("could not open /dev/tty: {s}", .{@errorName(err)});
         return error.NotSupported;
-    } else {
-        // open dev/tty. note - also fails on windows, which is totally fine
-        var devtty = std.fs.openFileAbsolute("/dev/tty", .{ .mode = .read_write }) catch |err| {
-            util.tdebug("could not open /dev/tty: {s}", .{@errorName(err)});
-            return error.NotSupported;
-        };
-        defer devtty.close();
-        return try isDarkWith(alloc, util.getenv("TERM"), builtin.os.tag, RealTty{ .file = &devtty });
-    }
+    };
+    defer devtty.close();
+    return try isDarkWith(alloc, util.getenv("TERM"), builtin.os.tag, RealTty{ .file = &devtty });
 }
 
 // Probe terminal background color through an abstract tty interface.
