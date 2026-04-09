@@ -96,6 +96,7 @@ pub const Args = struct {
         if (std.mem.eql(u8, input, "min")) return .min;
         if (std.mem.eql(u8, input, "max")) return .max;
         const value = std.fmt.parseInt(usize, input, 10) catch return error.InvalidArgument;
+        // 0 works but is undocumented, this is fine
         if (value == 0) return .auto;
         return .{ .chars = value };
     }

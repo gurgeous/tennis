@@ -109,20 +109,21 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
         }
         return failure.Failure.fromError(err) orelse return err;
     };
-    errdefer data.deinit(alloc);
 
     // plug data headers into config, for validation
     config.bind(alloc, data.headers()) catch |err| {
+        const fatal = try failure.Failure.fromTableError(alloc, err, data.headers());
+        data.deinit(alloc);
         config.deinit(alloc);
-        return try failure.Failure.fromTableError(alloc, err, data.headers());
+        return fatal;
     };
 
     //
     // data => table
     //
 
+    // Hand off both config and data here; Table.init owns cleanup from this point on.
     const table = try Table.init(alloc, config, data);
-    data = .{ .rows = &.{} };
     defer table.deinit();
     util.benchmark("table.init", timer.read());
 
@@ -143,19 +144,30 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
 
 // Load the configured input into table data, dispatching by detected format.
 fn load(alloc: std.mem.Allocator, config: types.Config, input: std.fs.File) !Data {
-    // typically we read the whole file into memory for processing. That won't
-    // work if we are using `sqlite3`, though
+    // Named sqlite files use the external sqlite3 CLI instead of the in-memory loaders.
     if (config.filename) |path| {
-        if (detect.formatFromFilename(path) == .sqlite) {
-            var db = try sqlite.Sqlite.init(alloc, path);
-            defer db.deinit();
-            return try db.load(config.table);
+        if (!std.mem.eql(u8, path, "-")) {
+            if (try sampleFormat(alloc, path, input) == .sqlite) {
+                var db = try sqlite.Sqlite.init(alloc, path);
+                defer db.deinit();
+                return try db.load(config.table);
+            }
         }
     }
 
     const input_bytes = try input.readToEndAlloc(alloc, std.math.maxInt(usize));
     defer alloc.free(input_bytes);
     return try loadBytes(alloc, config, input_bytes);
+}
+
+// Detect the format of one named file, falling back to magic bytes when the extension is unknown.
+fn sampleFormat(alloc: std.mem.Allocator, path: []const u8, input: std.fs.File) !detect.InputFormat {
+    if (detect.formatFromFilename(path)) |format| return format;
+
+    var sample_buf: [512]u8 = undefined;
+    const n = try input.readAll(&sample_buf);
+    try input.seekTo(0);
+    return try detect.detectFormat(alloc, path, sample_buf[0..n]);
 }
 
 // Load in-memory bytes into table data using the existing text format loaders.

@@ -184,7 +184,20 @@ setup() {
 }
 
 @test "renders named sqlite table" {
-  run "$TENNIS_BIN" --color=off --width 80 --table players "$REPO_ROOT/testdata/sqlite-single.db"
+  run "$TENNIS_BIN" --color=off --width 80 --table PLAYERS "$REPO_ROOT/testdata/sqlite-single.db"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"name"* ]]
+  [[ "$output" == *"score"* ]]
+  [[ "$output" == *"alice"* ]]
+  [[ "$output" == *"cara"* ]]
+}
+
+@test "detects sqlite by magic bytes for unknown extensions" {
+  local db
+  db="$(mktemp).bin"
+  cp "$REPO_ROOT/testdata/sqlite-single.db" "$db"
+  run "$TENNIS_BIN" --color=off --width 80 "$db"
+  rm -f "$db"
   [ "$status" -eq 0 ]
   [[ "$output" == *"name"* ]]
   [[ "$output" == *"score"* ]]

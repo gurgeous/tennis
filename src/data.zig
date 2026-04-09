@@ -54,6 +54,7 @@ pub const DataRow = struct {
         var slow = false;
         var len: usize = 0;
         for (row_in, 0..) |field, ii| {
+            // Intentionally strip cells for nice display
             const str = util.strip(u8, field);
             row[ii] = str;
             if (hasControl(str)) {
@@ -73,6 +74,7 @@ pub const DataRow = struct {
         var slow = false;
         var len: usize = 0;
         for (col_order, 0..) |col, ii| {
+            // Intentionally strip cells for nice display
             const str = util.strip(u8, source[col]);
             row[ii] = str;
             if (hasControl(str)) slow = true;

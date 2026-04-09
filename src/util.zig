@@ -197,25 +197,6 @@ pub fn upperAscii(dest: []u8, src: []const u8) []const u8 {
     return dest[0..src.len];
 }
 
-// write text truncated to width, using an ellipsis when needed
-pub fn truncate(writer: *std.Io.Writer, text: []const u8, stop: usize) !void {
-    if (stop == 0) return;
-
-    var it = std.unicode.Utf8View.init(text) catch {
-        try writer.writeAll(text[0..@min(text.len, stop)]);
-        return;
-    };
-    var iter = it.iterator();
-
-    var used: usize = 0;
-    while (iter.nextCodepointSlice()) |cp_slice| {
-        if (used + 1 >= stop) break;
-        try writer.writeAll(cp_slice);
-        used += 1;
-    }
-    try writer.writeAll("…");
-}
-
 //
 // misc
 //
@@ -398,22 +379,6 @@ test "lowerAscii" {
     try testing.expectEqualStrings("abc123", lowerAscii(&buf, "AbC123"));
     try testing.expectEqualStrings(".JSON", upperAscii(&buf, ".json"));
     try testing.expectEqualStrings("ABC123", upperAscii(&buf, "AbC123"));
-}
-
-test "truncate" {
-    var buf: [256]u8 = undefined;
-    var writer = std.Io.Writer.fixed(&buf);
-
-    try truncate(&writer, "this is too long", 8);
-    try testing.expectEqualStrings("this is…", writer.buffered());
-    writer.end = 0;
-
-    try truncate(&writer, "éééé", 3);
-    try testing.expectEqualStrings("éé…", writer.buffered());
-    writer.end = 0;
-
-    try truncate(&writer, "abcdef", 0);
-    try testing.expectEqualStrings("", writer.buffered());
 }
 
 test "sum" {

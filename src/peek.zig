@@ -129,10 +129,7 @@ fn columnStats(alloc: std.mem.Allocator, table: *Table, c: usize, t: ColumnType)
 
     switch (t) {
         .int => {
-            var values: std.ArrayList(i64) = .empty;
-            defer values.deinit(alloc);
-            for (fields.items) |f| try values.append(alloc, try std.fmt.parseInt(i64, f, 10));
-            const mm = util.minmax(i64, values.items);
+            const mm = try parseIntMinmax(alloc, fields.items);
             return .{
                 .fill = fill,
                 .uniq = uniq,
@@ -187,6 +184,21 @@ fn fmtFill(alloc: std.mem.Allocator, fill: usize, nrows: usize) ![]u8 {
     if (nrows == 0) return alloc.dupe(u8, "0%");
     const pct = (fill * 100 / nrows);
     return std.fmt.allocPrint(alloc, "{d}%", .{pct});
+}
+
+// Parse integer fields into i64 stats, returning null when any value overflows i64.
+fn parseIntMinmax(alloc: std.mem.Allocator, fields: []const Field) !?struct { min: i64, max: i64 } {
+    var values: std.ArrayList(i64) = .empty;
+    defer values.deinit(alloc);
+    for (fields) |field| {
+        const value = std.fmt.parseInt(i64, field, 10) catch |err| switch (err) {
+            error.Overflow => return null,
+            else => return err,
+        };
+        try values.append(alloc, value);
+    }
+    if (util.minmax(i64, values.items)) |mm| return .{ .min = mm.min, .max = mm.max };
+    return null;
 }
 
 fn fmtIntValue(alloc: std.mem.Allocator, value: ?i64) ![]u8 {
@@ -263,6 +275,19 @@ test "buildStatsTable reports basic visible stats" {
     try test_support.expectEqualRows(&.{ "name", "string", "100%", "3", "3 chars", "5 chars" }, stats.row(0));
     try test_support.expectEqualRows(&.{ "score", "int", "100%", "2", "10", "20" }, stats.row(1));
     try test_support.expectEqualRows(&.{ "city", "string", "66%", "2", "6 chars", "7 chars" }, stats.row(2));
+}
+
+test "buildStatsTable tolerates oversized ints in peek stats" {
+    const table = try Table.initCsv(testing.allocator, .{}, "id\n99999999999999999999\n");
+    defer table.deinit();
+
+    const stats = try buildStatsTable(testing.allocator, table);
+    defer stats.deinit();
+
+    try testing.expectEqualStrings("id", stats.row(0)[0]);
+    try testing.expectEqualStrings("int", stats.row(0)[1]);
+    try testing.expectEqualStrings("—", stats.row(0)[4]);
+    try testing.expectEqualStrings("—", stats.row(0)[5]);
 }
 
 test "buildStatsTable truncates float min and max to three digits" {

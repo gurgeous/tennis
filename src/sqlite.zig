@@ -47,7 +47,9 @@ pub const Sqlite = struct {
         // --table
         if (selected_table.len > 0) {
             for (self.tables) |table| {
-                if (std.mem.eql(u8, table, selected_table)) return self.alloc.dupe(u8, table);
+                if (std.ascii.eqlIgnoreCase(table, selected_table)) {
+                    return self.alloc.dupe(u8, table);
+                }
             }
             return error.SqliteInvalidTable;
         }
