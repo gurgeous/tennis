@@ -6,15 +6,18 @@ dist: tmp/dist
 builds:
   - builder: zig
     flags: ["-Doptimize=ReleaseSmall"]
-    targets: ["aarch64-linux", "aarch64-macos", "x86_64-linux"]
+    targets: ["aarch64-linux", "aarch64-macos", "x86_64-linux", "x86_64-macos", "x86_64-windows"]
 
 # what to put in the tgz files
 archives:
   - files:
       - extra/*
-      - LICENSE
+      - LICENSE-
       - README.md
     wrap_in_directory: true
+    format_overrides:
+      - goos: windows
+        formats: ["zip"]
 
 # turn stuff off
 announce: { skip: true }
