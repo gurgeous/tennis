@@ -33,11 +33,10 @@ pub const Sqlite = struct {
         const sql = try std.fmt.allocPrint(self.alloc, "SELECT * FROM {s};", .{table});
         defer self.alloc.free(sql);
 
-        const out = try runSqlite(self.alloc, &.{ "-header", "-csv", self.path, sql });
-        defer self.alloc.free(out.stderr);
-        defer self.alloc.free(out.stdout);
+        const stdout = try runSqlCsv(self.alloc, self.path, sql);
+        defer self.alloc.free(stdout);
 
-        return try csv.load(self.alloc, out.stdout, ',');
+        return try csv.load(self.alloc, stdout, ',');
     }
 
     // Choose a deterministic table, preferring the requested table or the largest table.
@@ -114,9 +113,19 @@ fn listTablesAlloc(alloc: std.mem.Allocator, path: []const u8) ![][]const u8 {
     return out.toOwnedSlice(alloc);
 }
 
-// Run one query and return bytes
+// Run one query and return bytes.
 fn runSql(alloc: std.mem.Allocator, path: []const u8, sql: []const u8) ![]u8 {
-    const result = try runSqlite(alloc, &.{ "-batch", "-noheader", path, sql });
+    return runSqlWithArgs(alloc, &.{ "-batch", "-noheader", path, sql });
+}
+
+// Run one csv query and return bytes.
+fn runSqlCsv(alloc: std.mem.Allocator, path: []const u8, sql: []const u8) ![]u8 {
+    return runSqlWithArgs(alloc, &.{ "-batch", "-header", "-csv", path, sql });
+}
+
+// Run one sqlite command with fixed argv and return stdout on success.
+fn runSqlWithArgs(alloc: std.mem.Allocator, argv: []const []const u8) ![]u8 {
+    const result = try runSqlite(alloc, argv);
     defer alloc.free(result.stderr);
 
     switch (result.term) {
