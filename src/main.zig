@@ -109,7 +109,7 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
     // input => data rows
     var data = load(alloc, config, input) catch |err| {
         if (err == error.SqliteInvalidTable) {
-            const path = config.filename orelse return err;
+            const path = config.filename orelse unreachable;
             var db = try sqlite.Sqlite.init(alloc, path);
             defer db.deinit();
             return try failure.Failure.fromSqliteTableError(alloc, config.table, db.tables);
@@ -163,9 +163,9 @@ fn load(alloc: std.mem.Allocator, config: types.Config, input: std.fs.File) !Dat
         return try db.load(config.table);
     }
 
-    const input_bytes = try input.readToEndAlloc(alloc, std.math.maxInt(usize));
-    defer alloc.free(input_bytes);
-    return try loadBytes(alloc, config, input_bytes);
+    const bytes = try input.readToEndAlloc(alloc, std.math.maxInt(usize));
+    defer alloc.free(bytes);
+    return try loadBytes(alloc, config, bytes);
 }
 
 // Load in-memory bytes into table data using the existing text format loaders.
@@ -176,9 +176,8 @@ fn loadBytes(alloc: std.mem.Allocator, config: types.Config, bytes_in: []const u
         bytes = bytes[3..];
     }
 
-    const format = try detect.detectFormat(alloc, config.filename, bytes);
-
     // sqlite3 and stray --table
+    const format = try detect.detectFormat(alloc, config.filename, bytes);
     if (format == .sqlite) return error.SqliteRequiresFile;
     if (config.table.len > 0) return error.SqliteTableRequiresSqlite;
 
