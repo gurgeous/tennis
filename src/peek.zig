@@ -191,10 +191,7 @@ fn parseIntMinmax(alloc: std.mem.Allocator, fields: []const Field) !?struct { mi
     var values: std.ArrayList(i64) = .empty;
     defer values.deinit(alloc);
     for (fields) |field| {
-        const value = std.fmt.parseInt(i64, field, 10) catch |err| switch (err) {
-            error.Overflow => return null,
-            else => return err,
-        };
+        const value = std.fmt.parseInt(i64, field, 10) catch continue;
         try values.append(alloc, value);
     }
     if (util.minmax(i64, values.items)) |mm| return .{ .min = mm.min, .max = mm.max };

@@ -194,10 +194,9 @@ setup() {
 
 @test "detects sqlite by magic bytes for unknown extensions" {
   local db
-  db="$(mktemp).bin"
+  db="$BATS_TEST_TMPDIR/sqlite-single.bin"
   cp "$REPO_ROOT/testdata/sqlite-single.db" "$db"
   run "$TENNIS_BIN" --color=off --width 80 "$db"
-  rm -f "$db"
   [ "$status" -eq 0 ]
   [[ "$output" == *"name"* ]]
   [[ "$output" == *"score"* ]]
