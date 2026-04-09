@@ -2,14 +2,15 @@
 // convenient stdout/stderr buffered writers
 //
 
+pub var stdout: *std.Io.Writer = undefined;
+pub var stderr: *std.Io.Writer = undefined;
+
 var stdout_buf: [4096]u8 = undefined;
 var stderr_buf: [4096]u8 = undefined;
 
 var stdout0: ?std.fs.File.Writer = null;
 var stderr0: ?std.fs.File.Writer = null;
-
-pub var stdout: *std.Io.Writer = undefined;
-pub var stderr: *std.Io.Writer = undefined;
+var env: ?std.process.EnvMap = null;
 
 // Initialize the shared buffered stdout/stderr writers.
 pub fn init() void {
@@ -17,6 +18,13 @@ pub fn init() void {
     stderr0 = .init(std.fs.File.stderr(), &stderr_buf);
     stdout = &stdout0.?.interface;
     stderr = &stderr0.?.interface;
+    ensureEnv();
+}
+
+// Release any shared runtime state initialized by init().
+pub fn deinit() void {
+    if (env) |*env0| env0.deinit();
+    env = null;
 }
 
 //
@@ -213,6 +221,29 @@ pub fn upperAscii(dest: []u8, src: []const u8) []const u8 {
 }
 
 //
+// env
+//
+
+// Initialize the cached environment map on first use.
+fn ensureEnv() void {
+    if (env != null) return;
+    env = std.process.getEnvMap(std.heap.page_allocator) catch @panic("could not load env");
+}
+
+// does this env var exist?
+pub fn hasenv(name: []const u8) bool {
+    ensureEnv();
+    return env.?.get(name) != null;
+}
+
+// Return one owned env var value when present.
+pub fn getenv(alloc: std.mem.Allocator, name: []const u8) !?[]u8 {
+    ensureEnv();
+    const value = env.?.get(name) orelse return null;
+    return try alloc.dupe(u8, value);
+}
+
+//
 // misc
 //
 
@@ -223,21 +254,6 @@ pub fn benchmark(label: []const u8, elapsed_ns: u64) void {
     const frac = (elapsed_ns % std.time.ns_per_ms) / std.time.ns_per_us;
     stderr.print("{s:<17} {d:>8}.{d:0>3} ms\n", .{ label, ms, frac }) catch {};
     stderr.flush() catch {};
-}
-
-// does this env var exist?
-pub fn hasenv(name: []const u8) bool {
-    const value = std.process.getEnvVarOwned(std.heap.page_allocator, name) catch return false;
-    defer std.heap.page_allocator.free(value);
-    return true;
-}
-
-// Return one owned env var value when present.
-pub fn getenvOwned(alloc: std.mem.Allocator, name: []const u8) !?[]u8 {
-    return std.process.getEnvVarOwned(alloc, name) catch |err| switch (err) {
-        error.EnvironmentVariableNotFound => null,
-        else => return err,
-    };
 }
 
 // debug logging to stderr, enabled only with TENNIS_DEBUG=1 (or any value)
@@ -322,6 +338,8 @@ test "fileExists" {
 }
 
 test "hasenv" {
+    init();
+    defer deinit();
     try testing.expect(hasenv("PATH"));
     try testing.expect(!hasenv("TENNIS_TEST_ENV_DOES_NOT_EXIST"));
 }
@@ -428,6 +446,8 @@ test "sum" {
 }
 
 test "tdebug" {
+    init();
+    defer deinit();
     tdebug("off {d}", .{1});
     tdebug("on {d}", .{2});
 }

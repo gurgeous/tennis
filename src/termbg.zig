@@ -9,7 +9,7 @@
 pub fn isDark(alloc: std.mem.Allocator) !bool {
     if (builtin.os.tag == .windows) return error.NotSupported;
 
-    const term = try util.getenvOwned(alloc, "TERM");
+    const term = try util.getenv(alloc, "TERM");
     defer if (term) |value| alloc.free(value);
 
     // open dev/tty

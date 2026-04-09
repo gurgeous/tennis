@@ -5,6 +5,7 @@
 
 pub fn main() !void {
     util.init();
+    defer util.deinit();
 
     var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer {
@@ -192,7 +193,7 @@ fn loadBytes(alloc: std.mem.Allocator, config: types.Config, bytes_in: []const u
 //
 
 fn renderToPager(alloc: std.mem.Allocator, config: types.Config, table: *Table) !void {
-    const cmd = (try util.getenvOwned(alloc, "PAGER")) orelse try alloc.dupe(u8, "less");
+    const cmd = (try util.getenv(alloc, "PAGER")) orelse try alloc.dupe(u8, "less");
     defer alloc.free(cmd);
     if (std.mem.eql(u8, cmd, "cat")) return renderToWriter(alloc, config, table, util.stdout);
 
