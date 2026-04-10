@@ -12,7 +12,7 @@ builds:
 archives:
   - files:
       - extra/*
-      - LICENSE-
+      - LICENSE
       - README.md
     wrap_in_directory: true
     format_overrides:

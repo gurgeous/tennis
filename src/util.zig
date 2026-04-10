@@ -12,13 +12,17 @@ var stdout0: ?std.fs.File.Writer = null;
 var stderr0: ?std.fs.File.Writer = null;
 var env: ?std.process.EnvMap = null;
 
+//
+// init/deinit
+//
+
 // Initialize the shared buffered stdout/stderr writers.
 pub fn init() void {
     stdout0 = .init(std.fs.File.stdout(), &stdout_buf);
     stderr0 = .init(std.fs.File.stderr(), &stderr_buf);
     stdout = &stdout0.?.interface;
     stderr = &stderr0.?.interface;
-    ensureEnv();
+    env = std.process.getEnvMap(std.heap.page_allocator) catch @panic("could not load env");
 }
 
 // Release any shared runtime state initialized by init().
@@ -222,13 +226,8 @@ pub fn upperAscii(dest: []u8, src: []const u8) []const u8 {
 
 //
 // env
+// Note: to use these only work if you call util.init, otherwise they always return null
 //
-
-// Initialize the cached environment map on first use.
-fn ensureEnv() void {
-    if (env != null) return;
-    env = std.process.getEnvMap(std.heap.page_allocator) catch @panic("could not load env");
-}
 
 // does this env var exist?
 pub fn hasenv(name: []const u8) bool {
@@ -237,8 +236,7 @@ pub fn hasenv(name: []const u8) bool {
 
 // Return one borrowed env var value when present.
 pub fn getenv(name: []const u8) ?[]const u8 {
-    ensureEnv();
-    return env.?.get(name);
+    return if (env) |env0| env0.get(name) else null;
 }
 
 //
@@ -264,13 +262,12 @@ pub fn tdebug(comptime fmt: []const u8, args: anytype) void {
 // how wide is the terminal? thanks mubi
 pub fn termWidth() usize {
     const handle = switch (builtin.os.tag) {
-        .linux, .macos => blk: {
+        .windows => std.fs.File.stdout().handle,
+        else => blk: {
             var tty = std.fs.openFileAbsolute("/dev/tty", .{}) catch return 80;
             defer tty.close();
             break :blk tty.handle;
         },
-        .windows => std.fs.File.stdout().handle,
-        else => unreachable,
     };
 
     if (mibu.term.getSize(handle)) |size| {
@@ -342,6 +339,8 @@ test "fileExists" {
 }
 
 test "hasenv" {
+    init();
+    defer deinit();
     try testing.expect(hasenv("PATH"));
     try testing.expect(!hasenv("TENNIS_TEST_ENV_DOES_NOT_EXIST"));
 }
