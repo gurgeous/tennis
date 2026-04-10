@@ -51,6 +51,7 @@ pub fn isSqliteFile(alloc: std.mem.Allocator, filename: ?[]const u8, input: std.
     // do we have an actual file?
     const path = filename orelse return false;
     if (std.mem.eql(u8, path, "-")) return false;
+    if (!util.isSeekable(input)) return false;
 
     // sample the first few bytes to look for sqlite3 magic
     var buf: [32]u8 = undefined;

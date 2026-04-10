@@ -132,6 +132,8 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 - style numeric columns. #35 (@jakob1379)
 - `--width min` to layout based on header width, or `--width max` to disable truncation
 - percent columns are justified (thanks @nkriege)
+- experimental windows binaries #38 (@S-U-V-E-N-D-U-P-A-N-D-A)
+- experimental macos-intel binaries #40 (@nafarinha)
 
 #### 0.4.0 (Apr '26)
 

@@ -122,8 +122,6 @@ pub const Args = struct {
 
     // Parse argv and map supported flags into config.
     fn parse(alloc: std.mem.Allocator, argv: []const []const u8, diag: *clap.Diagnostic) !MainEvent {
-        if (builtin.os.tag == .windows) return error.Windows;
-
         var iter = clap.args.SliceIterator{ .args = argv };
         var res = try clap.parseEx(clap.Help, &params, parsers, &iter, .{
             .allocator = alloc,
@@ -180,7 +178,7 @@ pub const Args = struct {
         // now handle filename
         //
 
-        return try resolveInput(config, argv.len, res.positionals[0], std.posix.isatty(std.fs.File.stdin().handle));
+        return try resolveInput(config, argv.len, res.positionals[0], std.fs.File.stdin().isTty());
     }
 
     // Resolve positional input into stdin, file, or banner behavior.

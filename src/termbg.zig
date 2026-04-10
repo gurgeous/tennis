@@ -7,13 +7,15 @@
 
 // Probe the terminal and report whether its background is dark.
 pub fn isDark(alloc: std.mem.Allocator) !bool {
-    // open dev/tty
+    if (builtin.os.tag == .windows) return error.NotSupported; // not yet
+
+    // open dev/tty. note - also fails on windows, which is totally fine
     var devtty = std.fs.openFileAbsolute("/dev/tty", .{ .mode = .read_write }) catch |err| {
         util.tdebug("could not open /dev/tty: {s}", .{@errorName(err)});
         return error.NotSupported;
     };
     defer devtty.close();
-    return try isDarkWith(alloc, std.posix.getenv("TERM"), builtin.os.tag, RealTty{ .file = &devtty });
+    return try isDarkWith(alloc, util.getenv("TERM"), builtin.os.tag, RealTty{ .file = &devtty });
 }
 
 // Probe terminal background color through an abstract tty interface.
@@ -94,7 +96,7 @@ fn isOsc11Response(response: []const u8) bool {
     return response.len >= 2 and response[1] == ']';
 }
 
-const RealTty = struct {
+const RealTty = if (builtin.os.tag != .windows) struct {
     file: *std.fs.File,
 
     // Fetch the current terminal attributes.
@@ -116,6 +118,8 @@ const RealTty = struct {
     fn readResponse(self: @This(), alloc: std.mem.Allocator) ![]u8 {
         return try termReadResponse(alloc, self.file.handle);
     }
+} else struct {
+    file: *std.fs.File,
 };
 
 //

@@ -1,6 +1,3 @@
-# Required for codex shell sessions where mise PATH hooks may not be active.
-export PATH := env("HOME") + "/.local/share/mise/installs/zig/0.15.2/bin:" + env("PATH")
-
 default:
   just --list
 
@@ -9,6 +6,9 @@ build:
 
 build-release:
   zig build -Doptimize=ReleaseSmall
+
+build-windows:
+  zig build -Dtarget=x86_64-windows-gnu
 
 clean:
   rm -rf tmp zig-out
@@ -27,8 +27,10 @@ run *ARGS:
 check: clean-weekly build lint test test-bats
   just banner "✓ check ✓"
 
+[unix]
 ci: check
-  just banner "✓ ci ✓"
+[windows]
+ci: build-windows
 
 clean-weekly:
   if [ -d tmp ] && [ "$(find tmp -type d -prune -mtime +7 | wc -l)" -gt 0 ]; then \

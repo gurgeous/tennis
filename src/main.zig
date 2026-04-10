@@ -4,6 +4,9 @@
 //
 
 pub fn main() !void {
+    util.init();
+    defer util.deinit();
+
     var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer {
         const check = gpa.deinit();
@@ -134,7 +137,7 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
     //
 
     timer = try std.time.Timer.start();
-    if (config.pager and std.posix.isatty(std.fs.File.stdout().handle)) {
+    if (config.pager and builtin.os.tag != .windows and std.fs.File.stdout().isTty()) {
         try renderToPager(alloc, config, table);
     } else {
         try renderToWriter(alloc, config, table, util.stdout);
@@ -190,7 +193,7 @@ fn loadBytes(alloc: std.mem.Allocator, config: types.Config, bytes_in: []const u
 //
 
 fn renderToPager(alloc: std.mem.Allocator, config: types.Config, table: *Table) !void {
-    const cmd = std.posix.getenv("PAGER") orelse "less";
+    const cmd = util.getenv("PAGER") orelse "less";
     if (std.mem.eql(u8, cmd, "cat")) return renderToWriter(alloc, config, table, util.stdout);
 
     var env = try std.process.getEnvMap(alloc);

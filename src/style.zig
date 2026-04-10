@@ -93,7 +93,7 @@ fn colorEnabled(color: types.Color) bool {
         .auto => blk: {
             if (util.hasenv("NO_COLOR")) break :blk false;
             if (util.hasenv("FORCE_COLOR")) break :blk true;
-            if (!std.posix.isatty(std.fs.File.stdout().handle)) break :blk false;
+            if (!std.fs.File.stdout().isTty()) break :blk false;
             break :blk true;
         },
     };
@@ -129,6 +129,7 @@ test "colorEnabled auto returns a boolean" {
     try testing.expect(colorEnabled(.auto) == true or colorEnabled(.auto) == false);
 }
 
+const builtin = @import("builtin");
 const Color = @import("color.zig").Color;
 const mibu = @import("mibu");
 const std = @import("std");

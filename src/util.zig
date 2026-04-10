@@ -2,14 +2,34 @@
 // convenient stdout/stderr buffered writers
 //
 
+pub var stdout: *std.Io.Writer = undefined;
+pub var stderr: *std.Io.Writer = undefined;
+
 var stdout_buf: [4096]u8 = undefined;
 var stderr_buf: [4096]u8 = undefined;
 
-var stdout0: std.fs.File.Writer = .init(std.fs.File.stdout(), &stdout_buf);
-var stderr0: std.fs.File.Writer = .init(std.fs.File.stderr(), &stderr_buf);
+var stdout0: ?std.fs.File.Writer = null;
+var stderr0: ?std.fs.File.Writer = null;
+var env: ?std.process.EnvMap = null;
 
-pub const stdout = &stdout0.interface;
-pub const stderr = &stderr0.interface;
+//
+// init/deinit
+//
+
+// Initialize the shared buffered stdout/stderr writers.
+pub fn init() void {
+    stdout0 = .init(std.fs.File.stdout(), &stdout_buf);
+    stderr0 = .init(std.fs.File.stderr(), &stderr_buf);
+    stdout = &stdout0.?.interface;
+    stderr = &stderr0.?.interface;
+    env = std.process.getEnvMap(std.heap.page_allocator) catch @panic("could not load env");
+}
+
+// Release any shared runtime state initialized by init().
+pub fn deinit() void {
+    if (env) |*env0| env0.deinit();
+    env = null;
+}
 
 //
 // files
@@ -205,6 +225,21 @@ pub fn upperAscii(dest: []u8, src: []const u8) []const u8 {
 }
 
 //
+// env
+// Note: to use these only work if you call util.init, otherwise they always return null
+//
+
+// does this env var exist?
+pub fn hasenv(name: []const u8) bool {
+    return getenv(name) != null;
+}
+
+// Return one borrowed env var value when present.
+pub fn getenv(name: []const u8) ?[]const u8 {
+    return if (env) |env0| env0.get(name) else null;
+}
+
+//
 // misc
 //
 
@@ -217,11 +252,6 @@ pub fn benchmark(label: []const u8, elapsed_ns: u64) void {
     stderr.flush() catch {};
 }
 
-// does this env var exist?
-pub fn hasenv(name: []const u8) bool {
-    return std.posix.getenv(name) != null;
-}
-
 // debug logging to stderr, enabled only with TENNIS_DEBUG=1 (or any value)
 pub fn tdebug(comptime fmt: []const u8, args: anytype) void {
     if (!hasenv("TENNIS_DEBUG")) return;
@@ -231,10 +261,16 @@ pub fn tdebug(comptime fmt: []const u8, args: anytype) void {
 
 // how wide is the terminal? thanks mubi
 pub fn termWidth() usize {
-    var tty = std.fs.openFileAbsolute("/dev/tty", .{}) catch return 80;
-    defer tty.close();
+    const handle = switch (builtin.os.tag) {
+        .windows => std.fs.File.stdout().handle,
+        else => blk: {
+            var tty = std.fs.openFileAbsolute("/dev/tty", .{}) catch return 80;
+            defer tty.close();
+            break :blk tty.handle;
+        },
+    };
 
-    if (mibu.term.getSize(tty.handle)) |size| {
+    if (mibu.term.getSize(handle)) |size| {
         if (size.width > 0) return @intCast(size.width);
     } else |_| {}
     return 80;
@@ -303,6 +339,8 @@ test "fileExists" {
 }
 
 test "hasenv" {
+    init();
+    defer deinit();
     try testing.expect(hasenv("PATH"));
     try testing.expect(!hasenv("TENNIS_TEST_ENV_DOES_NOT_EXIST"));
 }
@@ -408,15 +446,11 @@ test "sum" {
     try testing.expectEqual(@as(usize, 10), sum(usize, &.{ 1, 2, 3, 4 }));
 }
 
-test "tdebug" {
-    tdebug("off {d}", .{1});
-    tdebug("on {d}", .{2});
-}
-
 test "termWidth returns a positive width" {
     try testing.expect(termWidth() > 0);
 }
 
+const builtin = @import("builtin");
 const int = @import("int.zig");
 const mibu = @import("mibu");
 const std = @import("std");
