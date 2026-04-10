@@ -1,6 +1,3 @@
-# Required for codex shell sessions where mise PATH hooks may not be active.
-export PATH := env("HOME") + "/.local/share/mise/installs/zig/0.15.2/bin:" + env("PATH")
-
 default:
   just --list
 
