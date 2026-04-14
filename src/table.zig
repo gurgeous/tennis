@@ -177,7 +177,7 @@ pub const Table = struct {
             sorter.apply(self.data, row_order);
         }
         if (self.config.shuffle) {
-            const seed = if (self.config.srand != 0) self.config.srand else std.math.cast(u64, util.timerStart().toNanoseconds()) orelse 0;
+            const seed = if (self.config.srand != 0) self.config.srand else randomSeed();
             var prng = std.Random.DefaultPrng.init(seed);
             prng.random().shuffle(usize, row_order);
         }
@@ -245,6 +245,13 @@ pub const Table = struct {
             }
         }
         return out.toOwnedSlice(self.alloc);
+    }
+
+    // Generate one unpredictable PRNG seed from the runtime IO entropy source.
+    fn randomSeed() u64 {
+        var bytes: [8]u8 = undefined;
+        util.getIo().random(&bytes);
+        return std.mem.readInt(u64, &bytes, .little);
     }
 };
 

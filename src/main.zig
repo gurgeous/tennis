@@ -2,6 +2,12 @@
 // main entrypoint
 // Owns process flow, input detection, loading, and top-level CLI behavior.
 //
+// trim vs trimStart/trimEnd
+// util.io stuff, current, etc. this seems weird. do we need timerStart?
+// maybe util.benchmark should just take timer, get rid of Util.timerRead
+// juicyman/env
+// natsort - trimleading
+//
 
 pub fn main(init_process: std.process.Init) !u8 {
     util.initRuntime(init_process.io, init_process.minimal.environ);
@@ -28,6 +34,7 @@ pub fn main(init_process: std.process.Init) !u8 {
 // Run the CLI and return a printable failure when the command should fail.
 //
 
+// REVIEW: just accept std.process.Init. Should std.process.Init be a global?
 fn main0(alloc: std.mem.Allocator, arena: std.mem.Allocator, process_args: std.process.Args) !?failure.Failure {
     // timer
     const total = util.timerStart();

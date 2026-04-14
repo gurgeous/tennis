@@ -20,12 +20,7 @@ var environ0: ?std.process.Environ = null;
 
 // Initialize the shared buffered stdout/stderr writers.
 pub fn init() void {
-    const io = currentIo();
-    stdout0 = std.Io.File.stdout().writerStreaming(io, &stdout_buf);
-    stderr0 = std.Io.File.stderr().writerStreaming(io, &stderr_buf);
-    stdout = &stdout0.?.interface;
-    stderr = &stderr0.?.interface;
-    env = std.process.Environ.createMap(currentEnviron(), std.heap.page_allocator) catch @panic("could not load env");
+    initWriters(currentIo(), currentEnviron());
 }
 
 // Release any shared runtime state initialized by init().
@@ -40,6 +35,11 @@ pub fn deinit() void {
 pub fn initRuntime(io: std.Io, environ: std.process.Environ) void {
     io0 = io;
     environ0 = environ;
+    initWriters(io, environ);
+}
+
+// Initialize buffered stdio plus the cached environment map.
+fn initWriters(io: std.Io, environ: std.process.Environ) void {
     stdout0 = std.Io.File.stdout().writerStreaming(io, &stdout_buf);
     stderr0 = std.Io.File.stderr().writerStreaming(io, &stderr_buf);
     stdout = &stdout0.?.interface;
@@ -61,11 +61,9 @@ pub fn fileExists(path: []const u8) bool {
 
 // Report whether the file handle supports seeking to the current position.
 pub fn isSeekable(file: std.Io.File) bool {
-    const stat = file.stat(currentIo()) catch return false;
-    return switch (stat.kind) {
-        .named_pipe, .unix_domain_socket => false,
-        else => true,
-    };
+    const io = currentIo();
+    io.vtable.fileSeekBy(io.userdata, file, 0) catch return false;
+    return true;
 }
 
 // read a single byte from an fd
@@ -515,7 +513,9 @@ pub fn getEnviron() std.process.Environ {
 // Return the current process environment for the active runtime.
 fn currentEnviron() std.process.Environ {
     if (builtin.is_test) return std.testing.environ;
-    return environ0 orelse std.Options.debug_threaded_io.?.environ.process_environ;
+    if (environ0) |environ| return environ;
+    const threaded = std.Options.debug_threaded_io orelse @panic("util.initRuntime must run before reading the process environment");
+    return threaded.environ.process_environ;
 }
 
 // Return the IO implementation for the active runtime.

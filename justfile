@@ -1,6 +1,7 @@
 default:
   just --list
 
+# REVIEW: remove
 init:
   mise install
 
