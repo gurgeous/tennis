@@ -127,23 +127,24 @@ fn runSqlCsv(alloc: std.mem.Allocator, path: []const u8, sql: []const u8) ![]u8 
 
 // Run one sqlite command with fixed argv and return stdout on success.
 fn runSqlWithArgs(alloc: std.mem.Allocator, argv: []const []const u8) ![]u8 {
-    const result = try runSqlite(alloc, argv);
-    defer alloc.free(result.stderr);
+    const result = try runSqlite(argv);
+    defer std.heap.page_allocator.free(result.stderr);
 
     switch (result.term) {
-        .Exited => |code| {
+        .exited => |code| {
             if (code != 0) {
-                alloc.free(result.stdout);
+                std.heap.page_allocator.free(result.stdout);
                 return error.SqliteCliFailed;
             }
         },
         else => {
-            alloc.free(result.stdout);
+            std.heap.page_allocator.free(result.stdout);
             return error.SqliteCliFailed;
         },
     }
 
-    return result.stdout;
+    defer std.heap.page_allocator.free(result.stdout);
+    return alloc.dupe(u8, result.stdout);
 }
 
 // Run a scalar sql query and return first line
@@ -163,19 +164,22 @@ fn queryScalarOrNull(alloc: std.mem.Allocator, path: []const u8, sql: []const u8
 }
 
 // Run a single sqlite command
-fn runSqlite(alloc: std.mem.Allocator, argv_in: []const []const u8) !std.process.Child.RunResult {
+fn runSqlite(argv_in: []const []const u8) !std.process.RunResult {
     // SQLite export can legitimately be large for wide tables.
     const max_output_bytes = 64 * 1024 * 1024;
-    const argv = try std.mem.concat(alloc, []const u8, &.{ &.{ "sqlite3", "-readonly" }, argv_in });
-    defer alloc.free(argv);
+    const argv = try std.heap.page_allocator.alloc([]const u8, argv_in.len + 2);
+    defer std.heap.page_allocator.free(argv);
+    argv[0] = "sqlite3";
+    argv[1] = "-readonly";
+    @memcpy(argv[2..], argv_in);
 
-    return std.process.Child.run(.{
-        .allocator = alloc,
+    return std.process.run(std.heap.page_allocator, util.getIo(), .{
         .argv = argv,
-        .max_output_bytes = max_output_bytes,
+        .stdout_limit = .limited(max_output_bytes),
+        .stderr_limit = .limited(max_output_bytes),
     }) catch |err| switch (err) {
         error.FileNotFound => error.SqliteCliMissing,
-        error.StdoutStreamTooLong, error.StderrStreamTooLong => error.SqliteTooLarge,
+        error.StreamTooLong => error.SqliteTooLarge,
         else => err,
     };
 }

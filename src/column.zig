@@ -200,7 +200,9 @@ test "column inference ignores blanks and scans all rows" {
 
     try buf.appendSlice(testing.allocator, "a,b\n");
     for (0..100) |ii| {
-        try buf.writer(testing.allocator).print("{d},\n", .{ii});
+        var line: [32]u8 = undefined;
+        const text = try std.fmt.bufPrint(&line, "{d},\n", .{ii});
+        try buf.appendSlice(testing.allocator, text);
     }
     try buf.appendSlice(testing.allocator, "not-a-number,\n");
 

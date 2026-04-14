@@ -32,14 +32,14 @@ pub const Table = struct {
         errdefer table.deinit();
 
         // rows
-        var timer = try std.time.Timer.start();
+        var timer = util.timerStart();
         if (!table.empty) table.rows = try table.buildRows();
-        util.benchmark(" table.rows", timer.read());
+        util.benchmark(" table.rows", util.timerRead(timer));
 
         // cols
-        timer = try std.time.Timer.start();
+        timer = util.timerStart();
         table.columns = try table.buildColumns();
-        util.benchmark(" table.cols", timer.read());
+        util.benchmark(" table.cols", util.timerRead(timer));
 
         return table;
     }
@@ -79,16 +79,16 @@ pub const Table = struct {
 
     // Render this table to the provided writer.
     pub fn renderTable(self: *Self, writer: *std.Io.Writer) !void {
-        var timer = try std.time.Timer.start();
+        var timer = util.timerStart();
         const layout = try Layout.init(self);
         defer layout.deinit(self.alloc);
-        util.benchmark(" render.layout", timer.read());
+        util.benchmark(" render.layout", util.timerRead(timer));
 
         var renderer: Render = .init(self, writer, layout);
         defer renderer.deinit();
-        timer = try std.time.Timer.start();
+        timer = util.timerStart();
         try renderer.render();
-        util.benchmark(" render.output", timer.read());
+        util.benchmark(" render.output", util.timerRead(timer));
     }
 
     //
@@ -177,7 +177,7 @@ pub const Table = struct {
             sorter.apply(self.data, row_order);
         }
         if (self.config.shuffle) {
-            const seed = if (self.config.srand != 0) self.config.srand else std.crypto.random.int(u64);
+            const seed = if (self.config.srand != 0) self.config.srand else std.math.cast(u64, util.timerStart().toNanoseconds()) orelse 0;
             var prng = std.Random.DefaultPrng.init(seed);
             prng.random().shuffle(usize, row_order);
         }

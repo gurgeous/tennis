@@ -8,9 +8,11 @@ pub var stderr: *std.Io.Writer = undefined;
 var stdout_buf: [4096]u8 = undefined;
 var stderr_buf: [4096]u8 = undefined;
 
-var stdout0: ?std.fs.File.Writer = null;
-var stderr0: ?std.fs.File.Writer = null;
-var env: ?std.process.EnvMap = null;
+var stdout0: ?std.Io.File.Writer = null;
+var stderr0: ?std.Io.File.Writer = null;
+var env: ?std.process.Environ.Map = null;
+var io0: ?std.Io = null;
+var environ0: ?std.process.Environ = null;
 
 //
 // init/deinit
@@ -18,17 +20,31 @@ var env: ?std.process.EnvMap = null;
 
 // Initialize the shared buffered stdout/stderr writers.
 pub fn init() void {
-    stdout0 = .init(std.fs.File.stdout(), &stdout_buf);
-    stderr0 = .init(std.fs.File.stderr(), &stderr_buf);
+    const io = currentIo();
+    stdout0 = std.Io.File.stdout().writerStreaming(io, &stdout_buf);
+    stderr0 = std.Io.File.stderr().writerStreaming(io, &stderr_buf);
     stdout = &stdout0.?.interface;
     stderr = &stderr0.?.interface;
-    env = std.process.getEnvMap(std.heap.page_allocator) catch @panic("could not load env");
+    env = std.process.Environ.createMap(currentEnviron(), std.heap.page_allocator) catch @panic("could not load env");
 }
 
 // Release any shared runtime state initialized by init().
 pub fn deinit() void {
     if (env) |*env0| env0.deinit();
     env = null;
+    io0 = null;
+    environ0 = null;
+}
+
+// Initialize process-global IO and environment for the real application runtime.
+pub fn initRuntime(io: std.Io, environ: std.process.Environ) void {
+    io0 = io;
+    environ0 = environ;
+    stdout0 = std.Io.File.stdout().writerStreaming(io, &stdout_buf);
+    stderr0 = std.Io.File.stderr().writerStreaming(io, &stderr_buf);
+    stdout = &stdout0.?.interface;
+    stderr = &stderr0.?.interface;
+    env = std.process.Environ.createMap(environ, std.heap.page_allocator) catch @panic("could not load env");
 }
 
 //
@@ -37,16 +53,19 @@ pub fn deinit() void {
 
 // does this file exist?
 pub fn fileExists(path: []const u8) bool {
-    const f = std.fs.cwd().openFile(path, .{}) catch return false;
-    f.close();
+    const io = currentIo();
+    const f = std.Io.Dir.cwd().openFile(io, path, .{}) catch return false;
+    f.close(io);
     return true;
 }
 
 // Report whether the file handle supports seeking to the current position.
-pub fn isSeekable(file: std.fs.File) bool {
-    const pos = file.getPos() catch return false;
-    file.seekTo(pos) catch return false;
-    return true;
+pub fn isSeekable(file: std.Io.File) bool {
+    const stat = file.stat(currentIo()) catch return false;
+    return switch (stat.kind) {
+        .named_pipe, .unix_domain_socket => false,
+        else => true,
+    };
 }
 
 // read a single byte from an fd
@@ -125,7 +144,9 @@ pub fn inspect(alloc: std.mem.Allocator, s: []const u8) ![]u8 {
                 if (c >= 0x20 and c <= 0x7e) {
                     try out.append(alloc, c);
                 } else {
-                    try out.writer(alloc).print("\\x{x:0>2}", .{c});
+                    var buf: [4]u8 = undefined;
+                    const hex = try std.fmt.bufPrint(&buf, "\\x{x:0>2}", .{c});
+                    try out.appendSlice(alloc, hex);
                 }
             },
         }
@@ -226,7 +247,7 @@ pub fn upperAscii(dest: []u8, src: []const u8) []const u8 {
 
 //
 // env
-// Note: to use these only work if you call util.init, otherwise they always return null
+// Note: these only work after util.init has populated the cached environment map.
 //
 
 // does this env var exist?
@@ -259,22 +280,33 @@ pub fn tdebug(comptime fmt: []const u8, args: anytype) void {
     stderr.flush() catch {};
 }
 
+// Start one monotonic benchmark timer.
+pub fn timerStart() std.Io.Timestamp {
+    return std.Io.Timestamp.now(currentIo(), .awake);
+}
+
+// Read elapsed nanoseconds from a monotonic benchmark timer.
+pub fn timerRead(start: std.Io.Timestamp) u64 {
+    return @intCast(start.untilNow(currentIo(), .awake).toNanoseconds());
+}
+
 // how wide is the terminal? thanks mubi
 pub fn termWidth() usize {
     if (builtin.os.tag != .windows) {
-        if (termWidthHandle(std.fs.File.stdout().handle)) |width| return width;
-        var tty = std.fs.openFileAbsolute("/dev/tty", .{}) catch return 80;
-        defer tty.close();
+        if (termWidthHandle(std.Io.File.stdout().handle)) |width| return width;
+        const io = currentIo();
+        const tty = std.Io.Dir.openFileAbsolute(io, "/dev/tty", .{}) catch return 80;
+        defer tty.close(io);
         if (termWidthHandle(tty.handle)) |width| return width;
     } else {
-        if (termWidthHandle(std.fs.File.stdout().handle)) |width| return width;
+        if (termWidthHandle(std.Io.File.stdout().handle)) |width| return width;
     }
 
     return 80;
 }
 
 // Probe one handle and return its positive terminal width when available.
-fn termWidthHandle(handle: std.fs.File.Handle) ?usize {
+fn termWidthHandle(handle: std.Io.File.Handle) ?usize {
     if (mibu.term.getSize(handle)) |size| {
         if (size.width > 0) return @intCast(size.width);
     } else |_| {}
@@ -310,16 +342,17 @@ test "isSeekable handles file and pipe" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const file = try tmp.dir.createFile("seekable.txt", .{ .read = true });
-    defer file.close();
+    const file = try tmp.dir.createFile(std.testing.io, "seekable.txt", .{ .read = true });
+    defer file.close(std.testing.io);
     try testing.expect(isSeekable(file));
 
-    const pipe_fds = try std.posix.pipe();
-    defer std.posix.close(pipe_fds[0]);
-    defer std.posix.close(pipe_fds[1]);
+    const pipe_fds = try testPipe();
+    const pipe_reader: std.Io.File = .{ .handle = pipe_fds[0], .flags = .{ .nonblocking = false } };
+    const pipe_writer: std.Io.File = .{ .handle = pipe_fds[1], .flags = .{ .nonblocking = false } };
+    defer pipe_reader.close(currentIo());
+    defer pipe_writer.close(currentIo());
 
-    const pipe_file = std.fs.File{ .handle = pipe_fds[0] };
-    try testing.expect(!isSeekable(pipe_file));
+    try testing.expect(!isSeekable(pipe_reader));
 }
 
 test "plural returns the right form" {
@@ -380,11 +413,16 @@ test "containsIgnoreCase" {
 }
 
 test "readByte" {
-    const fds = try std.posix.pipe();
-    defer std.posix.close(fds[0]);
-    defer std.posix.close(fds[1]);
+    const fds = try testPipe();
+    const reader: std.Io.File = .{ .handle = fds[0], .flags = .{ .nonblocking = false } };
+    const writer: std.Io.File = .{ .handle = fds[1], .flags = .{ .nonblocking = false } };
+    defer reader.close(currentIo());
+    defer writer.close(currentIo());
 
-    _ = try std.posix.write(fds[1], "z");
+    var buf: [16]u8 = undefined;
+    var file_writer = writer.writerStreaming(currentIo(), &buf);
+    try file_writer.interface.writeAll("z");
+    try file_writer.interface.flush();
     try testing.expectEqual(@as(u8, 'z'), try readByte(fds[0]));
 }
 
@@ -453,6 +491,37 @@ test "sum" {
 
 test "termWidth returns a positive width" {
     try testing.expect(termWidth() > 0);
+}
+
+// Create one anonymous pipe for tests without depending on libc.
+fn testPipe() ![2]std.posix.fd_t {
+    var fds: [2]std.posix.fd_t = undefined;
+    switch (std.posix.errno(std.posix.system.pipe(&fds))) {
+        .SUCCESS => return fds,
+        else => |err| return std.posix.unexpectedErrno(err),
+    }
+}
+
+// Return the IO instance this process should use.
+pub fn getIo() std.Io {
+    return currentIo();
+}
+
+// Return the active process environment description.
+pub fn getEnviron() std.process.Environ {
+    return currentEnviron();
+}
+
+// Return the current process environment for the active runtime.
+fn currentEnviron() std.process.Environ {
+    if (builtin.is_test) return std.testing.environ;
+    return environ0 orelse std.Options.debug_threaded_io.?.environ.process_environ;
+}
+
+// Return the IO implementation for the active runtime.
+fn currentIo() std.Io {
+    if (builtin.is_test) return std.testing.io;
+    return io0 orelse std.Options.debug_io;
 }
 
 const builtin = @import("builtin");

@@ -3,31 +3,24 @@
 // Owns process flow, input detection, loading, and top-level CLI behavior.
 //
 
-pub fn main() !void {
-    util.init();
+pub fn main(init_process: std.process.Init) !u8 {
+    util.initRuntime(init_process.io, init_process.minimal.environ);
     defer util.deinit();
 
-    var gpa: std.heap.DebugAllocator(.{}) = .init;
-    defer {
-        const check = gpa.deinit();
-        if (builtin.mode == .Debug) std.debug.assert(check == .ok);
-    }
-    const alloc = gpa.allocator();
-
     var exit: u8 = 0;
-    const fatal = main0(alloc) catch |err| switch (err) {
+    const fatal = main0(init_process.gpa, init_process.arena.allocator(), init_process.minimal.args) catch |err| switch (err) {
         error.BrokenPipe, error.WriteFailed => null,
         else => return err,
     };
     if (fatal) |value| {
-        defer value.deinit(alloc);
+        defer value.deinit(init_process.gpa);
         try value.print();
         exit = 1;
     }
 
     util.stdout.flush() catch {};
     util.stderr.flush() catch {};
-    std.process.exit(exit);
+    return exit;
 }
 
 //
@@ -35,10 +28,10 @@ pub fn main() !void {
 // Run the CLI and return a printable failure when the command should fail.
 //
 
-fn main0(alloc: std.mem.Allocator) !?failure.Failure {
+fn main0(alloc: std.mem.Allocator, arena: std.mem.Allocator, process_args: std.process.Args) !?failure.Failure {
     // timer
-    var total = try std.time.Timer.start();
-    defer util.benchmark("total", total.read());
+    const total = util.timerStart();
+    defer util.benchmark("total", util.timerRead(total));
 
     // sanity checks
     if (util.hasenv("BENCHMARK") and builtin.mode == .Debug) {
@@ -49,9 +42,8 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
     // parse args
     //
 
-    var timer = try std.time.Timer.start();
-    const argv = try std.process.argsAlloc(alloc);
-    defer std.process.argsFree(alloc, argv);
+    var timer = util.timerStart();
+    const argv = try process_args.toSlice(arena);
     var event = try Args.init(alloc, argv[1..]);
     defer event.deinit(alloc);
 
@@ -93,17 +85,17 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
     // where are we reading from?
     //
 
-    timer = try std.time.Timer.start();
-    var input = std.fs.File.stdin();
+    timer = util.timerStart();
+    var input = std.Io.File.stdin();
     var needs_close = false;
     if (config.filename) |path| {
         if (!std.mem.eql(u8, path, "-")) {
-            input = try std.fs.cwd().openFile(path, .{});
+            input = try std.Io.Dir.cwd().openFile(util.getIo(), path, .{});
             needs_close = true;
         }
     }
-    defer if (needs_close) input.close();
-    util.benchmark("input", timer.read());
+    defer if (needs_close) input.close(util.getIo());
+    util.benchmark("input", util.timerRead(timer));
 
     // input => data rows
     var data = load(alloc, config, input) catch |err| {
@@ -130,20 +122,20 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
     // Hand off both config and data here; Table.init owns cleanup from this point on.
     const table = try Table.init(alloc, config, data);
     defer table.deinit();
-    util.benchmark("table.init", timer.read());
+    util.benchmark("table.init", util.timerRead(timer));
 
     //
     // render
     //
 
-    timer = try std.time.Timer.start();
-    if (config.pager and builtin.os.tag != .windows and std.fs.File.stdout().isTty()) {
+    timer = util.timerStart();
+    if (config.pager and builtin.os.tag != .windows and (std.Io.File.stdout().isTty(util.getIo()) catch false)) {
         try renderToPager(alloc, config, table);
     } else {
         try renderToWriter(alloc, config, table, util.stdout);
     }
 
-    util.benchmark("table.render", timer.read());
+    util.benchmark("table.render", util.timerRead(timer));
     return null;
 }
 
@@ -152,7 +144,7 @@ fn main0(alloc: std.mem.Allocator) !?failure.Failure {
 //
 
 // Load the configured input into table data, dispatching by detected format.
-fn load(alloc: std.mem.Allocator, config: types.Config, input: std.fs.File) !Data {
+fn load(alloc: std.mem.Allocator, config: types.Config, input: std.Io.File) !Data {
     // typically we read the whole file into memory for processing. That won't
     // work if we are using `sqlite3`, though.
     if (try detect.isSqliteFile(alloc, config.filename, input)) {
@@ -161,7 +153,8 @@ fn load(alloc: std.mem.Allocator, config: types.Config, input: std.fs.File) !Dat
         return try db.load(config.table);
     }
 
-    const bytes = try input.readToEndAlloc(alloc, std.math.maxInt(usize));
+    var reader = input.reader(util.getIo(), &.{});
+    const bytes = try reader.interface.allocRemaining(alloc, .unlimited);
     defer alloc.free(bytes);
     return try loadBytes(alloc, config, bytes);
 }
@@ -196,32 +189,33 @@ fn renderToPager(alloc: std.mem.Allocator, config: types.Config, table: *Table) 
     const cmd = util.getenv("PAGER") orelse "less";
     if (std.mem.eql(u8, cmd, "cat")) return renderToWriter(alloc, config, table, util.stdout);
 
-    var env = try std.process.getEnvMap(alloc);
+    var env = try std.process.Environ.createMap(util.getEnviron(), alloc);
     defer env.deinit();
     if (env.get("LESS") == null) try env.put("LESS", "FRX");
 
-    var child = std.process.Child.init(&.{ "/bin/sh", "-c", cmd }, alloc);
-    child.env_map = &env;
-    child.stdin_behavior = .Pipe;
-    child.stdout_behavior = .Inherit;
-    child.stderr_behavior = .Inherit;
-    try child.spawn();
+    var child = try std.process.spawn(util.getIo(), .{
+        .argv = &.{ "/bin/sh", "-c", cmd },
+        .environ_map = &env,
+        .stdin = .pipe,
+        .stdout = .inherit,
+        .stderr = .inherit,
+    });
 
     var waited = false;
     defer {
-        if (child.stdin) |stdin| stdin.close();
+        if (child.stdin) |stdin| stdin.close(util.getIo());
         child.stdin = null;
-        if (!waited) _ = child.wait() catch {};
+        if (!waited) _ = child.wait(util.getIo()) catch {};
     }
 
     var buf: [4096]u8 = undefined;
-    var out: std.fs.File.Writer = .init(child.stdin.?, &buf);
+    var out = child.stdin.?.writerStreaming(util.getIo(), &buf);
     try renderToWriter(alloc, config, table, &out.interface);
     try out.interface.flush();
-    child.stdin.?.close();
+    child.stdin.?.close(util.getIo());
     child.stdin = null;
 
-    _ = try child.wait();
+    _ = try child.wait(util.getIo());
     waited = true;
 }
 

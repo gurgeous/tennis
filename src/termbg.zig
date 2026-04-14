@@ -10,11 +10,11 @@ pub fn isDark(alloc: std.mem.Allocator) !bool {
     if (builtin.os.tag == .windows) return error.NotSupported; // not yet
 
     // open dev/tty. note - also fails on windows, which is totally fine
-    var devtty = std.fs.openFileAbsolute("/dev/tty", .{ .mode = .read_write }) catch |err| {
+    const devtty = std.Io.Dir.openFileAbsolute(util.getIo(), "/dev/tty", .{ .mode = .read_write }) catch |err| {
         util.tdebug("could not open /dev/tty: {s}", .{@errorName(err)});
         return error.NotSupported;
     };
-    defer devtty.close();
+    defer devtty.close(util.getIo());
     return try isDarkWith(alloc, util.getenv("TERM"), builtin.os.tag, RealTty{ .file = &devtty });
 }
 
@@ -97,7 +97,7 @@ fn isOsc11Response(response: []const u8) bool {
 }
 
 const RealTty = if (builtin.os.tag != .windows) struct {
-    file: *std.fs.File,
+    file: *const std.Io.File,
 
     // Fetch the current terminal attributes.
     fn tcgetattr(self: @This()) !std.posix.termios {
@@ -111,7 +111,10 @@ const RealTty = if (builtin.os.tag != .windows) struct {
 
     // Write raw bytes to the tty.
     fn writeAll(self: @This(), bytes: []const u8) !void {
-        try self.file.writeAll(bytes);
+        var buf: [256]u8 = undefined;
+        var writer = self.file.*.writerStreaming(util.getIo(), &buf);
+        try writer.interface.writeAll(bytes);
+        try writer.interface.flush();
     }
 
     // Read one OSC or CSI response from the tty.
@@ -119,7 +122,7 @@ const RealTty = if (builtin.os.tag != .windows) struct {
         return try termReadResponse(alloc, self.file.handle);
     }
 } else struct {
-    file: *std.fs.File,
+    file: *const std.Io.File,
 };
 
 //
@@ -295,34 +298,58 @@ test "isDarkWith returns not supported when osc11 is ignored" {
 }
 
 test "readResponse reads csi response" {
-    const fds = try std.posix.pipe();
-    defer std.posix.close(fds[0]);
-    defer std.posix.close(fds[1]);
+    const fds = try testPipe();
+    const reader: std.Io.File = .{ .handle = fds[0], .flags = .{ .nonblocking = false } };
+    const writer: std.Io.File = .{ .handle = fds[1], .flags = .{ .nonblocking = false } };
+    defer reader.close(util.getIo());
+    defer writer.close(util.getIo());
 
-    _ = try std.posix.write(fds[1], "junk\x1b[12;34R");
+    var buf1: [64]u8 = undefined;
+    var pipe_writer1 = writer.writerStreaming(util.getIo(), &buf1);
+    try pipe_writer1.interface.writeAll("junk\x1b[12;34R");
+    try pipe_writer1.interface.flush();
     const out = try termReadResponse(testing.allocator, fds[0]);
     defer testing.allocator.free(out);
     try testing.expectEqualStrings("\x1b[12;34R", out);
 }
 
 test "readResponse reads osc bel response" {
-    const fds = try std.posix.pipe();
-    defer std.posix.close(fds[0]);
-    defer std.posix.close(fds[1]);
+    const fds = try testPipe();
+    const reader: std.Io.File = .{ .handle = fds[0], .flags = .{ .nonblocking = false } };
+    const writer: std.Io.File = .{ .handle = fds[1], .flags = .{ .nonblocking = false } };
+    defer reader.close(util.getIo());
+    defer writer.close(util.getIo());
 
-    _ = try std.posix.write(fds[1], "\x1b]11;rgb:ffff/ffff/ffff\x07");
+    var buf2: [64]u8 = undefined;
+    var pipe_writer2 = writer.writerStreaming(util.getIo(), &buf2);
+    try pipe_writer2.interface.writeAll("\x1b]11;rgb:ffff/ffff/ffff\x07");
+    try pipe_writer2.interface.flush();
     const out = try termReadResponse(testing.allocator, fds[0]);
     defer testing.allocator.free(out);
     try testing.expectEqualStrings("\x1b]11;rgb:ffff/ffff/ffff\x07", out);
 }
 
 test "readResponse rejects invalid response type" {
-    const fds = try std.posix.pipe();
-    defer std.posix.close(fds[0]);
-    defer std.posix.close(fds[1]);
+    const fds = try testPipe();
+    const reader: std.Io.File = .{ .handle = fds[0], .flags = .{ .nonblocking = false } };
+    const writer: std.Io.File = .{ .handle = fds[1], .flags = .{ .nonblocking = false } };
+    defer reader.close(util.getIo());
+    defer writer.close(util.getIo());
 
-    _ = try std.posix.write(fds[1], "\x1bXoops");
+    var buf3: [64]u8 = undefined;
+    var pipe_writer3 = writer.writerStreaming(util.getIo(), &buf3);
+    try pipe_writer3.interface.writeAll("\x1bXoops");
+    try pipe_writer3.interface.flush();
     try testing.expectError(error.InvalidData, termReadResponse(testing.allocator, fds[0]));
+}
+
+// Create one anonymous pipe for tests without depending on libc.
+fn testPipe() ![2]std.posix.fd_t {
+    var fds: [2]std.posix.fd_t = undefined;
+    switch (std.posix.errno(std.posix.system.pipe(&fds))) {
+        .SUCCESS => return fds,
+        else => |err| return std.posix.unexpectedErrno(err),
+    }
 }
 
 const ansi = @import("ansi.zig");

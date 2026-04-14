@@ -5,12 +5,12 @@
 
 // Parse buffered CSV input and return owned table data.
 pub fn load(alloc: std.mem.Allocator, bytes: []const u8, delimiter: u8) !Data {
-    var timer = try std.time.Timer.start();
+    const timer = util.timerStart();
     var loader = CsvLoader.init(alloc, bytes, delimiter);
     defer loader.deinit();
 
     const data = try loader.load();
-    util.benchmark("csv", timer.read());
+    util.benchmark("csv", util.timerRead(timer));
     return data;
 }
 

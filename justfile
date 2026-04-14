@@ -1,6 +1,9 @@
 default:
   just --list
 
+init:
+  mise install
+
 build:
   zig build -Doptimize=Debug
 

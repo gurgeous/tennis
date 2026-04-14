@@ -19,15 +19,18 @@ const Options = struct {
 // Write one shell completion script to stdout.
 pub fn write(alloc: std.mem.Allocator, shell: types.CompletionShell) !void {
     const options = parseOptions();
-    var buf: std.ArrayList(u8) = .empty;
-    defer buf.deinit(alloc);
-    var buf_writer = buf.writer(alloc);
+    var writer: std.Io.Writer.Allocating = .init(alloc);
+    defer writer.deinit();
 
     switch (shell) {
-        .bash => try writeBash(alloc, &buf_writer, options),
-        .zsh => try writeZsh(alloc, &buf_writer, options),
+        .bash => try writeBash(alloc, &writer.writer, options),
+        .zsh => try writeZsh(alloc, &writer.writer, options),
     }
-    try std.fs.File.stdout().writeAll(buf.items);
+    const out = try writer.toOwnedSlice();
+    defer alloc.free(out);
+    var stdout_writer = std.Io.File.stdout().writerStreaming(util.getIo(), &.{});
+    try stdout_writer.interface.writeAll(out);
+    try stdout_writer.interface.flush();
 }
 
 // Generate the bash completion script.
@@ -153,13 +156,13 @@ fn parseOptions() Options {
 
 // Parse one help line into a completion option.
 fn parseOption(line: []const u8) ?Option {
-    const trimmed = std.mem.trimLeft(u8, line, " ");
+    const trimmed = std.mem.trim(u8, line, " ");
     if (trimmed.len == 0 or trimmed[0] != '-') return null;
 
     // Help rows use a run of spaces to separate the option spec from the description.
     const desc_start = std.mem.indexOf(u8, trimmed, "  ") orelse return null;
-    const spec = std.mem.trimRight(u8, trimmed[0..desc_start], " ");
-    const desc = std.mem.trimLeft(u8, trimmed[desc_start..], " ");
+    const spec = std.mem.trim(u8, trimmed[0..desc_start], " ");
+    const desc = std.mem.trim(u8, trimmed[desc_start..], " ");
 
     var short: ?[]const u8 = null;
     var long_and_value = spec;
@@ -252,15 +255,14 @@ test "writes zsh completion" {
 // Render one completion script into an owned buffer for tests.
 fn renderForTest(alloc: std.mem.Allocator, shell: types.CompletionShell) ![]u8 {
     const options = parseOptions();
-    var buf: std.ArrayList(u8) = .empty;
-    defer buf.deinit(alloc);
-    var writer = buf.writer(alloc);
+    var writer: std.Io.Writer.Allocating = .init(alloc);
+    errdefer writer.deinit();
 
     switch (shell) {
-        .bash => try writeBash(alloc, &writer, options),
-        .zsh => try writeZsh(alloc, &writer, options),
+        .bash => try writeBash(alloc, &writer.writer, options),
+        .zsh => try writeZsh(alloc, &writer.writer, options),
     }
-    return buf.toOwnedSlice(alloc);
+    return try writer.toOwnedSlice();
 }
 
 const Args = @import("args.zig").Args;
@@ -268,3 +270,4 @@ const border = @import("border.zig");
 const std = @import("std");
 const testing = std.testing;
 const types = @import("types.zig");
+const util = @import("util.zig");

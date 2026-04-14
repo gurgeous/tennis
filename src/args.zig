@@ -178,7 +178,7 @@ pub const Args = struct {
         // now handle filename
         //
 
-        return try resolveInput(config, argv.len, res.positionals[0], std.fs.File.stdin().isTty());
+        return try resolveInput(config, argv.len, res.positionals[0], try std.Io.File.stdin().isTty(util.getIo()));
     }
 
     // Resolve positional input into stdin, file, or banner behavior.

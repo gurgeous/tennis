@@ -3,15 +3,14 @@
     .version = "0.0.0", // build.zig provides the real app version
     .dependencies = .{
         .clap = .{
-            .url = "https://github.com/Hejsil/zig-clap/archive/refs/tags/0.11.0.tar.gz",
-            .hash = "clap-0.11.0-oBajB-HnAQDPCKYzwF7rO3qDFwRcD39Q0DALlTSz5H7e",
+            .url = "git+https://github.com/Hejsil/zig-clap#fc1e5cc3f6d9d3001112385ee6256d694e959d2f",
+            .hash = "clap-0.11.0-oBajB7foAQC3Iyn4IVCkUdYaOVVng5IZkSncySTjNig1",
         },
         .mibu = .{
-            .url = "git+https://github.com/xyaman/mibu#fa883b8d903573ca6ac44279f31d1317f0bcb595",
-            .hash = "mibu-0.0.1-dev-Ddr1rrDIAACi6HKDko6IdyxEpm_XaGYrPpAxyGnH2B3I",
+            .path = "vendor/mibu",
         },
     },
     .fingerprint = 0x9420803bbcaa5265,
-    .minimum_zig_version = "0.15.2",
-    .paths = .{""},
+    .minimum_zig_version = "0.16.0",
+    .paths = .{ "", "vendor/mibu" },
 }

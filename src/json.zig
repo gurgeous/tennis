@@ -11,8 +11,8 @@
 //
 
 pub fn load(alloc: std.mem.Allocator, bytes: []const u8) !Data {
-    var timer = try std.time.Timer.start();
-    defer util.benchmark("json", timer.read());
+    const timer = util.timerStart();
+    defer util.benchmark("json", util.timerRead(timer));
 
     // empty input?
     if (bytes.len == 0) return .{ .rows = try alloc.alloc(DataRow, 0) };
@@ -68,7 +68,7 @@ const JsonLoader = struct {
     alloc: std.mem.Allocator = undefined,
     mode: enum { array, object } = .array,
     json: std.ArrayList([]Entry) = .empty, // parsed json objects
-    keys: std.StringArrayHashMap(void) = undefined, // list of all keys discovered in json
+    keys: std.array_hash_map.String(void) = undefined, // list of all keys discovered in json
 
     //
     // ctor/dtor
@@ -82,7 +82,7 @@ const JsonLoader = struct {
         const self = try parent.create(JsonLoader);
         self.* = .{ .parent = parent, .bytes = bytes, .arena = arena };
         self.alloc = self.arena.allocator();
-        self.keys = std.StringArrayHashMap(void).init(self.alloc);
+        self.keys = try std.array_hash_map.String(void).init(self.alloc, &.{}, &.{});
         return self;
     }
 
@@ -104,12 +104,12 @@ const JsonLoader = struct {
         }
 
         // parse json
-        var timer = try std.time.Timer.start();
+        var timer = util.timerStart();
         try self.parseJson();
-        util.benchmark(" json.parse", timer.read());
-        defer util.benchmark(" json.rows", timer.read());
+        util.benchmark(" json.parse", util.timerRead(timer));
+        defer util.benchmark(" json.rows", util.timerRead(timer));
 
-        timer = try std.time.Timer.start();
+        timer = util.timerStart();
         switch (self.mode) {
             .array => {
                 const headers = try DataRow.init(self.parent, self.keys.keys());
@@ -167,7 +167,7 @@ const JsonLoader = struct {
                     try list.append(self.alloc, .{ key, value });
 
                     // also add this key to our grand list of keys
-                    _ = try self.keys.getOrPut(key);
+                    _ = try self.keys.getOrPut(self.alloc, key);
                 },
                 .object_end => break,
                 else => unreachable,

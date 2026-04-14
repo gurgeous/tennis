@@ -1,0 +1,13 @@
+.{
+    .name = .mibu,
+    .version = "0.0.1-dev",
+    .minimum_zig_version = "0.15.1",
+    .dependencies = .{},
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "LICENSE",
+    },
+    .fingerprint = 0xd8aa8cfbaef5da0d,
+}
