@@ -102,7 +102,6 @@ pub const Args = struct {
     }
 
     // Parse argv into one top-level main event.
-    // REVIEW: why take alloc AND app?
     pub fn init(app: *const App, argv: []const []const u8) !MainEvent {
         var diagnostics: clap.Diagnostic = .{};
         const event = parse(app, argv, &diagnostics) catch |err| {
