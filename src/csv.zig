@@ -4,9 +4,9 @@
 //
 
 // Parse buffered CSV input and return owned table data.
-pub fn load(app: *App, alloc: std.mem.Allocator, bytes: []const u8, delimiter: u8) !Data {
+pub fn load(app: *App, bytes: []const u8, delimiter: u8) !Data {
     const timer = util.timerStart(app.io);
-    var loader = CsvLoader.init(alloc, bytes, delimiter);
+    var loader = CsvLoader.init(app.alloc, bytes, delimiter);
     defer loader.deinit();
 
     const data = try loader.load();
@@ -18,7 +18,7 @@ pub fn load(app: *App, alloc: std.mem.Allocator, bytes: []const u8, delimiter: u
 fn loadTest(alloc: std.mem.Allocator, bytes: []const u8, delimiter: u8) !Data {
     const app = try App.testInit(alloc);
     defer app.destroy();
-    return load(app, alloc, bytes, delimiter);
+    return load(app, bytes, delimiter);
 }
 
 //

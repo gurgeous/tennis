@@ -13,14 +13,32 @@ pub const App = struct {
 
     const Self = @This();
 
+    //
+    // ctor
+    //
+
     // Build the runtime app context from juicy main.
-    pub fn init(init_process: std.process.Init) !*Self {
-        return try initFrom(init_process.gpa, init_process.io, init_process.minimal.environ);
+    pub fn init(ip: std.process.Init) !*Self {
+        return try initFrom(ip.gpa, ip.io, ip.minimal.environ);
     }
 
     // Build a test app context from std.testing globals.
     pub fn testInit(alloc: std.mem.Allocator) !*Self {
         return try initFrom(alloc, std.testing.io, std.testing.environ);
+    }
+
+    // Initialize one App from explicit runtime pieces.
+    fn initFrom(alloc: std.mem.Allocator, io: std.Io, environ: std.process.Environ) !*Self {
+        const app = try alloc.create(Self);
+        app.* = .{
+            .alloc = alloc,
+            .io = io,
+            .environ = environ,
+            .env = try std.process.Environ.createMap(environ, alloc),
+        };
+        app.stdout_writer = std.Io.File.stdout().writerStreaming(io, &app.stdout_buf);
+        app.stderr_writer = std.Io.File.stderr().writerStreaming(io, &app.stderr_buf);
+        return app;
     }
 
     // Release owned runtime state.
@@ -45,14 +63,14 @@ pub const App = struct {
         self.stderr().flush() catch {};
     }
 
-    // Return one borrowed env var value when present.
-    pub fn getenv(self: *const Self, name: []const u8) ?[]const u8 {
-        return self.env.get(name);
-    }
-
     // Report whether one env var exists.
     pub fn hasenv(self: *const Self, name: []const u8) bool {
         return self.getenv(name) != null;
+    }
+
+    // Return one borrowed env var value when present.
+    pub fn getenv(self: *const Self, name: []const u8) ?[]const u8 {
+        return self.env.get(name);
     }
 
     // Print one benchmark line when BENCHMARK is enabled.
@@ -76,16 +94,19 @@ pub const App = struct {
     }
 
     // Report whether stdin is a tty.
+    // REVIEW: remove, inline
     pub fn stdinIsTty(self: *const Self) bool {
         return std.Io.File.stdin().isTty(self.io) catch false;
     }
 
     // Report whether stdout is a tty.
+    // REVIEW: remove, inline
     pub fn stdoutIsTty(self: *const Self) bool {
         return std.Io.File.stdout().isTty(self.io) catch false;
     }
 
     // Fill bytes from the runtime random source.
+    // REVIEW: remove, inline
     pub fn random(self: *const Self, bytes: []u8) void {
         self.io.random(bytes);
     }
@@ -102,20 +123,6 @@ pub const App = struct {
         }
 
         return 80;
-    }
-
-    // Initialize one App from explicit runtime pieces.
-    fn initFrom(alloc: std.mem.Allocator, io: std.Io, environ: std.process.Environ) !*Self {
-        const app = try alloc.create(Self);
-        app.* = .{
-            .alloc = alloc,
-            .io = io,
-            .environ = environ,
-            .env = try std.process.Environ.createMap(environ, alloc),
-        };
-        app.stdout_writer = std.Io.File.stdout().writerStreaming(io, &app.stdout_buf);
-        app.stderr_writer = std.Io.File.stderr().writerStreaming(io, &app.stderr_buf);
-        return app;
     }
 };
 

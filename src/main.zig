@@ -2,24 +2,18 @@
 // main entrypoint
 // Owns process flow, input detection, loading, and top-level CLI behavior.
 //
-// trim vs trimStart/trimEnd
-// util.io stuff, current, etc. this seems weird. do we need timerStart?
-// maybe util.benchmark should just take timer, get rid of Util.timerRead
-// juicyman/env
-// natsort - trimleading
-//
 
 pub fn main(init_process: std.process.Init) !u8 {
     const app = try App.init(init_process);
     defer app.destroy();
 
     var exit: u8 = 0;
-    const fatal = main0(app, init_process.gpa, init_process.arena.allocator(), init_process.minimal.args) catch |err| switch (err) {
+    const fatal = main0(app, init_process.arena.allocator(), init_process.minimal.args) catch |err| switch (err) {
         error.BrokenPipe, error.WriteFailed => null,
         else => return err,
     };
     if (fatal) |value| {
-        defer value.deinit(init_process.gpa);
+        defer value.deinit(app.alloc);
         try value.print(app);
         exit = 1;
     }
@@ -34,7 +28,7 @@ pub fn main(init_process: std.process.Init) !u8 {
 //
 
 // REVIEW: just accept std.process.Init. Should std.process.Init be a global?
-fn main0(app: *App, alloc: std.mem.Allocator, arena: std.mem.Allocator, process_args: std.process.Args) !?failure.Failure {
+fn main0(app: *App, arena: std.mem.Allocator, process_args: std.process.Args) !?failure.Failure {
     // timer
     const total = util.timerStart(app.io);
     defer app.benchmark("total", util.timerRead(app.io, total));
@@ -50,8 +44,8 @@ fn main0(app: *App, alloc: std.mem.Allocator, arena: std.mem.Allocator, process_
 
     var timer = util.timerStart(app.io);
     const argv = try process_args.toSlice(arena);
-    var event = try Args.init(alloc, app, argv[1..]);
-    defer event.deinit(alloc);
+    var event = try Args.init(app, argv[1..]);
+    defer event.deinit(app.alloc);
 
     //
     // handle early exits ("actions")
@@ -65,7 +59,7 @@ fn main0(app: *App, alloc: std.mem.Allocator, arena: std.mem.Allocator, process_
         },
         .completion => |shell| {
             // shell completion is generated immediately
-            try completion.write(app, alloc, shell);
+            try completion.write(app, shell);
             return null;
         },
         // arg/setup failures are already fully formed Failures
@@ -104,20 +98,20 @@ fn main0(app: *App, alloc: std.mem.Allocator, arena: std.mem.Allocator, process_
     app.benchmark("input", util.timerRead(app.io, timer));
 
     // input => data rows
-    var data = load(app, alloc, config, input) catch |err| {
+    var data = load(app, config, input) catch |err| {
         if (err == error.SqliteInvalidTable) {
-            var db = try sqlite.Sqlite.init(app, alloc, config.filename.?);
+            var db = try sqlite.Sqlite.init(app, config.filename.?);
             defer db.deinit();
-            return try failure.Failure.fromSqliteTableError(alloc, config.table, db.tables);
+            return try failure.Failure.fromSqliteTableError(app.alloc, config.table, db.tables);
         }
         return failure.Failure.fromError(err) orelse return err;
     };
 
     // plug data headers into config, for validation
-    config.bind(alloc, data.headers()) catch |err| {
-        const fatal = try failure.Failure.fromTableError(alloc, err, data.headers());
-        data.deinit(alloc);
-        config.deinit(alloc);
+    config.bind(app.alloc, data.headers()) catch |err| {
+        const fatal = try failure.Failure.fromTableError(app.alloc, err, data.headers());
+        data.deinit(app.alloc);
+        config.deinit(app.alloc);
         return fatal;
     };
 
@@ -126,7 +120,7 @@ fn main0(app: *App, alloc: std.mem.Allocator, arena: std.mem.Allocator, process_
     //
 
     // Hand off both config and data here; Table.init owns cleanup from this point on.
-    const table = try Table.init(app, alloc, config, data);
+    const table = try Table.init(app, config, data);
     defer table.deinit();
     app.benchmark("table.init", util.timerRead(app.io, timer));
 
@@ -136,9 +130,9 @@ fn main0(app: *App, alloc: std.mem.Allocator, arena: std.mem.Allocator, process_
 
     timer = util.timerStart(app.io);
     if (config.pager and app.stdoutIsTty()) {
-        try renderToPager(app, alloc, config, table);
+        try renderToPager(app, config, table);
     } else {
-        try renderToWriter(alloc, config, table, app.stdout());
+        try renderToWriter(app.alloc, config, table, app.stdout());
     }
 
     app.benchmark("table.render", util.timerRead(app.io, timer));
@@ -150,23 +144,23 @@ fn main0(app: *App, alloc: std.mem.Allocator, arena: std.mem.Allocator, process_
 //
 
 // Load the configured input into table data, dispatching by detected format.
-fn load(app: *App, alloc: std.mem.Allocator, config: types.Config, input: std.Io.File) !Data {
+fn load(app: *App, config: types.Config, input: std.Io.File) !Data {
     // typically we read the whole file into memory for processing. That won't
     // work if we are using `sqlite3`, though.
-    if (try detect.isSqliteFile(app, alloc, config.filename, input)) {
-        var db = try sqlite.Sqlite.init(app, alloc, config.filename.?);
+    if (try detect.isSqliteFile(app, config.filename, input)) {
+        var db = try sqlite.Sqlite.init(app, config.filename.?);
         defer db.deinit();
         return try db.load(config.table);
     }
 
     var reader = input.reader(app.io, &.{});
-    const bytes = try reader.interface.allocRemaining(alloc, .unlimited);
-    defer alloc.free(bytes);
-    return try loadBytes(app, alloc, config, bytes);
+    const bytes = try reader.interface.allocRemaining(app.alloc, .unlimited);
+    defer app.alloc.free(bytes);
+    return try loadBytes(app, config, bytes);
 }
 
 // Load in-memory bytes into table data using the existing text format loaders.
-fn loadBytes(app: *App, alloc: std.mem.Allocator, config: types.Config, bytes_in: []const u8) !Data {
+fn loadBytes(app: *App, config: types.Config, bytes_in: []const u8) !Data {
     // skip bom
     var bytes = bytes_in;
     if (std.mem.startsWith(u8, bytes, "\xef\xbb\xbf")) {
@@ -174,29 +168,29 @@ fn loadBytes(app: *App, alloc: std.mem.Allocator, config: types.Config, bytes_in
     }
 
     // sqlite3 and stray --table
-    const format = try detect.detectFormat(alloc, config.filename, bytes);
+    const format = try detect.detectFormat(app.alloc, config.filename, bytes);
     if (format == .sqlite) return error.SqliteRequiresFile;
     if (config.table.len > 0) return error.SqliteTableRequiresSqlite;
 
     // json
-    if (format == .json) return try json.load(app, alloc, bytes);
+    if (format == .json) return try json.load(app, bytes);
 
     // csv (our default)
     var delimiter = config.delimiter;
     if (delimiter == 0) delimiter = sniffer.sniff(bytes) orelse ',';
-    return try csv.load(app, alloc, bytes, delimiter);
+    return try csv.load(app, bytes, delimiter);
 }
 
 //
 // rendering
 //
 
-fn renderToPager(app: *App, alloc: std.mem.Allocator, config: types.Config, table: *Table) !void {
-    if (builtin.os.tag == .windows) return renderToWriter(alloc, config, table, app.stdout());
+fn renderToPager(app: *App, config: types.Config, table: *Table) !void {
+    if (builtin.os.tag == .windows) return renderToWriter(app.alloc, config, table, app.stdout());
     const cmd = app.getenv("PAGER") orelse "less";
-    if (std.mem.eql(u8, cmd, "cat")) return renderToWriter(alloc, config, table, app.stdout());
+    if (std.mem.eql(u8, cmd, "cat")) return renderToWriter(app.alloc, config, table, app.stdout());
 
-    var env = try std.process.Environ.createMap(app.environ, alloc);
+    var env = try std.process.Environ.createMap(app.environ, app.alloc);
     defer env.deinit();
     if (env.get("LESS") == null) try env.put("LESS", "FRX");
 
@@ -217,7 +211,7 @@ fn renderToPager(app: *App, alloc: std.mem.Allocator, config: types.Config, tabl
 
     var buf: [4096]u8 = undefined;
     var out = child.stdin.?.writerStreaming(app.io, &buf);
-    try renderToWriter(alloc, config, table, &out.interface);
+    try renderToWriter(app.alloc, config, table, &out.interface);
     try out.interface.flush();
     child.stdin.?.close(app.io);
     child.stdin = null;
@@ -298,8 +292,8 @@ test "load strips UTF-8 BOM before parsing csv and jsonl" {
     for (cases) |tc| {
         const bytes = try testing.allocator.dupe(u8, tc.input);
         defer testing.allocator.free(bytes);
-        const data = try loadBytes(app, testing.allocator, tc.config, bytes);
-        defer data.deinit(testing.allocator);
+        const data = try loadBytes(app, tc.config, bytes);
+        defer data.deinit(app.alloc);
 
         try testing.expectEqual(tc.nrows, data.rows.len);
         for (tc.checks) |check| {

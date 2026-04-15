@@ -47,7 +47,7 @@ pub fn formatFromFilename(path: []const u8) ?InputFormat {
     return null;
 }
 
-pub fn isSqliteFile(app: *const App, alloc: std.mem.Allocator, filename: ?[]const u8, input: std.Io.File) !bool {
+pub fn isSqliteFile(app: *const App, filename: ?[]const u8, input: std.Io.File) !bool {
     // do we have an actual file?
     const path = filename orelse return false;
     if (std.mem.eql(u8, path, "-")) return false;
@@ -58,7 +58,7 @@ pub fn isSqliteFile(app: *const App, alloc: std.mem.Allocator, filename: ?[]cons
     var reader = input.reader(app.io, &.{});
     const n = try reader.interface.readSliceShort(&buf);
     try reader.seekTo(0);
-    return try detectFormat(alloc, path, buf[0..n]) == .sqlite;
+    return try detectFormat(app.alloc, path, buf[0..n]) == .sqlite;
 }
 
 //

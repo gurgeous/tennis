@@ -193,6 +193,7 @@ pub fn upperAscii(dest: []u8, src: []const u8) []const u8 {
 }
 
 // Start one monotonic benchmark timer.
+// REVIEW: remove/inline
 pub fn timerStart(io: std.Io) std.Io.Timestamp {
     return std.Io.Timestamp.now(io, .awake);
 }

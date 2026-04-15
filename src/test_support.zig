@@ -15,7 +15,7 @@ pub const TestTable = struct {
     pub fn init(self: *TestTable, alloc: std.mem.Allocator, config: types.Config, input: []const u8) !void {
         self.app = try App.testInit(alloc);
         errdefer self.app.destroy();
-        self.table = try Table.initCsv(self.app, alloc, config, input);
+        self.table = try Table.initCsv(self.app, config, input);
     }
 
     // Release the arena and test table.

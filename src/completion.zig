@@ -17,24 +17,23 @@ const Options = struct {
 };
 
 // Write one shell completion script to stdout.
-pub fn write(app: *App, alloc: std.mem.Allocator, shell: types.CompletionShell) !void {
+pub fn write(app: *App, shell: types.CompletionShell) !void {
     const options = parseOptions();
-    var writer: std.Io.Writer.Allocating = .init(alloc);
+    var writer: std.Io.Writer.Allocating = .init(app.alloc);
     defer writer.deinit();
 
     switch (shell) {
-        .bash => try writeBash(alloc, &writer.writer, options),
-        .zsh => try writeZsh(alloc, &writer.writer, options),
+        .bash => try writeBash(&writer.writer, options),
+        .zsh => try writeZsh(&writer.writer, options),
     }
     const out = try writer.toOwnedSlice();
-    defer alloc.free(out);
+    defer app.alloc.free(out);
     try app.stdout().writeAll(out);
     try app.stdout().flush();
 }
 
 // Generate the bash completion script.
-fn writeBash(alloc: std.mem.Allocator, writer: anytype, options: Options) !void {
-    _ = alloc;
+fn writeBash(writer: anytype, options: Options) !void {
     try writer.writeAll(
         \\declare -F _init_completion >/dev/null || return 2>/dev/null
         \\
@@ -87,8 +86,7 @@ fn writeBash(alloc: std.mem.Allocator, writer: anytype, options: Options) !void 
 }
 
 // Generate the zsh completion script.
-fn writeZsh(alloc: std.mem.Allocator, writer: anytype, options: Options) !void {
-    _ = alloc;
+fn writeZsh(writer: anytype, options: Options) !void {
     try writer.writeAll(
         \\#compdef tennis
         \\compdef _tennis tennis
@@ -155,13 +153,13 @@ fn parseOptions() Options {
 
 // Parse one help line into a completion option.
 fn parseOption(line: []const u8) ?Option {
-    const trimmed = std.mem.trim(u8, line, " ");
+    const trimmed = std.mem.trimStart(u8, line, " ");
     if (trimmed.len == 0 or trimmed[0] != '-') return null;
 
     // Help rows use a run of spaces to separate the option spec from the description.
     const desc_start = std.mem.indexOf(u8, trimmed, "  ") orelse return null;
-    const spec = std.mem.trim(u8, trimmed[0..desc_start], " ");
-    const desc = std.mem.trim(u8, trimmed[desc_start..], " ");
+    const spec = std.mem.trimRight(u8, trimmed[0..desc_start], " ");
+    const desc = std.mem.trimLeft(u8, trimmed[desc_start..], " ");
 
     var short: ?[]const u8 = null;
     var long_and_value = spec;
@@ -258,8 +256,8 @@ fn renderForTest(alloc: std.mem.Allocator, shell: types.CompletionShell) ![]u8 {
     errdefer writer.deinit();
 
     switch (shell) {
-        .bash => try writeBash(alloc, &writer.writer, options),
-        .zsh => try writeZsh(alloc, &writer.writer, options),
+        .bash => try writeBash(&writer.writer, options),
+        .zsh => try writeZsh(&writer.writer, options),
     }
     return try writer.toOwnedSlice();
 }

@@ -6,7 +6,7 @@
 // ignored and return an error.
 
 // Probe the terminal and report whether its background is dark.
-pub fn isDark(app: *App, alloc: std.mem.Allocator) !bool {
+pub fn isDark(app: *App) !bool {
     if (builtin.os.tag == .windows) return error.NotSupported; // not yet
 
     // open dev/tty. note - also fails on windows, which is totally fine
@@ -15,11 +15,11 @@ pub fn isDark(app: *App, alloc: std.mem.Allocator) !bool {
         return error.NotSupported;
     };
     defer devtty.close(app.io);
-    return try isDarkWith(app, alloc, app.getenv("TERM"), builtin.os.tag, RealTty{ .app = app, .file = &devtty });
+    return try isDarkWith(app, app.getenv("TERM"), builtin.os.tag, RealTty{ .app = app, .file = &devtty });
 }
 
 // Probe terminal background color through an abstract tty interface.
-fn isDarkWith(app: *App, alloc: std.mem.Allocator, term_opt: ?[]const u8, os_tag: std.Target.Os.Tag, tty: anytype) !bool {
+fn isDarkWith(app: *App, term_opt: ?[]const u8, os_tag: std.Target.Os.Tag, tty: anytype) !bool {
     app.tdebug("TERM={s}", .{term_opt orelse "<unset>"});
     _ = try supportedTerm(term_opt);
     const cc = try timeoutIndexes(os_tag);
@@ -40,27 +40,27 @@ fn isDarkWith(app: *App, alloc: std.mem.Allocator, term_opt: ?[]const u8, os_tag
     app.tdebug("OSC11", .{});
     try tty.writeAll(ansi.esc ++ "]11;?\x07" ++ ansi.esc ++ "[6n");
 
-    const response1 = try tty.readResponse(alloc);
-    defer alloc.free(response1);
-    const inspect1 = try util.inspect(alloc, response1);
-    defer alloc.free(inspect1);
+    const response1 = try tty.readResponse(app.alloc);
+    defer app.alloc.free(response1);
+    const inspect1 = try util.inspect(app.alloc, response1);
+    defer app.alloc.free(inspect1);
     app.tdebug("response1={s}", .{inspect1});
     if (!isOsc11Response(response1)) {
         app.tdebug("terminal ignored osc11", .{});
         return error.NotSupported;
     }
 
-    const response2 = tty.readResponse(alloc) catch null;
-    defer if (response2) |buf| alloc.free(buf);
+    const response2 = tty.readResponse(app.alloc) catch null;
+    defer if (response2) |buf| app.alloc.free(buf);
     if (response2) |buf| {
-        const inspect2 = try util.inspect(alloc, buf);
-        defer alloc.free(inspect2);
+        const inspect2 = try util.inspect(app.alloc, buf);
+        defer app.alloc.free(inspect2);
         app.tdebug("response2={s}", .{inspect2});
     }
 
     const color = try parseResponse(response1);
-    const hex = try color.toHex(alloc);
-    defer alloc.free(hex);
+    const hex = try color.toHex(app.alloc);
+    defer app.alloc.free(hex);
     app.tdebug("detected {s} => {s}", .{ hex, if (color.isDark()) "dark" else "light" });
     return color.isDark();
 }
@@ -272,7 +272,7 @@ test "isDarkWith returns parsed darkness and restores tty state" {
         .first = "\x1b]11;rgb:0000/0000/0000\x07",
         .second = "\x1b[1;1R",
     };
-    try testing.expect(try isDarkWith(app, testing.allocator, "xterm-256color", .linux, &tty));
+    try testing.expect(try isDarkWith(app, "xterm-256color", .linux, &tty));
     try testing.expectEqualStrings(ansi.esc ++ "]11;?\x07" ++ ansi.esc ++ "[6n", tty.write_buf[0..tty.write_len]);
     try testing.expectEqual(@as(usize, 2), tty.set_count);
     try testing.expectEqual(@as(u8, 1), tty.configured.cc[@intFromEnum(std.os.linux.V.TIME)]);
@@ -300,7 +300,7 @@ test "isDarkWith returns not supported when osc11 is ignored" {
     const app = try App.testInit(testing.allocator);
     defer app.destroy();
     var tty = FakeTty{};
-    try testing.expectError(error.NotSupported, isDarkWith(app, testing.allocator, "xterm-256color", .linux, &tty));
+    try testing.expectError(error.NotSupported, isDarkWith(app, "xterm-256color", .linux, &tty));
 }
 
 test "readResponse reads csi response" {

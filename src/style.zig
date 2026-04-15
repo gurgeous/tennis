@@ -11,12 +11,12 @@ pub const Style = struct {
     title: []const u8 = "", // title text color (colorful)
 
     // Pick a concrete style for the requested color and theme settings.
-    pub fn init(app: *App, alloc: std.mem.Allocator, color: types.Color, theme: types.Theme) Style {
+    pub fn init(app: *App, color: types.Color, theme: types.Theme) Style {
         if (!colorEnabled(app, color)) return none;
         return switch (theme) {
             .dark => dark,
             .light => light,
-            .auto => if (termbg.isDark(app, alloc) catch true) dark else light,
+            .auto => if (termbg.isDark(app) catch true) dark else light,
         };
     }
 
@@ -106,20 +106,20 @@ fn colorEnabled(app: *const App, color: types.Color) bool {
 test "color title style" {
     const app = try App.testInit(testing.allocator);
     defer app.destroy();
-    const s1 = Style.init(app, testing.allocator, .off, .dark);
+    const s1 = Style.init(app, .off, .dark);
     try testing.expectEqualStrings("", s1.title);
-    const s2 = Style.init(app, testing.allocator, .on, .dark);
+    const s2 = Style.init(app, .on, .dark);
     try testing.expectEqualStrings("\x1b[38;2;96;165;250m", s2.title);
-    const s3 = Style.init(app, testing.allocator, .on, .light);
+    const s3 = Style.init(app, .on, .light);
     try testing.expectEqualStrings("\x1b[38;2;37;99;235m", s3.title);
 }
 
 test "zebra style colors match table_tennis" {
     const app = try App.testInit(testing.allocator);
     defer app.destroy();
-    const dark = Style.init(app, testing.allocator, .on, .dark);
+    const dark = Style.init(app, .on, .dark);
     try testing.expectEqualStrings("\x1b[38;2;255;255;255;48;2;34;34;34m", dark.zebra);
-    const light = Style.init(app, testing.allocator, .on, .light);
+    const light = Style.init(app, .on, .light);
     try testing.expectEqualStrings("\x1b[38;2;0;0;0;48;2;229;231;235m", light.zebra);
 }
 

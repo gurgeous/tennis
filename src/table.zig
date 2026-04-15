@@ -18,14 +18,14 @@ pub const Table = struct {
     //
 
     // Build a table from pre-parsed stored rows.
-    pub fn init(app: *App, alloc: std.mem.Allocator, config: Config, data: Data) !*Table {
-        const table = try alloc.create(Table);
-        errdefer alloc.destroy(table);
+    pub fn init(app: *App, config: Config, data: Data) !*Table {
+        const table = try app.alloc.create(Table);
+        errdefer app.alloc.destroy(table);
 
         const empty = data.rows.len < 2;
         table.* = .{
             .app = app,
-            .alloc = alloc,
+            .alloc = app.alloc,
             .columns = &.{},
             .config = config,
             .data = data,
@@ -47,16 +47,16 @@ pub const Table = struct {
     }
 
     // This is just for testing at the moment
-    pub fn initCsv(app: *App, alloc: std.mem.Allocator, config: Config, bytes: []const u8) !*Table {
-        const data = try csv.load(app, alloc, bytes, config.delimiter);
-        errdefer data.deinit(alloc);
+    pub fn initCsv(app: *App, config: Config, bytes: []const u8) !*Table {
+        const data = try csv.load(app, bytes, config.delimiter);
+        errdefer data.deinit(app.alloc);
         var bound = config;
-        if (config.title.len > 0) bound.title = try alloc.dupe(u8, config.title);
-        if (config.footer.len > 0) bound.footer = try alloc.dupe(u8, config.footer);
+        if (config.title.len > 0) bound.title = try app.alloc.dupe(u8, config.title);
+        if (config.footer.len > 0) bound.footer = try app.alloc.dupe(u8, config.footer);
         var handed_off = false;
-        defer if (!handed_off) bound.deinit(alloc);
-        try bound.bind(alloc, data.headers());
-        const table = try init(app, alloc, bound, data);
+        defer if (!handed_off) bound.deinit(app.alloc);
+        try bound.bind(app.alloc, data.headers());
+        const table = try init(app, bound, data);
         handed_off = true;
         return table;
     }
@@ -131,7 +131,7 @@ pub const Table = struct {
     // Return the cached style, building it on first use.
     pub fn style(self: *Self) *const Style {
         if (self._style == null) {
-            self._style = Style.init(self.app, self.alloc, self.config.color, self.config.theme);
+            self._style = Style.init(self.app, self.config.color, self.config.theme);
         }
         return &self._style.?;
     }

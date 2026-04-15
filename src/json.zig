@@ -10,17 +10,17 @@
 // Main entry point
 //
 
-pub fn load(app: *App, alloc: std.mem.Allocator, bytes: []const u8) !Data {
+pub fn load(app: *App, bytes: []const u8) !Data {
     const timer = util.timerStart(app.io);
     defer app.benchmark("json", util.timerRead(app.io, timer));
 
     // empty input?
-    if (bytes.len == 0) return .{ .rows = try alloc.alloc(DataRow, 0) };
+    if (bytes.len == 0) return .{ .rows = try app.alloc.alloc(DataRow, 0) };
 
     // pretty braindead, just try JSON and fallback to JSONL
-    const data = loadJson(app, alloc, bytes) catch |err|
+    const data = loadJson(app, bytes) catch |err|
         if (err == error.SyntaxError)
-            try loadJsonl(app, alloc, bytes)
+            try loadJsonl(app, bytes)
         else
             return err;
 
@@ -28,17 +28,17 @@ pub fn load(app: *App, alloc: std.mem.Allocator, bytes: []const u8) !Data {
 }
 
 // Load one JSON document that is either an array of objects or one top-level object.
-fn loadJson(app: *App, alloc: std.mem.Allocator, bytes: []const u8) !Data {
-    const loader = try JsonLoader.create(alloc, bytes);
+fn loadJson(app: *App, bytes: []const u8) !Data {
+    const loader = try JsonLoader.create(app.alloc, bytes);
     defer loader.destroy();
     return loader.load(app);
 }
 
 // Load JSONL by wrapping the lines into one synthetic JSON array.
-fn loadJsonl(app: *App, alloc: std.mem.Allocator, bytes: []const u8) !Data {
-    const body = try jsonlToArray(alloc, bytes);
-    defer alloc.free(body);
-    return loadJson(app, alloc, body);
+fn loadJsonl(app: *App, bytes: []const u8) !Data {
+    const body = try jsonlToArray(app.alloc, bytes);
+    defer app.alloc.free(body);
+    return loadJson(app, body);
 }
 
 // Wrap JSONL into a JSON array
@@ -407,7 +407,7 @@ test "duplicate keys use first value" {
 fn initTest(alloc: std.mem.Allocator, bytes: []const u8) !Data {
     const app = try App.testInit(alloc);
     defer app.destroy();
-    return load(app, alloc, bytes);
+    return load(app, bytes);
 }
 
 fn expectRow(rows: Data, index: usize, want: []const []const u8) !void {

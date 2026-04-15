@@ -29,7 +29,7 @@ fn buildSampleTable(alloc: std.mem.Allocator, table: *Table) !*Table {
     const rows = try alloc.alloc(Row, table.nrows());
     defer alloc.free(rows);
     for (rows, 0..) |*row, ii| row.* = table.row(ii);
-    return try Table.init(table.app, alloc, config, try cloneRows(alloc, table.headers(), rows, config.head));
+    return try Table.init(table.app, config, try cloneRows(alloc, table.headers(), rows, config.head));
 }
 
 // Derive a config for the sample table without reapplying row/col transforms.
@@ -72,7 +72,7 @@ fn buildStatsTable(alloc: std.mem.Allocator, table: *Table) !*Table {
     try rows.append(alloc, try DataRow.init(alloc, &headers));
     for (0..table.ncols()) |ii| try rows.append(alloc, try buildStatsRow(alloc, table, ii));
 
-    return try Table.init(table.app, alloc, try statsConfig(alloc, table.config), .{ .rows = try rows.toOwnedSlice(alloc) });
+    return try Table.init(table.app, try statsConfig(alloc, table.config), .{ .rows = try rows.toOwnedSlice(alloc) });
 }
 
 // Build one owned stats row for one visible column.
