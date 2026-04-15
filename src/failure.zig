@@ -68,8 +68,8 @@ pub const Failure = struct {
     }
 
     // Render one failure with the standard banner/footer behavior.
-    pub fn print(self: Failure) !void {
-        try printBanner(util.stderr, self);
+    pub fn print(self: Failure, app: *App) !void {
+        try printBanner(app.stderr(), self);
     }
 
     // Write one failure to the provided writer.
@@ -262,6 +262,7 @@ test "write includes column headers" {
     try testing.expect(std.mem.indexOf(u8, sqlite_msg, "tennis: Here are the tables in that file:\ntennis:   players\ntennis:   stats") != null);
 }
 
+const App = @import("app.zig").App;
 const clap = @import("clap");
 const std = @import("std");
 const testing = std.testing;

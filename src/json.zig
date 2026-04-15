@@ -10,17 +10,17 @@
 // Main entry point
 //
 
-pub fn load(alloc: std.mem.Allocator, bytes: []const u8) !Data {
-    const timer = util.timerStart();
-    defer util.benchmark("json", util.timerRead(timer));
+pub fn load(app: *App, alloc: std.mem.Allocator, bytes: []const u8) !Data {
+    const timer = util.timerStart(app.io);
+    defer app.benchmark("json", util.timerRead(app.io, timer));
 
     // empty input?
     if (bytes.len == 0) return .{ .rows = try alloc.alloc(DataRow, 0) };
 
     // pretty braindead, just try JSON and fallback to JSONL
-    const data = loadJson(alloc, bytes) catch |err|
+    const data = loadJson(app, alloc, bytes) catch |err|
         if (err == error.SyntaxError)
-            try loadJsonl(alloc, bytes)
+            try loadJsonl(app, alloc, bytes)
         else
             return err;
 
@@ -28,17 +28,17 @@ pub fn load(alloc: std.mem.Allocator, bytes: []const u8) !Data {
 }
 
 // Load one JSON document that is either an array of objects or one top-level object.
-fn loadJson(alloc: std.mem.Allocator, bytes: []const u8) !Data {
+fn loadJson(app: *App, alloc: std.mem.Allocator, bytes: []const u8) !Data {
     const loader = try JsonLoader.create(alloc, bytes);
     defer loader.destroy();
-    return loader.load();
+    return loader.load(app);
 }
 
 // Load JSONL by wrapping the lines into one synthetic JSON array.
-fn loadJsonl(alloc: std.mem.Allocator, bytes: []const u8) !Data {
+fn loadJsonl(app: *App, alloc: std.mem.Allocator, bytes: []const u8) !Data {
     const body = try jsonlToArray(alloc, bytes);
     defer alloc.free(body);
-    return loadJson(alloc, body);
+    return loadJson(app, alloc, body);
 }
 
 // Wrap JSONL into a JSON array
@@ -96,7 +96,7 @@ const JsonLoader = struct {
     // Main entry point
     //
 
-    fn load(self: *Self) !Data {
+    fn load(self: *Self, app: *App) !Data {
         var rows: std.ArrayList(DataRow) = .empty;
         errdefer {
             for (rows.items) |row| row.deinit(self.parent);
@@ -104,12 +104,12 @@ const JsonLoader = struct {
         }
 
         // parse json
-        var timer = util.timerStart();
+        var timer = util.timerStart(app.io);
         try self.parseJson();
-        util.benchmark(" json.parse", util.timerRead(timer));
-        defer util.benchmark(" json.rows", util.timerRead(timer));
+        app.benchmark(" json.parse", util.timerRead(app.io, timer));
+        defer app.benchmark(" json.rows", util.timerRead(app.io, timer));
 
-        timer = util.timerStart();
+        timer = util.timerStart(app.io);
         switch (self.mode) {
             .array => {
                 const headers = try DataRow.init(self.parent, self.keys.keys());
@@ -405,7 +405,9 @@ test "duplicate keys use first value" {
 }
 
 fn initTest(alloc: std.mem.Allocator, bytes: []const u8) !Data {
-    return load(alloc, bytes);
+    const app = try App.testInit(alloc);
+    defer app.destroy();
+    return load(app, alloc, bytes);
 }
 
 fn expectRow(rows: Data, index: usize, want: []const []const u8) !void {
@@ -413,6 +415,7 @@ fn expectRow(rows: Data, index: usize, want: []const []const u8) !void {
     for (want, rows.row(index)) |w, got| try testing.expectEqualStrings(w, got);
 }
 
+const App = @import("app.zig").App;
 const Data = @import("data.zig").Data;
 const DataRow = @import("data.zig").DataRow;
 const Entry = @import("types.zig").Entry;

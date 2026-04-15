@@ -11,12 +11,12 @@ pub const Style = struct {
     title: []const u8 = "", // title text color (colorful)
 
     // Pick a concrete style for the requested color and theme settings.
-    pub fn init(alloc: std.mem.Allocator, color: types.Color, theme: types.Theme) Style {
-        if (!colorEnabled(color)) return none;
+    pub fn init(app: *App, alloc: std.mem.Allocator, color: types.Color, theme: types.Theme) Style {
+        if (!colorEnabled(app, color)) return none;
         return switch (theme) {
             .dark => dark,
             .light => light,
-            .auto => if (termbg.isDark(alloc) catch true) dark else light,
+            .auto => if (termbg.isDark(app, alloc) catch true) dark else light,
         };
     }
 
@@ -86,14 +86,14 @@ fn fgbg(comptime fg_hex: []const u8, comptime bg_hex: []const u8) []const u8 {
 //
 
 // Report whether ANSI colors should be emitted.
-fn colorEnabled(color: types.Color) bool {
+fn colorEnabled(app: *const App, color: types.Color) bool {
     return switch (color) {
         .on => true,
         .off => false,
         .auto => blk: {
-            if (util.hasenv("NO_COLOR")) break :blk false;
-            if (util.hasenv("FORCE_COLOR")) break :blk true;
-            if (!(std.Io.File.stdout().isTty(util.getIo()) catch false)) break :blk false;
+            if (app.hasenv("NO_COLOR")) break :blk false;
+            if (app.hasenv("FORCE_COLOR")) break :blk true;
+            if (!app.stdoutIsTty()) break :blk false;
             break :blk true;
         },
     };
@@ -104,31 +104,40 @@ fn colorEnabled(color: types.Color) bool {
 //
 
 test "color title style" {
-    const s1 = Style.init(testing.allocator, .off, .dark);
+    const app = try App.testInit(testing.allocator);
+    defer app.destroy();
+    const s1 = Style.init(app, testing.allocator, .off, .dark);
     try testing.expectEqualStrings("", s1.title);
-    const s2 = Style.init(testing.allocator, .on, .dark);
+    const s2 = Style.init(app, testing.allocator, .on, .dark);
     try testing.expectEqualStrings("\x1b[38;2;96;165;250m", s2.title);
-    const s3 = Style.init(testing.allocator, .on, .light);
+    const s3 = Style.init(app, testing.allocator, .on, .light);
     try testing.expectEqualStrings("\x1b[38;2;37;99;235m", s3.title);
 }
 
 test "zebra style colors match table_tennis" {
-    const dark = Style.init(testing.allocator, .on, .dark);
+    const app = try App.testInit(testing.allocator);
+    defer app.destroy();
+    const dark = Style.init(app, testing.allocator, .on, .dark);
     try testing.expectEqualStrings("\x1b[38;2;255;255;255;48;2;34;34;34m", dark.zebra);
-    const light = Style.init(testing.allocator, .on, .light);
+    const light = Style.init(app, testing.allocator, .on, .light);
     try testing.expectEqualStrings("\x1b[38;2;0;0;0;48;2;229;231;235m", light.zebra);
 }
 
 test "colorEnabled handles explicit modes" {
-    try testing.expect(colorEnabled(.on));
-    try testing.expect(!colorEnabled(.off));
+    const app = try App.testInit(testing.allocator);
+    defer app.destroy();
+    try testing.expect(colorEnabled(app, .on));
+    try testing.expect(!colorEnabled(app, .off));
 }
 
 test "colorEnabled auto returns a boolean" {
-    _ = colorEnabled(.auto);
-    try testing.expect(colorEnabled(.auto) == true or colorEnabled(.auto) == false);
+    const app = try App.testInit(testing.allocator);
+    defer app.destroy();
+    _ = colorEnabled(app, .auto);
+    try testing.expect(colorEnabled(app, .auto) == true or colorEnabled(app, .auto) == false);
 }
 
+const App = @import("app.zig").App;
 const builtin = @import("builtin");
 const Color = @import("color.zig").Color;
 const mibu = @import("mibu");
@@ -136,4 +145,3 @@ const std = @import("std");
 const testing = std.testing;
 const termbg = @import("termbg.zig");
 const types = @import("types.zig");
-const util = @import("util.zig");

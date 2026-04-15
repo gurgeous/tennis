@@ -141,9 +141,14 @@ pub const ColumnType = enum { int, float, percent, string };
 // testing
 //
 
+fn initCsvTest(config: types.Config, input: []const u8) !test_support.TestTable {
+    return try test_support.initTable(testing.allocator, config, input);
+}
+
 test "column init stores table header and index" {
-    const table = try Table.initCsv(testing.allocator, .{}, "a,b\nc,d\n");
-    defer table.deinit();
+    var tt = try initCsvTest(.{}, "a,b\nc,d\n");
+    defer tt.deinit();
+    const table = tt.table;
 
     const column = table.column(1);
     try testing.expectEqual(table, column.table);
@@ -154,8 +159,9 @@ test "column init stores table header and index" {
 }
 
 test "column tail formatting and width use visible rows" {
-    const table = try Table.initCsv(testing.allocator, .{ .tail = 1 }, "a,b\nsuper-wide,1\nok,2\n");
-    defer table.deinit();
+    var tt = try initCsvTest(.{ .tail = 1 }, "a,b\nsuper-wide,1\nok,2\n");
+    defer tt.deinit();
+    const table = tt.table;
 
     try testing.expectEqualStrings("ok", table.column(0).field(0));
     try testing.expectEqual(@as(usize, 2), table.column(0).width);
@@ -185,8 +191,9 @@ test "column formatting and inference cases" {
     };
 
     for (cases) |tc| {
-        const table = try Table.initCsv(testing.allocator, tc.config, tc.input);
-        defer table.deinit();
+        var tt = try initCsvTest(tc.config, tc.input);
+        defer tt.deinit();
+        const table = tt.table;
         const col = table.column(tc.index);
         try testing.expectEqual(tc.want_type, col.type);
         try testing.expectEqual(tc.want_width, col.width);
@@ -206,8 +213,9 @@ test "column inference ignores blanks and scans all rows" {
     }
     try buf.appendSlice(testing.allocator, "not-a-number,\n");
 
-    const table = try Table.initCsv(testing.allocator, .{}, buf.items);
-    defer table.deinit();
+    var tt = try initCsvTest(.{}, buf.items);
+    defer tt.deinit();
+    const table = tt.table;
 
     try testing.expectEqual(ColumnType.string, table.column(0).type);
     try testing.expectEqual(ColumnType.string, table.column(1).type);
@@ -221,4 +229,5 @@ const percent = @import("percent.zig");
 const std = @import("std");
 const testing = std.testing;
 const Table = @import("table.zig").Table;
+const test_support = @import("test_support.zig");
 const types = @import("types.zig");

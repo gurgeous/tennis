@@ -173,16 +173,18 @@ test "layout cases" {
 }
 
 test "layout handles tiny terminals without underflow" {
-    const table = try Table.initCsv(testing.allocator, .{ .width = .{ .chars = 40 } }, "12345678,12345678,12345678,12345678,12345678,12345678,12345678,12345678\nx,x,x,x,x,x,x,x\n");
-    defer table.deinit();
+    var tt = try test_support.initTable(testing.allocator, .{ .width = .{ .chars = 40 } }, "12345678,12345678,12345678,12345678,12345678,12345678,12345678,12345678\nx,x,x,x,x,x,x,x\n");
+    defer tt.deinit();
+    const table = tt.table;
     const l = try layout(table);
     defer testing.allocator.free(l);
     try testing.expectEqual(@as(usize, 8), l.len);
 }
 
 test "measure includes row numbers and unicode width" {
-    const table = try Table.initCsv(testing.allocator, .{ .row_numbers = true }, "a,\xc3\xa9\xc3\xa9\n10,x\n");
-    defer table.deinit();
+    var tt = try test_support.initTable(testing.allocator, .{ .row_numbers = true }, "a,\xc3\xa9\xc3\xa9\n10,x\n");
+    defer tt.deinit();
+    const table = tt.table;
     const widths = try measure(table, .cells);
     defer testing.allocator.free(widths);
 
@@ -190,8 +192,9 @@ test "measure includes row numbers and unicode width" {
 }
 
 test "measure true uses header labels" {
-    const table = try Table.initCsv(testing.allocator, .{}, "alpha,b\nx,longlonglong\n");
-    defer table.deinit();
+    var tt = try test_support.initTable(testing.allocator, .{}, "alpha,b\nx,longlonglong\n");
+    defer tt.deinit();
+    const table = tt.table;
     const widths = try measure(table, .headers);
     defer testing.allocator.free(widths);
 
@@ -204,8 +207,9 @@ test "measure returns empty layout for empty inputs" {
 }
 
 test "measure ignores empty data cell width" {
-    const table = try Table.initCsv(testing.allocator, .{}, "alpha,beta\n,xyz\n");
-    defer table.deinit();
+    var tt = try test_support.initTable(testing.allocator, .{}, "alpha,beta\n,xyz\n");
+    defer tt.deinit();
+    const table = tt.table;
     const widths = try measure(table, .cells);
     defer testing.allocator.free(widths);
 
@@ -213,16 +217,18 @@ test "measure ignores empty data cell width" {
 }
 
 fn expectLayout(config: types.Config, input: []const u8, want: []const usize) !void {
-    const table = try Table.initCsv(testing.allocator, config, input);
-    defer table.deinit();
+    var tt = try test_support.initTable(testing.allocator, config, input);
+    defer tt.deinit();
+    const table = tt.table;
     const got = try layout(table);
     defer testing.allocator.free(got);
     try testing.expectEqualSlices(usize, want, got);
 }
 
 fn expectMeasure(config: types.Config, input: []const u8, want: []const usize) !void {
-    const table = try Table.initCsv(testing.allocator, config, input);
-    defer table.deinit();
+    var tt = try test_support.initTable(testing.allocator, config, input);
+    defer tt.deinit();
+    const table = tt.table;
     const got = try measure(table, .cells);
     defer testing.allocator.free(got);
     try testing.expectEqualSlices(usize, want, got);
@@ -232,5 +238,6 @@ const doomicode = @import("doomicode.zig");
 const std = @import("std");
 const Table = @import("table.zig").Table;
 const testing = std.testing;
+const test_support = @import("test_support.zig");
 const types = @import("types.zig");
 const util = @import("util.zig");

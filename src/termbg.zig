@@ -6,21 +6,21 @@
 // ignored and return an error.
 
 // Probe the terminal and report whether its background is dark.
-pub fn isDark(alloc: std.mem.Allocator) !bool {
+pub fn isDark(app: *App, alloc: std.mem.Allocator) !bool {
     if (builtin.os.tag == .windows) return error.NotSupported; // not yet
 
     // open dev/tty. note - also fails on windows, which is totally fine
-    const devtty = std.Io.Dir.openFileAbsolute(util.getIo(), "/dev/tty", .{ .mode = .read_write }) catch |err| {
-        util.tdebug("could not open /dev/tty: {s}", .{@errorName(err)});
+    const devtty = std.Io.Dir.openFileAbsolute(app.io, "/dev/tty", .{ .mode = .read_write }) catch |err| {
+        app.tdebug("could not open /dev/tty: {s}", .{@errorName(err)});
         return error.NotSupported;
     };
-    defer devtty.close(util.getIo());
-    return try isDarkWith(alloc, util.getenv("TERM"), builtin.os.tag, RealTty{ .file = &devtty });
+    defer devtty.close(app.io);
+    return try isDarkWith(app, alloc, app.getenv("TERM"), builtin.os.tag, RealTty{ .app = app, .file = &devtty });
 }
 
 // Probe terminal background color through an abstract tty interface.
-fn isDarkWith(alloc: std.mem.Allocator, term_opt: ?[]const u8, os_tag: std.Target.Os.Tag, tty: anytype) !bool {
-    util.tdebug("TERM={s}", .{term_opt orelse "<unset>"});
+fn isDarkWith(app: *App, alloc: std.mem.Allocator, term_opt: ?[]const u8, os_tag: std.Target.Os.Tag, tty: anytype) !bool {
+    app.tdebug("TERM={s}", .{term_opt orelse "<unset>"});
     _ = try supportedTerm(term_opt);
     const cc = try timeoutIndexes(os_tag);
 
@@ -35,18 +35,18 @@ fn isDarkWith(alloc: std.mem.Allocator, term_opt: ?[]const u8, os_tag: std.Targe
 
     try tty.tcsetattr(tio);
     defer tty.tcsetattr(saved) catch {};
-    util.tdebug("now in raw mode", .{});
+    app.tdebug("now in raw mode", .{});
 
-    util.tdebug("OSC11", .{});
+    app.tdebug("OSC11", .{});
     try tty.writeAll(ansi.esc ++ "]11;?\x07" ++ ansi.esc ++ "[6n");
 
     const response1 = try tty.readResponse(alloc);
     defer alloc.free(response1);
     const inspect1 = try util.inspect(alloc, response1);
     defer alloc.free(inspect1);
-    util.tdebug("response1={s}", .{inspect1});
+    app.tdebug("response1={s}", .{inspect1});
     if (!isOsc11Response(response1)) {
-        util.tdebug("terminal ignored osc11", .{});
+        app.tdebug("terminal ignored osc11", .{});
         return error.NotSupported;
     }
 
@@ -55,13 +55,13 @@ fn isDarkWith(alloc: std.mem.Allocator, term_opt: ?[]const u8, os_tag: std.Targe
     if (response2) |buf| {
         const inspect2 = try util.inspect(alloc, buf);
         defer alloc.free(inspect2);
-        util.tdebug("response2={s}", .{inspect2});
+        app.tdebug("response2={s}", .{inspect2});
     }
 
     const color = try parseResponse(response1);
     const hex = try color.toHex(alloc);
     defer alloc.free(hex);
-    util.tdebug("detected {s} => {s}", .{ hex, if (color.isDark()) "dark" else "light" });
+    app.tdebug("detected {s} => {s}", .{ hex, if (color.isDark()) "dark" else "light" });
     return color.isDark();
 }
 
@@ -69,7 +69,6 @@ fn isDarkWith(alloc: std.mem.Allocator, term_opt: ?[]const u8, os_tag: std.Targe
 fn supportedTerm(term_opt: ?[]const u8) ![]const u8 {
     const term = term_opt orelse return error.NotSupported;
     if (std.mem.startsWith(u8, term, "screen") or std.mem.startsWith(u8, term, "tmux") or std.mem.startsWith(u8, term, "dumb")) {
-        util.tdebug("bad TERM, bailing", .{});
         return error.NotSupported;
     }
     return term;
@@ -97,6 +96,7 @@ fn isOsc11Response(response: []const u8) bool {
 }
 
 const RealTty = if (builtin.os.tag != .windows) struct {
+    app: *App,
     file: *const std.Io.File,
 
     // Fetch the current terminal attributes.
@@ -112,7 +112,7 @@ const RealTty = if (builtin.os.tag != .windows) struct {
     // Write raw bytes to the tty.
     fn writeAll(self: @This(), bytes: []const u8) !void {
         var buf: [256]u8 = undefined;
-        var writer = self.file.*.writerStreaming(util.getIo(), &buf);
+        var writer = self.file.*.writerStreaming(self.app.io, &buf);
         try writer.interface.writeAll(bytes);
         try writer.interface.flush();
     }
@@ -122,6 +122,7 @@ const RealTty = if (builtin.os.tag != .windows) struct {
         return try termReadResponse(alloc, self.file.handle);
     }
 } else struct {
+    app: *App,
     file: *const std.Io.File,
 };
 
@@ -264,11 +265,14 @@ test "isDarkWith returns parsed darkness and restores tty state" {
         }
     };
 
+    const app = try App.testInit(testing.allocator);
+    defer app.destroy();
+
     var tty = FakeTty{
         .first = "\x1b]11;rgb:0000/0000/0000\x07",
         .second = "\x1b[1;1R",
     };
-    try testing.expect(try isDarkWith(testing.allocator, "xterm-256color", .linux, &tty));
+    try testing.expect(try isDarkWith(app, testing.allocator, "xterm-256color", .linux, &tty));
     try testing.expectEqualStrings(ansi.esc ++ "]11;?\x07" ++ ansi.esc ++ "[6n", tty.write_buf[0..tty.write_len]);
     try testing.expectEqual(@as(usize, 2), tty.set_count);
     try testing.expectEqual(@as(u8, 1), tty.configured.cc[@intFromEnum(std.os.linux.V.TIME)]);
@@ -293,21 +297,23 @@ test "isDarkWith returns not supported when osc11 is ignored" {
         }
     };
 
+    const app = try App.testInit(testing.allocator);
+    defer app.destroy();
     var tty = FakeTty{};
-    try testing.expectError(error.NotSupported, isDarkWith(testing.allocator, "xterm-256color", .linux, &tty));
+    try testing.expectError(error.NotSupported, isDarkWith(app, testing.allocator, "xterm-256color", .linux, &tty));
 }
 
 test "readResponse reads csi response" {
     const fds = try testPipe();
     const reader: std.Io.File = .{ .handle = fds[0], .flags = .{ .nonblocking = false } };
     const writer: std.Io.File = .{ .handle = fds[1], .flags = .{ .nonblocking = false } };
-    defer reader.close(util.getIo());
-    defer writer.close(util.getIo());
+    defer reader.close(std.testing.io);
+    defer writer.close(std.testing.io);
 
-    var buf1: [64]u8 = undefined;
-    var pipe_writer1 = writer.writerStreaming(util.getIo(), &buf1);
-    try pipe_writer1.interface.writeAll("junk\x1b[12;34R");
-    try pipe_writer1.interface.flush();
+    var buf: [64]u8 = undefined;
+    var pipe_writer = writer.writerStreaming(std.testing.io, &buf);
+    try pipe_writer.interface.writeAll("junk\x1b[12;34R");
+    try pipe_writer.interface.flush();
     const out = try termReadResponse(testing.allocator, fds[0]);
     defer testing.allocator.free(out);
     try testing.expectEqualStrings("\x1b[12;34R", out);
@@ -317,13 +323,13 @@ test "readResponse reads osc bel response" {
     const fds = try testPipe();
     const reader: std.Io.File = .{ .handle = fds[0], .flags = .{ .nonblocking = false } };
     const writer: std.Io.File = .{ .handle = fds[1], .flags = .{ .nonblocking = false } };
-    defer reader.close(util.getIo());
-    defer writer.close(util.getIo());
+    defer reader.close(std.testing.io);
+    defer writer.close(std.testing.io);
 
-    var buf2: [64]u8 = undefined;
-    var pipe_writer2 = writer.writerStreaming(util.getIo(), &buf2);
-    try pipe_writer2.interface.writeAll("\x1b]11;rgb:ffff/ffff/ffff\x07");
-    try pipe_writer2.interface.flush();
+    var buf: [64]u8 = undefined;
+    var pipe_writer = writer.writerStreaming(std.testing.io, &buf);
+    try pipe_writer.interface.writeAll("\x1b]11;rgb:ffff/ffff/ffff\x07");
+    try pipe_writer.interface.flush();
     const out = try termReadResponse(testing.allocator, fds[0]);
     defer testing.allocator.free(out);
     try testing.expectEqualStrings("\x1b]11;rgb:ffff/ffff/ffff\x07", out);
@@ -333,13 +339,13 @@ test "readResponse rejects invalid response type" {
     const fds = try testPipe();
     const reader: std.Io.File = .{ .handle = fds[0], .flags = .{ .nonblocking = false } };
     const writer: std.Io.File = .{ .handle = fds[1], .flags = .{ .nonblocking = false } };
-    defer reader.close(util.getIo());
-    defer writer.close(util.getIo());
+    defer reader.close(std.testing.io);
+    defer writer.close(std.testing.io);
 
-    var buf3: [64]u8 = undefined;
-    var pipe_writer3 = writer.writerStreaming(util.getIo(), &buf3);
-    try pipe_writer3.interface.writeAll("\x1bXoops");
-    try pipe_writer3.interface.flush();
+    var buf: [64]u8 = undefined;
+    var pipe_writer = writer.writerStreaming(std.testing.io, &buf);
+    try pipe_writer.interface.writeAll("\x1bXoops");
+    try pipe_writer.interface.flush();
     try testing.expectError(error.InvalidData, termReadResponse(testing.allocator, fds[0]));
 }
 
@@ -353,6 +359,7 @@ fn testPipe() ![2]std.posix.fd_t {
 }
 
 const ansi = @import("ansi.zig");
+const App = @import("app.zig").App;
 const builtin = @import("builtin");
 const Color = @import("color.zig").Color;
 const std = @import("std");

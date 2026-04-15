@@ -472,7 +472,7 @@ test "render exact outputs" {
 
 test "render with title and row numbers" {
     var test_table: test_support.TestTable = undefined;
-    try test_table.init(testing.allocator, "a,b\nc,d\n");
+    try test_table.init(testing.allocator, .{}, "a,b\nc,d\n");
     defer test_table.deinit();
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
@@ -533,7 +533,7 @@ test "render zebra uses alternating row background" {
 
 fn renderTest(input: []const u8, config: types.Config) ![]u8 {
     var test_table: test_support.TestTable = undefined;
-    try test_table.init(testing.allocator, input);
+    try test_table.init(testing.allocator, .{}, input);
     defer test_table.deinit();
     try applyRenderConfig(test_table.table, config);
     const l = try Layout.init(test_table.table);

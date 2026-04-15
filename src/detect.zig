@@ -47,15 +47,15 @@ pub fn formatFromFilename(path: []const u8) ?InputFormat {
     return null;
 }
 
-pub fn isSqliteFile(alloc: std.mem.Allocator, filename: ?[]const u8, input: std.Io.File) !bool {
+pub fn isSqliteFile(app: *const App, alloc: std.mem.Allocator, filename: ?[]const u8, input: std.Io.File) !bool {
     // do we have an actual file?
     const path = filename orelse return false;
     if (std.mem.eql(u8, path, "-")) return false;
-    if (!util.isSeekable(input)) return false;
+    if (!util.isSeekable(app.io, input)) return false;
 
     // sample the first few bytes to look for sqlite3 magic
     var buf: [32]u8 = undefined;
-    var reader = input.reader(util.getIo(), &.{});
+    var reader = input.reader(app.io, &.{});
     const n = try reader.interface.readSliceShort(&buf);
     try reader.seekTo(0);
     return try detectFormat(alloc, path, buf[0..n]) == .sqlite;
@@ -97,6 +97,7 @@ test "detectFormat" {
     }
 }
 
+const App = @import("app.zig").App;
 const std = @import("std");
 const testing = std.testing;
 const util = @import("util.zig");

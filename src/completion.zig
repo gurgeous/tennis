@@ -17,7 +17,7 @@ const Options = struct {
 };
 
 // Write one shell completion script to stdout.
-pub fn write(alloc: std.mem.Allocator, shell: types.CompletionShell) !void {
+pub fn write(app: *App, alloc: std.mem.Allocator, shell: types.CompletionShell) !void {
     const options = parseOptions();
     var writer: std.Io.Writer.Allocating = .init(alloc);
     defer writer.deinit();
@@ -28,9 +28,8 @@ pub fn write(alloc: std.mem.Allocator, shell: types.CompletionShell) !void {
     }
     const out = try writer.toOwnedSlice();
     defer alloc.free(out);
-    var stdout_writer = std.Io.File.stdout().writerStreaming(util.getIo(), &.{});
-    try stdout_writer.interface.writeAll(out);
-    try stdout_writer.interface.flush();
+    try app.stdout().writeAll(out);
+    try app.stdout().flush();
 }
 
 // Generate the bash completion script.
@@ -265,9 +264,9 @@ fn renderForTest(alloc: std.mem.Allocator, shell: types.CompletionShell) ![]u8 {
     return try writer.toOwnedSlice();
 }
 
+const App = @import("app.zig").App;
 const Args = @import("args.zig").Args;
 const border = @import("border.zig");
 const std = @import("std");
 const testing = std.testing;
 const types = @import("types.zig");
-const util = @import("util.zig");

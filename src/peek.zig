@@ -29,7 +29,7 @@ fn buildSampleTable(alloc: std.mem.Allocator, table: *Table) !*Table {
     const rows = try alloc.alloc(Row, table.nrows());
     defer alloc.free(rows);
     for (rows, 0..) |*row, ii| row.* = table.row(ii);
-    return try Table.init(alloc, config, try cloneRows(alloc, table.headers(), rows, config.head));
+    return try Table.init(table.app, alloc, config, try cloneRows(alloc, table.headers(), rows, config.head));
 }
 
 // Derive a config for the sample table without reapplying row/col transforms.
@@ -72,7 +72,7 @@ fn buildStatsTable(alloc: std.mem.Allocator, table: *Table) !*Table {
     try rows.append(alloc, try DataRow.init(alloc, &headers));
     for (0..table.ncols()) |ii| try rows.append(alloc, try buildStatsRow(alloc, table, ii));
 
-    return try Table.init(alloc, try statsConfig(alloc, table.config), .{ .rows = try rows.toOwnedSlice(alloc) });
+    return try Table.init(table.app, alloc, try statsConfig(alloc, table.config), .{ .rows = try rows.toOwnedSlice(alloc) });
 }
 
 // Build one owned stats row for one visible column.
@@ -232,20 +232,23 @@ fn fmtPercentValue(alloc: std.mem.Allocator, value: ?f64) ![]u8 {
 test "sampleTitle includes optional title and visible shape" {
     var config: Config = .{ .title = try testing.allocator.dupe(u8, "foo") };
     defer config.deinit(testing.allocator);
-    const titled_table = try Table.initCsv(testing.allocator, config, "a,b\nc,d\n");
-    defer titled_table.deinit();
+    var titled_tt = try test_support.initTable(testing.allocator, config, "a,b\nc,d\n");
+    defer titled_tt.deinit();
+    const titled_table = titled_tt.table;
     const titled = try sampleTitle(testing.allocator, titled_table);
     defer testing.allocator.free(titled);
     try testing.expectEqualStrings("foo (1 row × 2 cols)", titled);
 
-    const bare_table = try Table.initCsv(testing.allocator, .{}, "a,b\nc,d\ne,f\ng,h\n");
-    defer bare_table.deinit();
+    var bare_tt = try test_support.initTable(testing.allocator, .{}, "a,b\nc,d\ne,f\ng,h\n");
+    defer bare_tt.deinit();
+    const bare_table = bare_tt.table;
     const bare = try sampleTitle(testing.allocator, bare_table);
     defer testing.allocator.free(bare);
     try testing.expectEqualStrings("3 rows × 2 cols", bare);
 
-    const singular_table = try Table.initCsv(testing.allocator, .{}, "a\nx\n");
-    defer singular_table.deinit();
+    var singular_tt = try test_support.initTable(testing.allocator, .{}, "a\nx\n");
+    defer singular_tt.deinit();
+    const singular_table = singular_tt.table;
     const singular = try sampleTitle(testing.allocator, singular_table);
     defer testing.allocator.free(singular);
     try testing.expectEqualStrings("1 row × 1 col", singular);
@@ -262,8 +265,9 @@ test "sampleFooter pluralizes row count" {
 }
 
 test "buildStatsTable reports basic visible stats" {
-    const table = try Table.initCsv(testing.allocator, .{}, "name,score,city\nalice,10,boston\nbob,20,\ncara,20,chicago\n");
-    defer table.deinit();
+    var tt = try test_support.initTable(testing.allocator, .{}, "name,score,city\nalice,10,boston\nbob,20,\ncara,20,chicago\n");
+    defer tt.deinit();
+    const table = tt.table;
 
     const stats = try buildStatsTable(testing.allocator, table);
     defer stats.deinit();
@@ -275,8 +279,9 @@ test "buildStatsTable reports basic visible stats" {
 }
 
 test "buildStatsTable tolerates oversized ints in peek stats" {
-    const table = try Table.initCsv(testing.allocator, .{}, "id\n99999999999999999999\n");
-    defer table.deinit();
+    var tt = try test_support.initTable(testing.allocator, .{}, "id\n99999999999999999999\n");
+    defer tt.deinit();
+    const table = tt.table;
 
     const stats = try buildStatsTable(testing.allocator, table);
     defer stats.deinit();
@@ -288,8 +293,9 @@ test "buildStatsTable tolerates oversized ints in peek stats" {
 }
 
 test "buildStatsTable truncates float min and max to three digits" {
-    const table = try Table.initCsv(testing.allocator, .{}, "score\n1.23456\n20.9999\n");
-    defer table.deinit();
+    var tt = try test_support.initTable(testing.allocator, .{}, "score\n1.23456\n20.9999\n");
+    defer tt.deinit();
+    const table = tt.table;
 
     const stats = try buildStatsTable(testing.allocator, table);
     defer stats.deinit();
@@ -298,8 +304,9 @@ test "buildStatsTable truncates float min and max to three digits" {
 }
 
 test "buildStatsTable treats percent columns as numeric" {
-    const table = try Table.initCsv(testing.allocator, .{}, "score,other\n12%,x\n-3.5%,y\n,z\n");
-    defer table.deinit();
+    var tt = try test_support.initTable(testing.allocator, .{}, "score,other\n12%,x\n-3.5%,y\n,z\n");
+    defer tt.deinit();
+    const table = tt.table;
 
     const stats = try buildStatsTable(testing.allocator, table);
     defer stats.deinit();

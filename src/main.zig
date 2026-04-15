@@ -10,22 +10,21 @@
 //
 
 pub fn main(init_process: std.process.Init) !u8 {
-    util.initRuntime(init_process.io, init_process.minimal.environ);
-    defer util.deinit();
+    const app = try App.init(init_process);
+    defer app.destroy();
 
     var exit: u8 = 0;
-    const fatal = main0(init_process.gpa, init_process.arena.allocator(), init_process.minimal.args) catch |err| switch (err) {
+    const fatal = main0(app, init_process.gpa, init_process.arena.allocator(), init_process.minimal.args) catch |err| switch (err) {
         error.BrokenPipe, error.WriteFailed => null,
         else => return err,
     };
     if (fatal) |value| {
         defer value.deinit(init_process.gpa);
-        try value.print();
+        try value.print(app);
         exit = 1;
     }
 
-    util.stdout.flush() catch {};
-    util.stderr.flush() catch {};
+    app.flush();
     return exit;
 }
 
@@ -35,13 +34,13 @@ pub fn main(init_process: std.process.Init) !u8 {
 //
 
 // REVIEW: just accept std.process.Init. Should std.process.Init be a global?
-fn main0(alloc: std.mem.Allocator, arena: std.mem.Allocator, process_args: std.process.Args) !?failure.Failure {
+fn main0(app: *App, alloc: std.mem.Allocator, arena: std.mem.Allocator, process_args: std.process.Args) !?failure.Failure {
     // timer
-    const total = util.timerStart();
-    defer util.benchmark("total", util.timerRead(total));
+    const total = util.timerStart(app.io);
+    defer app.benchmark("total", util.timerRead(app.io, total));
 
     // sanity checks
-    if (util.hasenv("BENCHMARK") and builtin.mode == .Debug) {
+    if (app.hasenv("BENCHMARK") and builtin.mode == .Debug) {
         return .{ .code = .benchmark_requires_release };
     }
 
@@ -49,9 +48,9 @@ fn main0(alloc: std.mem.Allocator, arena: std.mem.Allocator, process_args: std.p
     // parse args
     //
 
-    var timer = util.timerStart();
+    var timer = util.timerStart(app.io);
     const argv = try process_args.toSlice(arena);
-    var event = try Args.init(alloc, argv[1..]);
+    var event = try Args.init(alloc, app, argv[1..]);
     defer event.deinit(alloc);
 
     //
@@ -61,24 +60,24 @@ fn main0(alloc: std.mem.Allocator, arena: std.mem.Allocator, process_args: std.p
     var config = switch (event) {
         .banner => {
             // plain `tennis` with no file/stdin prints the banner
-            try failure.printBanner(util.stdout, null);
+            try failure.printBanner(app.stdout(), null);
             return null;
         },
         .completion => |shell| {
             // shell completion is generated immediately
-            try completion.write(alloc, shell);
+            try completion.write(app, alloc, shell);
             return null;
         },
         // arg/setup failures are already fully formed Failures
         .fatal => return event.takeFailure(),
         .help => {
             // help text bypasses the rest of the CLI
-            try util.stdout.writeAll(Args.help);
+            try app.stdout().writeAll(Args.help);
             return null;
         },
         .version => {
             // version is another direct early exit
-            try util.stdout.print("tennis: {s}\n", .{version});
+            try app.stdout().print("tennis: {s}\n", .{version});
             return null;
         },
         // otherwise keep the parsed config and continue
@@ -92,22 +91,22 @@ fn main0(alloc: std.mem.Allocator, arena: std.mem.Allocator, process_args: std.p
     // where are we reading from?
     //
 
-    timer = util.timerStart();
+    timer = util.timerStart(app.io);
     var input = std.Io.File.stdin();
     var needs_close = false;
     if (config.filename) |path| {
         if (!std.mem.eql(u8, path, "-")) {
-            input = try std.Io.Dir.cwd().openFile(util.getIo(), path, .{});
+            input = try std.Io.Dir.cwd().openFile(app.io, path, .{});
             needs_close = true;
         }
     }
-    defer if (needs_close) input.close(util.getIo());
-    util.benchmark("input", util.timerRead(timer));
+    defer if (needs_close) input.close(app.io);
+    app.benchmark("input", util.timerRead(app.io, timer));
 
     // input => data rows
-    var data = load(alloc, config, input) catch |err| {
+    var data = load(app, alloc, config, input) catch |err| {
         if (err == error.SqliteInvalidTable) {
-            var db = try sqlite.Sqlite.init(alloc, config.filename.?);
+            var db = try sqlite.Sqlite.init(app, alloc, config.filename.?);
             defer db.deinit();
             return try failure.Failure.fromSqliteTableError(alloc, config.table, db.tables);
         }
@@ -127,22 +126,22 @@ fn main0(alloc: std.mem.Allocator, arena: std.mem.Allocator, process_args: std.p
     //
 
     // Hand off both config and data here; Table.init owns cleanup from this point on.
-    const table = try Table.init(alloc, config, data);
+    const table = try Table.init(app, alloc, config, data);
     defer table.deinit();
-    util.benchmark("table.init", util.timerRead(timer));
+    app.benchmark("table.init", util.timerRead(app.io, timer));
 
     //
     // render
     //
 
-    timer = util.timerStart();
-    if (config.pager and builtin.os.tag != .windows and (std.Io.File.stdout().isTty(util.getIo()) catch false)) {
-        try renderToPager(alloc, config, table);
+    timer = util.timerStart(app.io);
+    if (config.pager and app.stdoutIsTty()) {
+        try renderToPager(app, alloc, config, table);
     } else {
-        try renderToWriter(alloc, config, table, util.stdout);
+        try renderToWriter(alloc, config, table, app.stdout());
     }
 
-    util.benchmark("table.render", util.timerRead(timer));
+    app.benchmark("table.render", util.timerRead(app.io, timer));
     return null;
 }
 
@@ -151,23 +150,23 @@ fn main0(alloc: std.mem.Allocator, arena: std.mem.Allocator, process_args: std.p
 //
 
 // Load the configured input into table data, dispatching by detected format.
-fn load(alloc: std.mem.Allocator, config: types.Config, input: std.Io.File) !Data {
+fn load(app: *App, alloc: std.mem.Allocator, config: types.Config, input: std.Io.File) !Data {
     // typically we read the whole file into memory for processing. That won't
     // work if we are using `sqlite3`, though.
-    if (try detect.isSqliteFile(alloc, config.filename, input)) {
-        var db = try sqlite.Sqlite.init(alloc, config.filename.?);
+    if (try detect.isSqliteFile(app, alloc, config.filename, input)) {
+        var db = try sqlite.Sqlite.init(app, alloc, config.filename.?);
         defer db.deinit();
         return try db.load(config.table);
     }
 
-    var reader = input.reader(util.getIo(), &.{});
+    var reader = input.reader(app.io, &.{});
     const bytes = try reader.interface.allocRemaining(alloc, .unlimited);
     defer alloc.free(bytes);
-    return try loadBytes(alloc, config, bytes);
+    return try loadBytes(app, alloc, config, bytes);
 }
 
 // Load in-memory bytes into table data using the existing text format loaders.
-fn loadBytes(alloc: std.mem.Allocator, config: types.Config, bytes_in: []const u8) !Data {
+fn loadBytes(app: *App, alloc: std.mem.Allocator, config: types.Config, bytes_in: []const u8) !Data {
     // skip bom
     var bytes = bytes_in;
     if (std.mem.startsWith(u8, bytes, "\xef\xbb\xbf")) {
@@ -180,27 +179,28 @@ fn loadBytes(alloc: std.mem.Allocator, config: types.Config, bytes_in: []const u
     if (config.table.len > 0) return error.SqliteTableRequiresSqlite;
 
     // json
-    if (format == .json) return try json.load(alloc, bytes);
+    if (format == .json) return try json.load(app, alloc, bytes);
 
     // csv (our default)
     var delimiter = config.delimiter;
     if (delimiter == 0) delimiter = sniffer.sniff(bytes) orelse ',';
-    return try csv.load(alloc, bytes, delimiter);
+    return try csv.load(app, alloc, bytes, delimiter);
 }
 
 //
 // rendering
 //
 
-fn renderToPager(alloc: std.mem.Allocator, config: types.Config, table: *Table) !void {
-    const cmd = util.getenv("PAGER") orelse "less";
-    if (std.mem.eql(u8, cmd, "cat")) return renderToWriter(alloc, config, table, util.stdout);
+fn renderToPager(app: *App, alloc: std.mem.Allocator, config: types.Config, table: *Table) !void {
+    if (builtin.os.tag == .windows) return renderToWriter(alloc, config, table, app.stdout());
+    const cmd = app.getenv("PAGER") orelse "less";
+    if (std.mem.eql(u8, cmd, "cat")) return renderToWriter(alloc, config, table, app.stdout());
 
-    var env = try std.process.Environ.createMap(util.getEnviron(), alloc);
+    var env = try std.process.Environ.createMap(app.environ, alloc);
     defer env.deinit();
     if (env.get("LESS") == null) try env.put("LESS", "FRX");
 
-    var child = try std.process.spawn(util.getIo(), .{
+    var child = try std.process.spawn(app.io, .{
         .argv = &.{ "/bin/sh", "-c", cmd },
         .environ_map = &env,
         .stdin = .pipe,
@@ -210,19 +210,19 @@ fn renderToPager(alloc: std.mem.Allocator, config: types.Config, table: *Table) 
 
     var waited = false;
     defer {
-        if (child.stdin) |stdin| stdin.close(util.getIo());
+        if (child.stdin) |stdin| stdin.close(app.io);
         child.stdin = null;
-        if (!waited) _ = child.wait(util.getIo()) catch {};
+        if (!waited) _ = child.wait(app.io) catch {};
     }
 
     var buf: [4096]u8 = undefined;
-    var out = child.stdin.?.writerStreaming(util.getIo(), &buf);
+    var out = child.stdin.?.writerStreaming(app.io, &buf);
     try renderToWriter(alloc, config, table, &out.interface);
     try out.interface.flush();
-    child.stdin.?.close(util.getIo());
+    child.stdin.?.close(app.io);
     child.stdin = null;
 
-    _ = try child.wait(util.getIo());
+    _ = try child.wait(app.io);
     waited = true;
 }
 
@@ -292,10 +292,13 @@ test "load strips UTF-8 BOM before parsing csv and jsonl" {
         },
     };
 
+    const app = try App.testInit(testing.allocator);
+    defer app.destroy();
+
     for (cases) |tc| {
         const bytes = try testing.allocator.dupe(u8, tc.input);
         defer testing.allocator.free(bytes);
-        const data = try loadBytes(testing.allocator, tc.config, bytes);
+        const data = try loadBytes(app, testing.allocator, tc.config, bytes);
         defer data.deinit(testing.allocator);
 
         try testing.expectEqual(tc.nrows, data.rows.len);
@@ -306,6 +309,7 @@ test "load strips UTF-8 BOM before parsing csv and jsonl" {
     }
 }
 
+const App = @import("app.zig").App;
 const Args = @import("args.zig").Args;
 const builtin = @import("builtin");
 const completion = @import("completion.zig");

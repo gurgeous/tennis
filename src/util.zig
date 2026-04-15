@@ -1,67 +1,16 @@
 //
-// convenient stdout/stderr buffered writers
-//
-
-pub var stdout: *std.Io.Writer = undefined;
-pub var stderr: *std.Io.Writer = undefined;
-
-var stdout_buf: [4096]u8 = undefined;
-var stderr_buf: [4096]u8 = undefined;
-
-var stdout0: ?std.Io.File.Writer = null;
-var stderr0: ?std.Io.File.Writer = null;
-var env: ?std.process.Environ.Map = null;
-var io0: ?std.Io = null;
-var environ0: ?std.process.Environ = null;
-
-//
-// init/deinit
-//
-
-// Initialize the shared buffered stdout/stderr writers.
-pub fn init() void {
-    initWriters(currentIo(), currentEnviron());
-}
-
-// Release any shared runtime state initialized by init().
-pub fn deinit() void {
-    if (env) |*env0| env0.deinit();
-    env = null;
-    io0 = null;
-    environ0 = null;
-}
-
-// Initialize process-global IO and environment for the real application runtime.
-pub fn initRuntime(io: std.Io, environ: std.process.Environ) void {
-    io0 = io;
-    environ0 = environ;
-    initWriters(io, environ);
-}
-
-// Initialize buffered stdio plus the cached environment map.
-fn initWriters(io: std.Io, environ: std.process.Environ) void {
-    stdout0 = std.Io.File.stdout().writerStreaming(io, &stdout_buf);
-    stderr0 = std.Io.File.stderr().writerStreaming(io, &stderr_buf);
-    stdout = &stdout0.?.interface;
-    stderr = &stderr0.?.interface;
-    env = std.process.Environ.createMap(environ, std.heap.page_allocator) catch @panic("could not load env");
-}
-
-//
 // files
 //
 
 // does this file exist?
-pub fn fileExists(path: []const u8) bool {
-    const io = currentIo();
+pub fn fileExists(io: std.Io, path: []const u8) bool {
     const f = std.Io.Dir.cwd().openFile(io, path, .{}) catch return false;
     f.close(io);
     return true;
 }
 
 // Report whether the file handle supports seeking to the current position.
-pub fn isSeekable(file: std.Io.File) bool {
-    const io = currentIo();
+pub fn isSeekable(io: std.Io, file: std.Io.File) bool {
     io.vtable.fileSeekBy(io.userdata, file, 0) catch return false;
     return true;
 }
@@ -243,72 +192,14 @@ pub fn upperAscii(dest: []u8, src: []const u8) []const u8 {
     return dest[0..src.len];
 }
 
-//
-// env
-// Note: these only work after util.init has populated the cached environment map.
-//
-
-// does this env var exist?
-pub fn hasenv(name: []const u8) bool {
-    return getenv(name) != null;
-}
-
-// Return one borrowed env var value when present.
-pub fn getenv(name: []const u8) ?[]const u8 {
-    return if (env) |env0| env0.get(name) else null;
-}
-
-//
-// misc
-//
-
-// print a benchmark line
-pub fn benchmark(label: []const u8, elapsed_ns: u64) void {
-    if (!hasenv("BENCHMARK")) return;
-    const ms = elapsed_ns / std.time.ns_per_ms;
-    const frac = (elapsed_ns % std.time.ns_per_ms) / std.time.ns_per_us;
-    stderr.print("{s:<17} {d:>8}.{d:0>3} ms\n", .{ label, ms, frac }) catch {};
-    stderr.flush() catch {};
-}
-
-// debug logging to stderr, enabled only with TENNIS_DEBUG=1 (or any value)
-pub fn tdebug(comptime fmt: []const u8, args: anytype) void {
-    if (!hasenv("TENNIS_DEBUG")) return;
-    stderr.print("tennis: " ++ fmt ++ "\n", args) catch {};
-    stderr.flush() catch {};
-}
-
 // Start one monotonic benchmark timer.
-pub fn timerStart() std.Io.Timestamp {
-    return std.Io.Timestamp.now(currentIo(), .awake);
+pub fn timerStart(io: std.Io) std.Io.Timestamp {
+    return std.Io.Timestamp.now(io, .awake);
 }
 
 // Read elapsed nanoseconds from a monotonic benchmark timer.
-pub fn timerRead(start: std.Io.Timestamp) u64 {
-    return @intCast(start.untilNow(currentIo(), .awake).toNanoseconds());
-}
-
-// how wide is the terminal? thanks mubi
-pub fn termWidth() usize {
-    if (builtin.os.tag != .windows) {
-        if (termWidthHandle(std.Io.File.stdout().handle)) |width| return width;
-        const io = currentIo();
-        const tty = std.Io.Dir.openFileAbsolute(io, "/dev/tty", .{}) catch return 80;
-        defer tty.close(io);
-        if (termWidthHandle(tty.handle)) |width| return width;
-    } else {
-        if (termWidthHandle(std.Io.File.stdout().handle)) |width| return width;
-    }
-
-    return 80;
-}
-
-// Probe one handle and return its positive terminal width when available.
-fn termWidthHandle(handle: std.Io.File.Handle) ?usize {
-    if (mibu.term.getSize(handle)) |size| {
-        if (size.width > 0) return @intCast(size.width);
-    } else |_| {}
-    return null;
+pub fn timerRead(io: std.Io, start: std.Io.Timestamp) u64 {
+    return @intCast(start.untilNow(io, .awake).toNanoseconds());
 }
 
 //
@@ -342,15 +233,15 @@ test "isSeekable handles file and pipe" {
 
     const file = try tmp.dir.createFile(std.testing.io, "seekable.txt", .{ .read = true });
     defer file.close(std.testing.io);
-    try testing.expect(isSeekable(file));
+    try testing.expect(isSeekable(std.testing.io, file));
 
     const pipe_fds = try testPipe();
     const pipe_reader: std.Io.File = .{ .handle = pipe_fds[0], .flags = .{ .nonblocking = false } };
     const pipe_writer: std.Io.File = .{ .handle = pipe_fds[1], .flags = .{ .nonblocking = false } };
-    defer pipe_reader.close(currentIo());
-    defer pipe_writer.close(currentIo());
+    defer pipe_reader.close(std.testing.io);
+    defer pipe_writer.close(std.testing.io);
 
-    try testing.expect(!isSeekable(pipe_reader));
+    try testing.expect(!isSeekable(std.testing.io, pipe_reader));
 }
 
 test "plural returns the right form" {
@@ -370,15 +261,8 @@ test "pluralCount formats counts with separators and pluralization" {
 
 test "fileExists" {
     const path = "testdata/test.csv";
-    try testing.expect(fileExists(path));
-    try testing.expect(!fileExists("testdata/definitely-missing.csv"));
-}
-
-test "hasenv" {
-    init();
-    defer deinit();
-    try testing.expect(hasenv("PATH"));
-    try testing.expect(!hasenv("TENNIS_TEST_ENV_DOES_NOT_EXIST"));
+    try testing.expect(fileExists(std.testing.io, path));
+    try testing.expect(!fileExists(std.testing.io, "testdata/definitely-missing.csv"));
 }
 
 test "inspect" {
@@ -414,11 +298,11 @@ test "readByte" {
     const fds = try testPipe();
     const reader: std.Io.File = .{ .handle = fds[0], .flags = .{ .nonblocking = false } };
     const writer: std.Io.File = .{ .handle = fds[1], .flags = .{ .nonblocking = false } };
-    defer reader.close(currentIo());
-    defer writer.close(currentIo());
+    defer reader.close(std.testing.io);
+    defer writer.close(std.testing.io);
 
     var buf: [16]u8 = undefined;
-    var file_writer = writer.writerStreaming(currentIo(), &buf);
+    var file_writer = writer.writerStreaming(std.testing.io, &buf);
     try file_writer.interface.writeAll("z");
     try file_writer.interface.flush();
     try testing.expectEqual(@as(u8, 'z'), try readByte(fds[0]));
@@ -487,10 +371,6 @@ test "sum" {
     try testing.expectEqual(@as(usize, 10), sum(usize, &.{ 1, 2, 3, 4 }));
 }
 
-test "termWidth returns a positive width" {
-    try testing.expect(termWidth() > 0);
-}
-
 // Create one anonymous pipe for tests without depending on libc.
 fn testPipe() ![2]std.posix.fd_t {
     var fds: [2]std.posix.fd_t = undefined;
@@ -500,32 +380,6 @@ fn testPipe() ![2]std.posix.fd_t {
     }
 }
 
-// Return the IO instance this process should use.
-pub fn getIo() std.Io {
-    return currentIo();
-}
-
-// Return the active process environment description.
-pub fn getEnviron() std.process.Environ {
-    return currentEnviron();
-}
-
-// Return the current process environment for the active runtime.
-fn currentEnviron() std.process.Environ {
-    if (builtin.is_test) return std.testing.environ;
-    if (environ0) |environ| return environ;
-    const threaded = std.Options.debug_threaded_io orelse @panic("util.initRuntime must run before reading the process environment");
-    return threaded.environ.process_environ;
-}
-
-// Return the IO implementation for the active runtime.
-fn currentIo() std.Io {
-    if (builtin.is_test) return std.testing.io;
-    return io0 orelse std.Options.debug_io;
-}
-
-const builtin = @import("builtin");
 const int = @import("int.zig");
-const mibu = @import("mibu");
 const std = @import("std");
 const testing = std.testing;

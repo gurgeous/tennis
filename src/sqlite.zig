@@ -2,6 +2,7 @@
 
 // One opened sqlite file plus cached metadata used for selection and errors.
 pub const Sqlite = struct {
+    app: *App,
     alloc: std.mem.Allocator,
     path: []const u8,
     tables: [][]const u8,
@@ -9,11 +10,12 @@ pub const Sqlite = struct {
     const Self = @This();
 
     // Initialize sqlite metadata for one file.
-    pub fn init(alloc: std.mem.Allocator, path: []const u8) !Self {
+    pub fn init(app: *App, alloc: std.mem.Allocator, path: []const u8) !Self {
         return .{
+            .app = app,
             .alloc = alloc,
             .path = path,
-            .tables = try listTablesAlloc(alloc, path),
+            .tables = try listTablesAlloc(app, alloc, path),
         };
     }
 
@@ -33,10 +35,10 @@ pub const Sqlite = struct {
         const sql = try std.fmt.allocPrint(self.alloc, "SELECT * FROM {s};", .{table});
         defer self.alloc.free(sql);
 
-        const stdout = try runSqlCsv(self.alloc, self.path, sql);
+        const stdout = try runSqlCsv(self.app, self.alloc, self.path, sql);
         defer self.alloc.free(stdout);
 
-        return try csv.load(self.alloc, stdout, ',');
+        return try csv.load(self.app, self.alloc, stdout, ',');
     }
 
     // Choose a deterministic table, preferring the requested table or the largest table.
@@ -67,7 +69,7 @@ pub const Sqlite = struct {
             \\ORDER BY total_size DESC, name ASC
             \\LIMIT 1;
         ;
-        if (try self.hasDbstat()) return try queryScalar(self.alloc, self.path, largestTableSql);
+        if (try self.hasDbstat()) return try queryScalar(self.app, self.alloc, self.path, largestTableSql);
 
         // just the first able, I guess
         return self.alloc.dupe(u8, self.tables[0]);
@@ -78,7 +80,7 @@ pub const Sqlite = struct {
         const sql =
             \\SELECT 1 FROM dbstat LIMIT 1;
         ;
-        const value = queryScalarOrNull(self.alloc, self.path, sql) catch |err| switch (err) {
+        const value = queryScalarOrNull(self.app, self.alloc, self.path, sql) catch |err| switch (err) {
             error.SqliteCliFailed => return false,
             else => return err,
         };
@@ -88,7 +90,7 @@ pub const Sqlite = struct {
 };
 
 // List tables
-fn listTablesAlloc(alloc: std.mem.Allocator, path: []const u8) ![][]const u8 {
+fn listTablesAlloc(app: *App, alloc: std.mem.Allocator, path: []const u8) ![][]const u8 {
     const sql =
         \\SELECT name
         \\FROM pragma_table_list
@@ -96,7 +98,7 @@ fn listTablesAlloc(alloc: std.mem.Allocator, path: []const u8) ![][]const u8 {
         \\ORDER BY name;
     ;
 
-    const stdout = try runSql(alloc, path, sql);
+    const stdout = try runSql(app, alloc, path, sql);
     defer alloc.free(stdout);
 
     var out: std.ArrayList([]const u8) = .empty;
@@ -116,18 +118,18 @@ fn listTablesAlloc(alloc: std.mem.Allocator, path: []const u8) ![][]const u8 {
 }
 
 // Run one query and return bytes.
-fn runSql(alloc: std.mem.Allocator, path: []const u8, sql: []const u8) ![]u8 {
-    return runSqlWithArgs(alloc, &.{ "-batch", "-noheader", path, sql });
+fn runSql(app: *App, alloc: std.mem.Allocator, path: []const u8, sql: []const u8) ![]u8 {
+    return runSqlWithArgs(app, alloc, &.{ "-batch", "-noheader", path, sql });
 }
 
 // Run one csv query and return bytes.
-fn runSqlCsv(alloc: std.mem.Allocator, path: []const u8, sql: []const u8) ![]u8 {
-    return runSqlWithArgs(alloc, &.{ "-batch", "-header", "-csv", path, sql });
+fn runSqlCsv(app: *App, alloc: std.mem.Allocator, path: []const u8, sql: []const u8) ![]u8 {
+    return runSqlWithArgs(app, alloc, &.{ "-batch", "-header", "-csv", path, sql });
 }
 
 // Run one sqlite command with fixed argv and return stdout on success.
-fn runSqlWithArgs(alloc: std.mem.Allocator, argv: []const []const u8) ![]u8 {
-    const result = try runSqlite(argv);
+fn runSqlWithArgs(app: *App, alloc: std.mem.Allocator, argv: []const []const u8) ![]u8 {
+    const result = try runSqlite(app, argv);
     defer std.heap.page_allocator.free(result.stderr);
 
     switch (result.term) {
@@ -148,14 +150,14 @@ fn runSqlWithArgs(alloc: std.mem.Allocator, argv: []const []const u8) ![]u8 {
 }
 
 // Run a scalar sql query and return first line
-fn queryScalar(alloc: std.mem.Allocator, path: []const u8, sql: []const u8) ![]u8 {
-    const value = try queryScalarOrNull(alloc, path, sql);
+fn queryScalar(app: *App, alloc: std.mem.Allocator, path: []const u8, sql: []const u8) ![]u8 {
+    const value = try queryScalarOrNull(app, alloc, path, sql);
     return value orelse error.SqliteNoTables;
 }
 
 // Run a scalar sql query and return first line or null.
-fn queryScalarOrNull(alloc: std.mem.Allocator, path: []const u8, sql: []const u8) !?[]u8 {
-    const stdout = try runSql(alloc, path, sql);
+fn queryScalarOrNull(app: *App, alloc: std.mem.Allocator, path: []const u8, sql: []const u8) !?[]u8 {
+    const stdout = try runSql(app, alloc, path, sql);
     defer alloc.free(stdout);
 
     const trimmed = util.strip(u8, stdout);
@@ -164,7 +166,7 @@ fn queryScalarOrNull(alloc: std.mem.Allocator, path: []const u8, sql: []const u8
 }
 
 // Run a single sqlite command
-fn runSqlite(argv_in: []const []const u8) !std.process.RunResult {
+fn runSqlite(app: *App, argv_in: []const []const u8) !std.process.RunResult {
     // SQLite export can legitimately be large for wide tables.
     const max_output_bytes = 64 * 1024 * 1024;
     const argv = try std.heap.page_allocator.alloc([]const u8, argv_in.len + 2);
@@ -173,7 +175,7 @@ fn runSqlite(argv_in: []const []const u8) !std.process.RunResult {
     argv[1] = "-readonly";
     @memcpy(argv[2..], argv_in);
 
-    return std.process.run(std.heap.page_allocator, util.getIo(), .{
+    return std.process.run(std.heap.page_allocator, app.io, .{
         .argv = argv,
         .stdout_limit = .limited(max_output_bytes),
         .stderr_limit = .limited(max_output_bytes),
@@ -184,6 +186,7 @@ fn runSqlite(argv_in: []const []const u8) !std.process.RunResult {
     };
 }
 
+const App = @import("app.zig").App;
 const csv = @import("csv.zig");
 const Data = @import("data.zig").Data;
 const std = @import("std");
