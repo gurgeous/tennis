@@ -93,24 +93,6 @@ pub const App = struct {
         writer.interface.flush() catch {};
     }
 
-    // Report whether stdin is a tty.
-    // REVIEW: remove, inline
-    pub fn stdinIsTty(self: *const Self) bool {
-        return std.Io.File.stdin().isTty(self.io) catch false;
-    }
-
-    // Report whether stdout is a tty.
-    // REVIEW: remove, inline
-    pub fn stdoutIsTty(self: *const Self) bool {
-        return std.Io.File.stdout().isTty(self.io) catch false;
-    }
-
-    // Fill bytes from the runtime random source.
-    // REVIEW: remove, inline
-    pub fn random(self: *const Self, bytes: []u8) void {
-        self.io.random(bytes);
-    }
-
     // Return the detected terminal width with the usual fallback.
     pub fn termWidth(self: *const Self) usize {
         if (builtin.os.tag != .windows) {
@@ -138,13 +120,13 @@ fn termWidthHandle(handle: std.Io.File.Handle) ?usize {
 // testing
 //
 
-test "testInit exposes env and tty helpers" {
+test "testInit exposes env" {
     const app = try App.testInit(testing.allocator);
     defer app.destroy();
 
     try testing.expect(app.hasenv("PATH"));
-    _ = app.stdinIsTty();
-    _ = app.stdoutIsTty();
+    _ = std.Io.File.stdin().isTty(app.io) catch false;
+    _ = std.Io.File.stdout().isTty(app.io) catch false;
 }
 
 test "termWidth returns a positive width" {

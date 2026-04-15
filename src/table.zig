@@ -34,12 +34,12 @@ pub const Table = struct {
         errdefer table.deinit();
 
         // rows
-        var timer = util.timerStart(app.io);
+        var timer = std.Io.Timestamp.now(app.io, .awake);
         if (!table.empty) table.rows = try table.buildRows();
         app.benchmark(" table.rows", util.timerRead(app.io, timer));
 
         // cols
-        timer = util.timerStart(app.io);
+        timer = std.Io.Timestamp.now(app.io, .awake);
         table.columns = try table.buildColumns();
         app.benchmark(" table.cols", util.timerRead(app.io, timer));
 
@@ -81,14 +81,14 @@ pub const Table = struct {
 
     // Render this table to the provided writer.
     pub fn renderTable(self: *Self, writer: *std.Io.Writer) !void {
-        var timer = util.timerStart(self.app.io);
+        var timer = std.Io.Timestamp.now(self.app.io, .awake);
         const layout = try Layout.init(self);
         defer layout.deinit(self.alloc);
         self.app.benchmark(" render.layout", util.timerRead(self.app.io, timer));
 
         var renderer: Render = .init(self, writer, layout);
         defer renderer.deinit();
-        timer = util.timerStart(self.app.io);
+        timer = std.Io.Timestamp.now(self.app.io, .awake);
         try renderer.render();
         self.app.benchmark(" render.output", util.timerRead(self.app.io, timer));
     }
@@ -252,7 +252,7 @@ pub const Table = struct {
     // Generate one unpredictable PRNG seed from the runtime IO entropy source.
     fn randomSeed(self: *const Self) u64 {
         var bytes: [8]u8 = undefined;
-        self.app.random(&bytes);
+        self.app.io.random(&bytes);
         return std.mem.readInt(u64, &bytes, .little);
     }
 };

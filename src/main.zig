@@ -29,7 +29,7 @@ pub fn main(init_process: std.process.Init) !u8 {
 
 fn main0(app: *App, arena: std.mem.Allocator, process_args: std.process.Args) !?failure.Failure {
     // timer
-    const total = util.timerStart(app.io);
+    const total = std.Io.Timestamp.now(app.io, .awake);
     defer app.benchmark("total", util.timerRead(app.io, total));
 
     // sanity checks
@@ -41,7 +41,7 @@ fn main0(app: *App, arena: std.mem.Allocator, process_args: std.process.Args) !?
     // parse args
     //
 
-    var timer = util.timerStart(app.io);
+    var timer = std.Io.Timestamp.now(app.io, .awake);
     const argv = try process_args.toSlice(arena);
     var event = try Args.init(app, argv[1..]);
     defer event.deinit(app.alloc);
@@ -84,7 +84,7 @@ fn main0(app: *App, arena: std.mem.Allocator, process_args: std.process.Args) !?
     // where are we reading from?
     //
 
-    timer = util.timerStart(app.io);
+    timer = std.Io.Timestamp.now(app.io, .awake);
     var input = std.Io.File.stdin();
     var needs_close = false;
     if (config.filename) |path| {
@@ -127,8 +127,8 @@ fn main0(app: *App, arena: std.mem.Allocator, process_args: std.process.Args) !?
     // render
     //
 
-    timer = util.timerStart(app.io);
-    if (config.pager and app.stdoutIsTty()) {
+    timer = std.Io.Timestamp.now(app.io, .awake);
+    if (config.pager and (std.Io.File.stdout().isTty(app.io) catch false)) {
         try renderToPager(app, config, table);
     } else {
         try renderToWriter(app.alloc, config, table, app.stdout());

@@ -192,12 +192,6 @@ pub fn upperAscii(dest: []u8, src: []const u8) []const u8 {
     return dest[0..src.len];
 }
 
-// Start one monotonic benchmark timer.
-// REVIEW: remove/inline
-pub fn timerStart(io: std.Io) std.Io.Timestamp {
-    return std.Io.Timestamp.now(io, .awake);
-}
-
 // Read elapsed nanoseconds from a monotonic benchmark timer.
 pub fn timerRead(io: std.Io, start: std.Io.Timestamp) u64 {
     return @intCast(start.untilNow(io, .awake).toNanoseconds());

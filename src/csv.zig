@@ -5,7 +5,7 @@
 
 // Parse buffered CSV input and return owned table data.
 pub fn load(app: *App, bytes: []const u8, delimiter: u8) !Data {
-    const timer = util.timerStart(app.io);
+    const timer = std.Io.Timestamp.now(app.io, .awake);
     var loader = CsvLoader.init(app.alloc, bytes, delimiter);
     defer loader.deinit();
 

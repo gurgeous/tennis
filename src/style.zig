@@ -93,7 +93,7 @@ fn colorEnabled(app: *const App, color: types.Color) bool {
         .auto => blk: {
             if (app.hasenv("NO_COLOR")) break :blk false;
             if (app.hasenv("FORCE_COLOR")) break :blk true;
-            if (!app.stdoutIsTty()) break :blk false;
+            if (!(std.Io.File.stdout().isTty(app.io) catch false)) break :blk false;
             break :blk true;
         },
     };

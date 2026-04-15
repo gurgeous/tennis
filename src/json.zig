@@ -11,7 +11,7 @@
 //
 
 pub fn load(app: *App, bytes: []const u8) !Data {
-    const timer = util.timerStart(app.io);
+    const timer = std.Io.Timestamp.now(app.io, .awake);
     defer app.benchmark("json", util.timerRead(app.io, timer));
 
     // empty input?
@@ -104,12 +104,12 @@ const JsonLoader = struct {
         }
 
         // parse json
-        var timer = util.timerStart(app.io);
+        var timer = std.Io.Timestamp.now(app.io, .awake);
         try self.parseJson();
         app.benchmark(" json.parse", util.timerRead(app.io, timer));
         defer app.benchmark(" json.rows", util.timerRead(app.io, timer));
 
-        timer = util.timerStart(app.io);
+        timer = std.Io.Timestamp.now(app.io, .awake);
         switch (self.mode) {
             .array => {
                 const headers = try DataRow.init(self.parent, self.keys.keys());
