@@ -158,8 +158,8 @@ fn parseOption(line: []const u8) ?Option {
 
     // Help rows use a run of spaces to separate the option spec from the description.
     const desc_start = std.mem.indexOf(u8, trimmed, "  ") orelse return null;
-    const spec = std.mem.trimRight(u8, trimmed[0..desc_start], " ");
-    const desc = std.mem.trimLeft(u8, trimmed[desc_start..], " ");
+    const spec = std.mem.trimEnd(u8, trimmed[0..desc_start], " ");
+    const desc = std.mem.trimStart(u8, trimmed[desc_start..], " ");
 
     var short: ?[]const u8 = null;
     var long_and_value = spec;
