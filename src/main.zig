@@ -8,7 +8,7 @@ pub fn main(init_process: std.process.Init) !u8 {
     defer app.destroy();
 
     var exit: u8 = 0;
-    const fatal = main0(app, init_process.arena.allocator(), init_process.minimal.args) catch |err| switch (err) {
+    const fatal = main0(app, init_process) catch |err| switch (err) {
         error.BrokenPipe, error.WriteFailed => null,
         else => return err,
     };
@@ -27,7 +27,7 @@ pub fn main(init_process: std.process.Init) !u8 {
 // Run the CLI and return a printable failure when the command should fail.
 //
 
-fn main0(app: *App, arena: std.mem.Allocator, process_args: std.process.Args) !?failure.Failure {
+fn main0(app: *App, init_process: std.process.Init) !?failure.Failure {
     // timer
     const total = std.Io.Timestamp.now(app.io, .awake);
     defer app.benchmark("total", util.timerRead(app.io, total));
@@ -42,7 +42,8 @@ fn main0(app: *App, arena: std.mem.Allocator, process_args: std.process.Args) !?
     //
 
     var timer = std.Io.Timestamp.now(app.io, .awake);
-    const argv = try process_args.toSlice(arena);
+    const argv = try init_process.minimal.args.toSlice(app.alloc);
+    defer app.alloc.free(argv);
     var event = try Args.init(app, argv[1..]);
     defer event.deinit(app.alloc);
 
