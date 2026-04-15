@@ -28,6 +28,9 @@ pub fn main(init_process: std.process.Init) !u8 {
 //
 
 fn main0(app: *App, init_process: std.process.Init) !?failure.Failure {
+    var args_arena = std.heap.ArenaAllocator.init(app.alloc);
+    defer args_arena.deinit();
+
     // timer
     const total = std.Io.Timestamp.now(app.io, .awake);
     defer app.benchmark("total", util.timerRead(app.io, total));
@@ -42,8 +45,7 @@ fn main0(app: *App, init_process: std.process.Init) !?failure.Failure {
     //
 
     var timer = std.Io.Timestamp.now(app.io, .awake);
-    const argv = try init_process.minimal.args.toSlice(app.alloc);
-    defer app.alloc.free(argv);
+    const argv = try init_process.minimal.args.toSlice(args_arena.allocator());
     var event = try Args.init(app, argv[1..]);
     defer event.deinit(app.alloc);
 
@@ -132,7 +134,7 @@ fn main0(app: *App, init_process: std.process.Init) !?failure.Failure {
     if (config.pager and (std.Io.File.stdout().isTty(app.io) catch false)) {
         try renderToPager(app, config, table);
     } else {
-        try renderToWriter(app.alloc, config, table, app.stdout());
+        try renderToWriter(app, config, table, app.stdout());
     }
 
     app.benchmark("table.render", util.timerRead(app.io, timer));
@@ -186,9 +188,9 @@ fn loadBytes(app: *App, config: types.Config, bytes_in: []const u8) !Data {
 //
 
 fn renderToPager(app: *App, config: types.Config, table: *Table) !void {
-    if (builtin.os.tag == .windows) return renderToWriter(app.alloc, config, table, app.stdout());
+    if (builtin.os.tag == .windows) return renderToWriter(app, config, table, app.stdout());
     const cmd = app.getenv("PAGER") orelse "less";
-    if (std.mem.eql(u8, cmd, "cat")) return renderToWriter(app.alloc, config, table, app.stdout());
+    if (std.mem.eql(u8, cmd, "cat")) return renderToWriter(app, config, table, app.stdout());
 
     var env = try std.process.Environ.createMap(app.environ, app.alloc);
     defer env.deinit();
@@ -211,7 +213,7 @@ fn renderToPager(app: *App, config: types.Config, table: *Table) !void {
 
     var buf: [4096]u8 = undefined;
     var out = child.stdin.?.writerStreaming(app.io, &buf);
-    try renderToWriter(app.alloc, config, table, &out.interface);
+    try renderToWriter(app, config, table, &out.interface);
     try out.interface.flush();
     child.stdin.?.close(app.io);
     child.stdin = null;
@@ -220,9 +222,9 @@ fn renderToPager(app: *App, config: types.Config, table: *Table) !void {
     waited = true;
 }
 
-fn renderToWriter(alloc: std.mem.Allocator, config: types.Config, table: *Table, writer: *std.Io.Writer) !void {
+fn renderToWriter(app: *App, config: types.Config, table: *Table, writer: *std.Io.Writer) !void {
     if (config.peek) {
-        try peek.render(alloc, table, writer);
+        try peek.render(app.alloc, table, writer);
     } else {
         try table.renderTable(writer);
     }
