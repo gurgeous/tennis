@@ -4,8 +4,10 @@ pub const Env = struct {
 
     BENCHMARK: bool = undefined,
     FORCE_COLOR: bool = undefined,
+    LESS: ?[]const u8 = undefined,
     NO_COLOR: bool = undefined,
     PAGER: ?[]const u8 = undefined,
+    PATH: ?[]const u8 = undefined,
     TENNIS_DEBUG: bool = undefined,
     TERM: ?[]const u8 = undefined,
 
@@ -19,11 +21,12 @@ pub const Env = struct {
         var env: Env = .{ .map = map };
         env.BENCHMARK = env.has("BENCHMARK");
         env.FORCE_COLOR = env.has("FORCE_COLOR");
+        env.LESS = env.get("LESS");
         env.NO_COLOR = env.has("NO_COLOR");
         env.PAGER = env.get("PAGER");
+        env.PATH = env.get("PATH");
         env.TENNIS_DEBUG = env.has("TENNIS_DEBUG");
         env.TERM = env.get("TERM");
-
         return env;
     }
 

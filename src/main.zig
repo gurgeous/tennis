@@ -190,7 +190,7 @@ fn renderToPager(app: *App, config: types.Config, table: *Table) !void {
 
     var env = try app.env.clone(app.alloc);
     defer env.deinit();
-    if (env.get("LESS") == null) try env.put("LESS", "FRX");
+    if (app.env.LESS == null) try env.put("LESS", "FRX");
 
     var child = try std.process.spawn(app.io, .{
         .argv = &.{ "/bin/sh", "-c", cmd },

@@ -108,7 +108,7 @@ test "testInit exposes env" {
     const app = try App.testInit(testing.allocator);
     defer app.destroy();
 
-    try testing.expect(app.env.get("PATH") != null);
+    try testing.expect(app.env.PATH != null);
     _ = std.Io.File.stdin().isTty(app.io) catch false;
     _ = std.Io.File.stdout().isTty(app.io) catch false;
 }
