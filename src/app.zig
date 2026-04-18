@@ -4,8 +4,7 @@
 pub const App = struct {
     alloc: std.mem.Allocator,
     io: std.Io,
-    environ: std.process.Environ,
-    env: std.process.Environ.Map,
+    env: Env,
     stdout_buf: [4096]u8 = undefined,
     stderr_buf: [4096]u8 = undefined,
     stdout_writer: std.Io.File.Writer = undefined,
@@ -30,12 +29,7 @@ pub const App = struct {
     // Initialize one App from explicit runtime pieces.
     fn initFrom(alloc: std.mem.Allocator, io: std.Io, environ: std.process.Environ) !*Self {
         const app = try alloc.create(Self);
-        app.* = .{
-            .alloc = alloc,
-            .io = io,
-            .environ = environ,
-            .env = try std.process.Environ.createMap(environ, alloc),
-        };
+        app.* = .{ .alloc = alloc, .io = io, .env = try Env.init(alloc, environ) };
         app.stdout_writer = std.Io.File.stdout().writerStreaming(io, &app.stdout_buf);
         app.stderr_writer = std.Io.File.stderr().writerStreaming(io, &app.stderr_buf);
         return app;
@@ -63,19 +57,9 @@ pub const App = struct {
         self.stderr().flush() catch {};
     }
 
-    // Report whether one env var exists.
-    pub fn hasenv(self: *const Self, name: []const u8) bool {
-        return self.getenv(name) != null;
-    }
-
-    // Return one borrowed env var value when present.
-    pub fn getenv(self: *const Self, name: []const u8) ?[]const u8 {
-        return self.env.get(name);
-    }
-
     // Print one benchmark line when BENCHMARK is enabled.
     pub fn benchmark(self: *const Self, label: []const u8, elapsed_ns: u64) void {
-        if (!self.hasenv("BENCHMARK")) return;
+        if (!self.env.BENCHMARK) return;
         const ms = elapsed_ns / std.time.ns_per_ms;
         const frac = (elapsed_ns % std.time.ns_per_ms) / std.time.ns_per_us;
         var buf: [256]u8 = undefined;
@@ -86,7 +70,7 @@ pub const App = struct {
 
     // Print one debug line when TENNIS_DEBUG is enabled.
     pub fn tdebug(self: *const Self, comptime fmt: []const u8, args: anytype) void {
-        if (!self.hasenv("TENNIS_DEBUG")) return;
+        if (!self.env.TENNIS_DEBUG) return;
         var buf: [256]u8 = undefined;
         var writer = std.Io.File.stderr().writerStreaming(self.io, &buf);
         writer.interface.print("tennis: " ++ fmt ++ "\n", args) catch {};
@@ -124,7 +108,7 @@ test "testInit exposes env" {
     const app = try App.testInit(testing.allocator);
     defer app.destroy();
 
-    try testing.expect(app.hasenv("PATH"));
+    try testing.expect(app.env.PATH != null);
     _ = std.Io.File.stdin().isTty(app.io) catch false;
     _ = std.Io.File.stdout().isTty(app.io) catch false;
 }
@@ -137,6 +121,7 @@ test "termWidth returns a positive width" {
 }
 
 const builtin = @import("builtin");
+const Env = @import("env.zig").Env;
 const mibu = @import("mibu");
 const std = @import("std");
 const testing = std.testing;

@@ -2,5 +2,5 @@
 .zig-cache
 std.md
 tmp/
-zig-pkg/
 zig-out/
+zig-pkg/

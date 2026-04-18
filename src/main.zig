@@ -33,7 +33,7 @@ fn main0(app: *App, process_args: std.process.Args) !?failure.Failure {
     defer app.benchmark("total", util.timerRead(app.io, total));
 
     // sanity checks
-    if (app.hasenv("BENCHMARK") and builtin.mode == .Debug) {
+    if (app.env.BENCHMARK and builtin.mode == .Debug) {
         return .{ .code = .benchmark_requires_release };
     }
 
@@ -185,12 +185,12 @@ fn loadBytes(app: *App, config: types.Config, bytes_in: []const u8) !Data {
 
 fn renderToPager(app: *App, config: types.Config, table: *Table) !void {
     if (builtin.os.tag == .windows) return renderToWriter(app, config, table, app.stdout());
-    const cmd = app.getenv("PAGER") orelse "less";
+    const cmd = app.env.PAGER orelse "less";
     if (std.mem.eql(u8, cmd, "cat")) return renderToWriter(app, config, table, app.stdout());
 
-    var env = try std.process.Environ.createMap(app.environ, app.alloc);
+    var env = try app.env.clone(app.alloc);
     defer env.deinit();
-    if (env.get("LESS") == null) try env.put("LESS", "FRX");
+    if (app.env.LESS == null) try env.put("LESS", "FRX");
 
     var child = try std.process.spawn(app.io, .{
         .argv = &.{ "/bin/sh", "-c", cmd },

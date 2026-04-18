@@ -15,7 +15,7 @@ pub fn isDark(app: *App) !bool {
         return error.NotSupported;
     };
     defer devtty.close(app.io);
-    return try isDarkWith(app, app.getenv("TERM"), builtin.os.tag, RealTty{ .app = app, .file = &devtty });
+    return try isDarkWith(app, app.env.TERM, builtin.os.tag, RealTty{ .app = app, .file = &devtty });
 }
 
 // Probe terminal background color through an abstract tty interface.

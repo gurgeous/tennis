@@ -129,6 +129,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 #### 0.5.0 (unreleased)
 
+- zig 0.16 and centralize env handling. #45
 - style numeric columns. #35 (@jakob1379)
 - `--width min` to layout based on header width, or `--width max` to disable truncation
 - percent columns are justified (thanks @nkriege)
