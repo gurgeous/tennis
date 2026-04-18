@@ -1,6 +1,5 @@
 const std = @import("std");
 const os = std.os;
-const io = std.io;
 const posix = std.posix;
 const windows = std.os.windows;
 
@@ -104,12 +103,13 @@ pub const TermSize = struct {
     height: u16,
 };
 
-/// Get the terminal size, use `fd` equals to 0 use stdin
-pub fn getSize(handle: std.Io.File.Handle) !TermSize {
+/// Get the terminal size, use `fd` equals to 0 use stdin.
+/// `io` is used only on Windows, where the console API is reached through std.Io.
+pub fn getSize(io: std.Io, handle: std.Io.File.Handle) !TermSize {
     switch (builtin.os.tag) {
         .linux => return getSizePosix(handle),
         .macos => return getSizePosix(handle),
-        .windows => return getSizeWindows(handle),
+        .windows => return getSizeWindows(io, handle),
         else => return error.UnsupportedPlatform,
     }
 }
@@ -129,8 +129,8 @@ fn getSizePosix(fd: posix.fd_t) !TermSize {
     };
 }
 
-fn getSizeWindows(handle: windows.HANDLE) !TermSize {
-    const csbi = try winapiGlue.getConsoleScreenBufferInfo(handle);
+fn getSizeWindows(io: std.Io, handle: windows.HANDLE) !TermSize {
+    const csbi = try winapiGlue.getConsoleScreenBufferInfo(io, handle);
 
     return TermSize{
         .width = @intCast(csbi.dwWindowSize.X),

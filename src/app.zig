@@ -96,12 +96,12 @@ pub const App = struct {
     // Return the detected terminal width with the usual fallback.
     pub fn termWidth(self: *const Self) usize {
         if (builtin.os.tag != .windows) {
-            if (termWidthHandle(std.Io.File.stdout().handle)) |width| return width;
+            if (termWidthHandle(self.io, std.Io.File.stdout().handle)) |width| return width;
             const tty = std.Io.Dir.openFileAbsolute(self.io, "/dev/tty", .{}) catch return 80;
             defer tty.close(self.io);
-            if (termWidthHandle(tty.handle)) |width| return width;
+            if (termWidthHandle(self.io, tty.handle)) |width| return width;
         } else {
-            if (termWidthHandle(std.Io.File.stdout().handle)) |width| return width;
+            if (termWidthHandle(self.io, std.Io.File.stdout().handle)) |width| return width;
         }
 
         return 80;
@@ -109,8 +109,8 @@ pub const App = struct {
 };
 
 // Probe one handle and return its positive terminal width when available.
-fn termWidthHandle(handle: std.Io.File.Handle) ?usize {
-    if (mibu.term.getSize(handle)) |size| {
+fn termWidthHandle(io: std.Io, handle: std.Io.File.Handle) ?usize {
+    if (mibu.term.getSize(io, handle)) |size| {
         if (size.width > 0) return @intCast(size.width);
     } else |_| {}
     return null;

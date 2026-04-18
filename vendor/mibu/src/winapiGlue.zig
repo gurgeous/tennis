@@ -37,10 +37,10 @@ pub fn setConsoleMode(handle: windows.HANDLE, mode: windows.DWORD) !void {
     }
 }
 
-pub fn getConsoleScreenBufferInfo(handle: windows.HANDLE) !windows.CONSOLE.USER_IO.INFO.SCREEN_BUFFER {
+pub fn getConsoleScreenBufferInfo(io: std.Io, handle: windows.HANDLE) !windows.CONSOLE.USER_IO.INFO.SCREEN_BUFFER {
     var get_console_info = windows.CONSOLE.USER_IO.GET_SCREEN_BUFFER_INFO;
     const file: std.Io.File = .{ .handle = handle, .flags = .{ .nonblocking = false } };
-    return switch (try get_console_info.operate(std.Options.debug_io, file)) {
+    return switch (try get_console_info.operate(io, file)) {
         .SUCCESS => get_console_info.Data,
         else => error.Unexpected,
     };
