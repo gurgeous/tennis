@@ -107,7 +107,7 @@ pub const Column = struct {
         self: *Column,
         comptime formatter: fn (*Column, std.mem.Allocator, []const u8) anyerror![]u8,
     ) !void {
-        const alloc = self.table.alloc;
+        const alloc = self.table.app.alloc;
         const fields = try alloc.alloc(Field, self.table.nrows());
         errdefer alloc.free(fields);
 
@@ -141,12 +141,8 @@ pub const ColumnType = enum { int, float, percent, string };
 // testing
 //
 
-fn initCsvTest(config: types.Config, input: []const u8) !test_support.TestTable {
-    return try test_support.initTable(testing.allocator, config, input);
-}
-
 test "column init stores table header and index" {
-    var tt = try initCsvTest(.{}, "a,b\nc,d\n");
+    var tt = try test_support.initTable(testing.allocator, .{}, "a,b\nc,d\n");
     defer tt.deinit();
     const table = tt.table;
 
@@ -159,7 +155,7 @@ test "column init stores table header and index" {
 }
 
 test "column tail formatting and width use visible rows" {
-    var tt = try initCsvTest(.{ .tail = 1 }, "a,b\nsuper-wide,1\nok,2\n");
+    var tt = try test_support.initTable(testing.allocator, .{ .tail = 1 }, "a,b\nsuper-wide,1\nok,2\n");
     defer tt.deinit();
     const table = tt.table;
 
@@ -191,7 +187,7 @@ test "column formatting and inference cases" {
     };
 
     for (cases) |tc| {
-        var tt = try initCsvTest(tc.config, tc.input);
+        var tt = try test_support.initTable(testing.allocator, tc.config, tc.input);
         defer tt.deinit();
         const table = tt.table;
         const col = table.column(tc.index);
@@ -213,7 +209,7 @@ test "column inference ignores blanks and scans all rows" {
     }
     try buf.appendSlice(testing.allocator, "not-a-number,\n");
 
-    var tt = try initCsvTest(.{}, buf.items);
+    var tt = try test_support.initTable(testing.allocator, .{}, buf.items);
     defer tt.deinit();
     const table = tt.table;
 

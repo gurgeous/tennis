@@ -166,11 +166,8 @@ fn queryScalarOrNull(app: *App, path: []const u8, sql: []const u8) !?[]u8 {
 fn runSqlite(app: *App, argv_in: []const []const u8) !std.process.RunResult {
     // SQLite export can legitimately be large for wide tables.
     const max_output_bytes = 64 * 1024 * 1024;
-    const argv = try app.alloc.alloc([]const u8, argv_in.len + 2);
+    const argv = try std.mem.concat(app.alloc, []const u8, &.{ &.{ "sqlite3", "-readonly" }, argv_in });
     defer app.alloc.free(argv);
-    argv[0] = "sqlite3";
-    argv[1] = "-readonly";
-    @memcpy(argv[2..], argv_in);
 
     return std.process.run(app.alloc, app.io, .{
         .argv = argv,

@@ -120,6 +120,16 @@ pub const Args = struct {
         return event;
     }
 
+    // Parse process args into one top-level main event.
+    pub fn initProcessArgs(app: *const App, process_args: std.process.Args) !MainEvent {
+        // std.process.Args.toSlice requires arena-style allocation because the
+        // returned argv may reference multiple allocations depending on platform.
+        var arena = std.heap.ArenaAllocator.init(app.alloc);
+        defer arena.deinit();
+        const argv = try process_args.toSlice(arena.allocator());
+        return init(app, argv[1..]);
+    }
+
     // Parse argv and map supported flags into config.
     fn parse(app: *const App, argv: []const []const u8, diag: *clap.Diagnostic) !MainEvent {
         var iter = clap.args.SliceIterator{ .args = argv };

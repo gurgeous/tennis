@@ -18,7 +18,7 @@ pub const Render = struct {
     pub fn init(table: *Table, writer: *std.Io.Writer, layout: Layout) Render {
         return .{
             .border = border.getBorder(table.config.border),
-            .buf = .init(table.alloc),
+            .buf = .init(table.app.alloc),
             .layout = layout,
             .table = table,
             .writer = writer,
@@ -479,9 +479,9 @@ test "render with title and row numbers" {
     test_table.table.config.color = .off;
     test_table.table.config.theme = .dark;
     test_table.table.config.row_numbers = true;
-    test_table.table.config.title = try test_table.table.alloc.dupe(u8, "foo");
+    test_table.table.config.title = try test_table.table.app.alloc.dupe(u8, "foo");
     const l = try Layout.init(test_table.table);
-    defer l.deinit(test_table.table.alloc);
+    defer l.deinit(test_table.table.app.alloc);
     var render: Render = .init(test_table.table, &writer, l);
     defer render.deinit();
     try render.render();
@@ -537,7 +537,7 @@ fn renderTest(input: []const u8, config: types.Config) ![]u8 {
     defer test_table.deinit();
     try applyRenderConfig(test_table.table, config);
     const l = try Layout.init(test_table.table);
-    defer l.deinit(test_table.table.alloc);
+    defer l.deinit(test_table.table.app.alloc);
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
     var render: Render = .init(test_table.table, &writer, l);
@@ -551,8 +551,8 @@ fn applyRenderConfig(table: *Table, config: types.Config) !void {
     table.config.color = config.color;
     table.config.theme = config.theme;
     table.config.row_numbers = config.row_numbers;
-    if (config.title.len > 0) table.config.title = try table.alloc.dupe(u8, config.title);
-    if (config.footer.len > 0) table.config.footer = try table.alloc.dupe(u8, config.footer);
+    if (config.title.len > 0) table.config.title = try table.app.alloc.dupe(u8, config.title);
+    if (config.footer.len > 0) table.config.footer = try table.app.alloc.dupe(u8, config.footer);
     table.config.zebra = config.zebra;
     table.config.width = config.width;
 }

@@ -6,9 +6,10 @@
 pub fn main(init_process: std.process.Init) !u8 {
     const app = try App.init(init_process);
     defer app.destroy();
+    defer app.flush();
 
     var exit: u8 = 0;
-    const fatal = main0(app, init_process) catch |err| switch (err) {
+    const fatal = main0(app, init_process.minimal.args) catch |err| switch (err) {
         error.BrokenPipe, error.WriteFailed => null,
         else => return err,
     };
@@ -18,7 +19,6 @@ pub fn main(init_process: std.process.Init) !u8 {
         exit = 1;
     }
 
-    app.flush();
     return exit;
 }
 
@@ -27,10 +27,7 @@ pub fn main(init_process: std.process.Init) !u8 {
 // Run the CLI and return a printable failure when the command should fail.
 //
 
-fn main0(app: *App, init_process: std.process.Init) !?failure.Failure {
-    var args_arena = std.heap.ArenaAllocator.init(app.alloc);
-    defer args_arena.deinit();
-
+fn main0(app: *App, process_args: std.process.Args) !?failure.Failure {
     // timer
     const total = std.Io.Timestamp.now(app.io, .awake);
     defer app.benchmark("total", util.timerRead(app.io, total));
@@ -45,8 +42,7 @@ fn main0(app: *App, init_process: std.process.Init) !?failure.Failure {
     //
 
     var timer = std.Io.Timestamp.now(app.io, .awake);
-    const argv = try init_process.minimal.args.toSlice(args_arena.allocator());
-    var event = try Args.init(app, argv[1..]);
+    var event = try Args.initProcessArgs(app, process_args);
     defer event.deinit(app.alloc);
 
     //

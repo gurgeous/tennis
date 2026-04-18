@@ -1,7 +1,6 @@
 // Parsed table data plus rendering-time caches and helpers.
 pub const Table = struct {
     app: *App,
-    alloc: std.mem.Allocator,
     data: Data = .{ .rows = &.{} },
     header: ?DataRow = null,
     rows: []DataRow = &.{},
@@ -25,7 +24,6 @@ pub const Table = struct {
         const empty = data.rows.len < 2;
         table.* = .{
             .app = app,
-            .alloc = app.alloc,
             .columns = &.{},
             .config = config,
             .data = data,
@@ -63,16 +61,16 @@ pub const Table = struct {
 
     // Release the table, columns, style cache, and stored rows.
     pub fn deinit(self: *Self) void {
-        for (self.columns) |col| col.deinit(self.alloc);
-        self.alloc.free(self.columns);
-        if (self.header) |header| header.deinit(self.alloc);
+        for (self.columns) |col| col.deinit(self.app.alloc);
+        self.app.alloc.free(self.columns);
+        if (self.header) |header| header.deinit(self.app.alloc);
         if (self.rows.len > 0) {
-            for (self.rows) |data_row| data_row.deinit(self.alloc);
-            self.alloc.free(self.rows);
+            for (self.rows) |data_row| data_row.deinit(self.app.alloc);
+            self.app.alloc.free(self.rows);
         }
-        self.data.deinit(self.alloc);
-        self.config.deinit(self.alloc);
-        self.alloc.destroy(self);
+        self.data.deinit(self.app.alloc);
+        self.config.deinit(self.app.alloc);
+        self.app.alloc.destroy(self);
     }
 
     //
@@ -83,7 +81,7 @@ pub const Table = struct {
     pub fn renderTable(self: *Self, writer: *std.Io.Writer) !void {
         var timer = std.Io.Timestamp.now(self.app.io, .awake);
         const layout = try Layout.init(self);
-        defer layout.deinit(self.alloc);
+        defer layout.deinit(self.app.alloc);
         self.app.benchmark(" render.layout", util.timerRead(self.app.io, timer));
 
         var renderer: Render = .init(self, writer, layout);
@@ -157,18 +155,18 @@ pub const Table = struct {
         const row_order = try if (self.config.filter.len > 0)
             self.filterRows()
         else
-            util.range(self.alloc, self.data.rows.len - 1);
-        defer self.alloc.free(row_order);
+            util.range(self.app.alloc, self.data.rows.len - 1);
+        defer self.app.alloc.free(row_order);
 
         // col_order and --select/--deselect
         var col_order = try if (self.config.select_cols.len > 0)
-            self.alloc.dupe(usize, self.config.select_cols)
+            self.app.alloc.dupe(usize, self.config.select_cols)
         else
-            util.range(self.alloc, self.data.headers().len);
-        defer self.alloc.free(col_order);
+            util.range(self.app.alloc, self.data.headers().len);
+        defer self.app.alloc.free(col_order);
         if (self.config.deselect_cols.len > 0) {
             const next = try self.deselectCols(col_order);
-            self.alloc.free(col_order);
+            self.app.alloc.free(col_order);
             col_order = next;
             if (col_order.len == 0) return error.InvalidDeselect;
         }
@@ -191,27 +189,27 @@ pub const Table = struct {
         if (self.config.tail > 0) n = @min(self.config.tail, n);
         const start = if (self.config.tail > 0) row_order.len - n else 0;
         const clipped = row_order[start .. start + n];
-        self.header = try DataRow.project(self.alloc, self.data.headers(), col_order);
+        self.header = try DataRow.project(self.app.alloc, self.data.headers(), col_order);
 
         // col_order & row_order => our rows
         var rows: std.ArrayList(DataRow) = .empty;
         defer {
-            for (rows.items) |data_row| data_row.deinit(self.alloc);
-            rows.deinit(self.alloc);
+            for (rows.items) |data_row| data_row.deinit(self.app.alloc);
+            rows.deinit(self.app.alloc);
         }
-        try rows.ensureTotalCapacity(self.alloc, clipped.len);
-        for (clipped) |ii| try rows.append(self.alloc, try DataRow.project(self.alloc, self.data.row(ii + 1), col_order));
-        return try rows.toOwnedSlice(self.alloc);
+        try rows.ensureTotalCapacity(self.app.alloc, clipped.len);
+        for (clipped) |ii| try rows.append(self.app.alloc, try DataRow.project(self.app.alloc, self.data.row(ii + 1), col_order));
+        return try rows.toOwnedSlice(self.app.alloc);
     }
 
     // Build every column for this table.
     fn buildColumns(self: *Self) ![]Column {
-        const columns = try self.alloc.alloc(Column, self.ncols());
-        errdefer self.alloc.free(columns);
+        const columns = try self.app.alloc.alloc(Column, self.ncols());
+        errdefer self.app.alloc.free(columns);
 
         var ii: usize = 0;
         errdefer {
-            for (columns[0..ii]) |col| col.deinit(self.alloc);
+            for (columns[0..ii]) |col| col.deinit(self.app.alloc);
         }
         for (columns, 0..) |*col, index| {
             col.* = try Column.init(self, index);
@@ -223,30 +221,30 @@ pub const Table = struct {
     // Return row indexes where any field contains the case-insensitive filter text.
     fn filterRows(self: *const Self) ![]usize {
         var out: std.ArrayList(usize) = .empty;
-        defer out.deinit(self.alloc);
+        defer out.deinit(self.app.alloc);
 
         for (self.data.rows[1..], 0..) |r, ii| {
             for (r.row) |field| {
                 if (util.containsIgnoreCase(field, self.config.filter)) {
-                    try out.append(self.alloc, ii);
+                    try out.append(self.app.alloc, ii);
                     break;
                 }
             }
         }
-        return out.toOwnedSlice(self.alloc);
+        return out.toOwnedSlice(self.app.alloc);
     }
 
     // Remove bound deselected columns from the current visible column order.
     fn deselectCols(self: *const Self, col_order: []const usize) ![]usize {
         var out: std.ArrayList(usize) = .empty;
-        defer out.deinit(self.alloc);
+        defer out.deinit(self.app.alloc);
 
         for (col_order) |source_col| {
             if (std.mem.indexOfScalar(usize, self.config.deselect_cols, source_col) == null) {
-                try out.append(self.alloc, source_col);
+                try out.append(self.app.alloc, source_col);
             }
         }
-        return out.toOwnedSlice(self.alloc);
+        return out.toOwnedSlice(self.app.alloc);
     }
 
     // Generate one unpredictable PRNG seed from the runtime IO entropy source.
@@ -260,10 +258,6 @@ pub const Table = struct {
 //
 // testing
 //
-
-fn initCsvTest(config: types.Config, input: []const u8) !test_support.TestTable {
-    return try test_support.initTable(testing.allocator, config, input);
-}
 
 test "table shape and headers" {
     const cases = [_]struct {
@@ -283,7 +277,7 @@ test "table shape and headers" {
     };
 
     for (cases) |tc| {
-        var tt = try initCsvTest(tc.config, tc.input);
+        var tt = try test_support.initTable(testing.allocator, tc.config, tc.input);
         defer tt.deinit();
         const table = tt.table;
 
@@ -297,7 +291,7 @@ test "table shape and headers" {
 }
 
 test "deselect removes columns after select" {
-    var tt = try initCsvTest(.{
+    var tt = try test_support.initTable(testing.allocator, .{
         .select = "score,name,city",
         .deselect = "city,score",
     }, "name,score,city\nalice,123,boston\n");
@@ -309,7 +303,7 @@ test "deselect removes columns after select" {
 }
 
 test "row returns data rows only" {
-    var tt = try initCsvTest(.{}, "a,b\nc,d\ne,f\n");
+    var tt = try test_support.initTable(testing.allocator, .{}, "a,b\nc,d\ne,f\n");
     defer tt.deinit();
     const table = tt.table;
 
@@ -333,7 +327,7 @@ test "nrows and row reflect head and tail" {
     };
 
     for (cases) |tc| {
-        var tt = try initCsvTest(tc.config, "a,b\n1,2\n3,4\n5,6\n");
+        var tt = try test_support.initTable(testing.allocator, tc.config, "a,b\n1,2\n3,4\n5,6\n");
         defer tt.deinit();
         const table = tt.table;
 
@@ -343,7 +337,7 @@ test "nrows and row reflect head and tail" {
 }
 
 test "table sorts rows by one column" {
-    var tt = try initCsvTest(.{ .sort = "name" }, "name,score\nbob,2\nalice,1\ncara,3\n");
+    var tt = try test_support.initTable(testing.allocator, .{ .sort = "name" }, "name,score\nbob,2\nalice,1\ncara,3\n");
     defer tt.deinit();
     const table = tt.table;
 
@@ -353,7 +347,7 @@ test "table sorts rows by one column" {
 }
 
 test "table sorts rows by multiple columns" {
-    var tt = try initCsvTest(.{ .sort = "city,name" }, "name,city\nbob,denver\ncara,boston\nalice,boston\n");
+    var tt = try test_support.initTable(testing.allocator, .{ .sort = "city,name" }, "name,city\nbob,denver\ncara,boston\nalice,boston\n");
     defer tt.deinit();
     const table = tt.table;
 
@@ -363,7 +357,7 @@ test "table sorts rows by multiple columns" {
 }
 
 test "table sorts with case insensitive header match" {
-    var tt = try initCsvTest(.{ .sort = "NAME" }, "name,score\nbob,2\nalice,1\n");
+    var tt = try test_support.initTable(testing.allocator, .{ .sort = "NAME" }, "name,score\nbob,2\nalice,1\n");
     defer tt.deinit();
     const table = tt.table;
 
@@ -372,7 +366,7 @@ test "table sorts with case insensitive header match" {
 }
 
 test "table selects a subset of columns" {
-    var tt = try initCsvTest(.{ .select = "score,name" }, "name,score,city\nbob,2,denver\nalice,1,boston\n");
+    var tt = try test_support.initTable(testing.allocator, .{ .select = "score,name" }, "name,score,city\nbob,2,denver\nalice,1,boston\n");
     defer tt.deinit();
     const table = tt.table;
 
@@ -385,7 +379,7 @@ test "table selects a subset of columns" {
 }
 
 test "table filters rows by case insensitive substring" {
-    var tt = try initCsvTest(.{ .filter = "ali" }, "name,score,city\nbob,2,denver\nAlice,1,boston\nmali,3,paris\n");
+    var tt = try test_support.initTable(testing.allocator, .{ .filter = "ali" }, "name,score,city\nbob,2,denver\nAlice,1,boston\nmali,3,paris\n");
     defer tt.deinit();
     const table = tt.table;
 
@@ -395,7 +389,7 @@ test "table filters rows by case insensitive substring" {
 }
 
 test "table filters before sort and head" {
-    var tt = try initCsvTest(.{ .filter = "bo", .sort = "score", .head = 1 }, "name,score,city\nbob,2,denver\nAlice,1,boston\nmali,3,paris\nboris,4,rome\n");
+    var tt = try test_support.initTable(testing.allocator, .{ .filter = "bo", .sort = "score", .head = 1 }, "name,score,city\nbob,2,denver\nAlice,1,boston\nmali,3,paris\nboris,4,rome\n");
     defer tt.deinit();
     const table = tt.table;
 
@@ -404,7 +398,7 @@ test "table filters before sort and head" {
 }
 
 test "table select supports duplicates" {
-    var tt = try initCsvTest(.{ .select = "name,score,name" }, "name,score\nbob,2\n");
+    var tt = try test_support.initTable(testing.allocator, .{ .select = "name,score,name" }, "name,score\nbob,2\n");
     defer tt.deinit();
     const table = tt.table;
 
@@ -416,7 +410,7 @@ test "table select supports duplicates" {
 }
 
 test "table sorts using hidden columns after select" {
-    var tt = try initCsvTest(.{ .select = "name", .sort = "score" }, "name,score\nbob,2\nalice,1\n");
+    var tt = try test_support.initTable(testing.allocator, .{ .select = "name", .sort = "score" }, "name,score\nbob,2\nalice,1\n");
     defer tt.deinit();
     const table = tt.table;
 
@@ -427,14 +421,14 @@ test "table sorts using hidden columns after select" {
 }
 
 test "table sorts before head and tail" {
-    var head_tt = try initCsvTest(.{ .sort = "name", .head = 2 }, "name,score\ncara,3\nbob,2\nalice,1\n");
+    var head_tt = try test_support.initTable(testing.allocator, .{ .sort = "name", .head = 2 }, "name,score\ncara,3\nbob,2\nalice,1\n");
     defer head_tt.deinit();
     const head = head_tt.table;
     try testing.expectEqual(@as(usize, 2), head.nrows());
     try test_support.expectEqualRows(&.{ "alice", "1" }, head.row(0));
     try test_support.expectEqualRows(&.{ "bob", "2" }, head.row(1));
 
-    var tail_tt = try initCsvTest(.{ .sort = "name", .tail = 2 }, "name,score\ncara,3\nbob,2\nalice,1\n");
+    var tail_tt = try test_support.initTable(testing.allocator, .{ .sort = "name", .tail = 2 }, "name,score\ncara,3\nbob,2\nalice,1\n");
     defer tail_tt.deinit();
     const tail = tail_tt.table;
     try testing.expectEqual(@as(usize, 2), tail.nrows());
@@ -443,14 +437,14 @@ test "table sorts before head and tail" {
 }
 
 test "table reverses rows before head and tail" {
-    var head_tt = try initCsvTest(.{ .reverse = true, .head = 2 }, "name,score\nalice,1\nbob,2\ncara,3\n");
+    var head_tt = try test_support.initTable(testing.allocator, .{ .reverse = true, .head = 2 }, "name,score\nalice,1\nbob,2\ncara,3\n");
     defer head_tt.deinit();
     const head = head_tt.table;
     try testing.expectEqual(@as(usize, 2), head.nrows());
     try test_support.expectEqualRows(&.{ "cara", "3" }, head.row(0));
     try test_support.expectEqualRows(&.{ "bob", "2" }, head.row(1));
 
-    var tail_tt = try initCsvTest(.{ .reverse = true, .tail = 2 }, "name,score\nalice,1\nbob,2\ncara,3\n");
+    var tail_tt = try test_support.initTable(testing.allocator, .{ .reverse = true, .tail = 2 }, "name,score\nalice,1\nbob,2\ncara,3\n");
     defer tail_tt.deinit();
     const tail = tail_tt.table;
     try testing.expectEqual(@as(usize, 2), tail.nrows());
@@ -459,7 +453,7 @@ test "table reverses rows before head and tail" {
 }
 
 test "table reverses sorted rows" {
-    var tt = try initCsvTest(.{ .sort = "name", .reverse = true }, "name,score\nbob,2\nalice,1\ncara,3\n");
+    var tt = try test_support.initTable(testing.allocator, .{ .sort = "name", .reverse = true }, "name,score\nbob,2\nalice,1\ncara,3\n");
     defer tt.deinit();
     const table = tt.table;
 
@@ -469,7 +463,7 @@ test "table reverses sorted rows" {
 }
 
 test "table shuffles rows with a seeded config" {
-    var tt = try initCsvTest(.{ .shuffle = true, .srand = 1 }, "name,score\nalice,1\nbob,2\ncara,3\ndina,4\n");
+    var tt = try test_support.initTable(testing.allocator, .{ .shuffle = true, .srand = 1 }, "name,score\nalice,1\nbob,2\ncara,3\ndina,4\n");
     defer tt.deinit();
     const table = tt.table;
 
@@ -480,14 +474,14 @@ test "table shuffles rows with a seeded config" {
 }
 
 test "table shuffles before head and tail" {
-    var head_tt = try initCsvTest(.{ .shuffle = true, .srand = 1, .head = 2 }, "name,score\nalice,1\nbob,2\ncara,3\ndina,4\n");
+    var head_tt = try test_support.initTable(testing.allocator, .{ .shuffle = true, .srand = 1, .head = 2 }, "name,score\nalice,1\nbob,2\ncara,3\ndina,4\n");
     defer head_tt.deinit();
     const head = head_tt.table;
     try testing.expectEqual(@as(usize, 2), head.nrows());
     try test_support.expectEqualRows(&.{ "dina", "4" }, head.row(0));
     try test_support.expectEqualRows(&.{ "alice", "1" }, head.row(1));
 
-    var tail_tt = try initCsvTest(.{ .shuffle = true, .srand = 1, .tail = 2 }, "name,score\nalice,1\nbob,2\ncara,3\ndina,4\n");
+    var tail_tt = try test_support.initTable(testing.allocator, .{ .shuffle = true, .srand = 1, .tail = 2 }, "name,score\nalice,1\nbob,2\ncara,3\ndina,4\n");
     defer tail_tt.deinit();
     const tail = tail_tt.table;
     try testing.expectEqual(@as(usize, 2), tail.nrows());
@@ -496,19 +490,19 @@ test "table shuffles before head and tail" {
 }
 
 test "nrows clamps oversized head and tail" {
-    var head_tt = try initCsvTest(.{ .head = 100 }, "a,b\n1,2\n3,4\n");
+    var head_tt = try test_support.initTable(testing.allocator, .{ .head = 100 }, "a,b\n1,2\n3,4\n");
     defer head_tt.deinit();
     const head = head_tt.table;
     try testing.expectEqual(@as(usize, 2), head.nrows());
 
-    var tail_tt = try initCsvTest(.{ .tail = 100 }, "a,b\n1,2\n3,4\n");
+    var tail_tt = try test_support.initTable(testing.allocator, .{ .tail = 100 }, "a,b\n1,2\n3,4\n");
     defer tail_tt.deinit();
     const tail = tail_tt.table;
     try testing.expectEqual(@as(usize, 2), tail.nrows());
 }
 
 test "table builds columns from headers" {
-    var tt = try initCsvTest(.{}, "a,b\nc,d\ne,f\n");
+    var tt = try test_support.initTable(testing.allocator, .{}, "a,b\nc,d\ne,f\n");
     defer tt.deinit();
     const table = tt.table;
 
@@ -518,13 +512,13 @@ test "table builds columns from headers" {
 }
 
 test "style respects config" {
-    var tt1 = try initCsvTest(.{ .color = .off, .theme = .dark }, "a,b\nc,d\n");
+    var tt1 = try test_support.initTable(testing.allocator, .{ .color = .off, .theme = .dark }, "a,b\nc,d\n");
     defer tt1.deinit();
     const table1 = tt1.table;
     try testing.expectEqualStrings("", table1.style().title);
     try testing.expectEqualStrings("", table1.style().chrome);
 
-    var tt2 = try initCsvTest(.{ .color = .on, .theme = .dark }, "a,b\nc,d\n");
+    var tt2 = try test_support.initTable(testing.allocator, .{ .color = .on, .theme = .dark }, "a,b\nc,d\n");
     defer tt2.deinit();
     const table2 = tt2.table;
     try testing.expect(table2.style().title.len > 0);
@@ -532,7 +526,7 @@ test "style respects config" {
 }
 
 test "termWidth respects config width" {
-    var tt = try initCsvTest(.{ .width = .{ .chars = 123 } }, "a,b\nc,d\n");
+    var tt = try test_support.initTable(testing.allocator, .{ .width = .{ .chars = 123 } }, "a,b\nc,d\n");
     defer tt.deinit();
     const table = tt.table;
 

@@ -37,7 +37,7 @@ pub const Layout = struct {
 // Calculate table layout, returns column widths
 fn layout(table: *Table) ![]usize {
     // 1. empty
-    const alloc = table.alloc;
+    const alloc = table.app.alloc;
     if (table.isEmpty()) return alloc.alloc(usize, 0);
     // 2. min - use header width
     if (table.config.width == .min) return measure(table, .headers);
@@ -126,7 +126,7 @@ const MeasureRows = enum { headers, cells };
 
 // Measure the natural width of the headers or the entire column.
 fn measure(table: *const Table, rows: MeasureRows) ![]usize {
-    const alloc = table.alloc;
+    const alloc = table.app.alloc;
 
     // naive widths
     var widths = std.ArrayList(usize).empty;
