@@ -102,17 +102,17 @@ pub const Args = struct {
     }
 
     // Parse argv into one top-level main event.
-    pub fn init(alloc: std.mem.Allocator, argv: []const []const u8) !MainEvent {
+    pub fn init(app: *const App, argv: []const []const u8) !MainEvent {
         var diagnostics: clap.Diagnostic = .{};
-        const event = parse(alloc, argv, &diagnostics) catch |err| {
-            return .{ .fatal = try failure.Failure.fromClapError(alloc, err, &diagnostics) };
+        const event = parse(app, argv, &diagnostics) catch |err| {
+            return .{ .fatal = try failure.Failure.fromClapError(app.alloc, err, &diagnostics) };
         };
 
         // quick check of file here
         if (event == .run) {
             if (event.run.filename) |filename| {
-                if (!std.mem.eql(u8, filename, "-") and !util.fileExists(filename)) {
-                    return .{ .fatal = try failure.Failure.fromFileNotFound(alloc, filename) };
+                if (!std.mem.eql(u8, filename, "-") and !util.fileExists(app.io, filename)) {
+                    return .{ .fatal = try failure.Failure.fromFileNotFound(app.alloc, filename) };
                 }
             }
         }
@@ -120,11 +120,21 @@ pub const Args = struct {
         return event;
     }
 
+    // Parse process args into one top-level main event.
+    pub fn initProcessArgs(app: *const App, process_args: std.process.Args) !MainEvent {
+        // std.process.Args.toSlice requires arena-style allocation because the
+        // returned argv may reference multiple allocations depending on platform.
+        var arena = std.heap.ArenaAllocator.init(app.alloc);
+        defer arena.deinit();
+        const argv = try process_args.toSlice(arena.allocator());
+        return init(app, argv[1..]);
+    }
+
     // Parse argv and map supported flags into config.
-    fn parse(alloc: std.mem.Allocator, argv: []const []const u8, diag: *clap.Diagnostic) !MainEvent {
+    fn parse(app: *const App, argv: []const []const u8, diag: *clap.Diagnostic) !MainEvent {
         var iter = clap.args.SliceIterator{ .args = argv };
         var res = try clap.parseEx(clap.Help, &params, parsers, &iter, .{
-            .allocator = alloc,
+            .allocator = app.alloc,
             .diagnostic = diag,
         });
         defer res.deinit();
@@ -156,7 +166,7 @@ pub const Args = struct {
         if (res.args.sort) |v| config.sort = v;
         if (res.args.table) |v| config.table = v;
         if (res.args.theme) |v| config.theme = v;
-        if (res.args.title) |v| config.title = try alloc.dupe(u8, v);
+        if (res.args.title) |v| config.title = try app.alloc.dupe(u8, v);
         config.vanilla = res.args.vanilla > 0;
         if (res.args.width) |v| config.width = v;
         config.zebra = res.args.zebra > 0;
@@ -178,7 +188,7 @@ pub const Args = struct {
         // now handle filename
         //
 
-        return try resolveInput(config, argv.len, res.positionals[0], std.fs.File.stdin().isTty());
+        return try resolveInput(config, argv.len, res.positionals[0], std.Io.File.stdin().isTty(app.io) catch false);
     }
 
     // Resolve positional input into stdin, file, or banner behavior.
@@ -211,7 +221,9 @@ pub const Args = struct {
 //
 
 test "parse args accepts dash positional" {
-    const out = try Args.init(testing.allocator, &.{"-"});
+    const app = try App.testInit(testing.allocator);
+    defer app.destroy();
+    const out = try Args.init(app, &.{"-"});
     try testing.expect(out == .run);
     try testing.expectEqualStrings("-", out.run.filename.?);
 }
@@ -402,7 +414,9 @@ test "resolveInput handles stdin cases" {
 }
 
 test "init returns fatal event for parse failures" {
-    const out = try Args.init(testing.allocator, &.{"--bogus"});
+    const app = try App.testInit(testing.allocator);
+    defer app.destroy();
+    const out = try Args.init(app, &.{"--bogus"});
     defer out.deinit(testing.allocator);
     try testing.expect(out == .fatal);
     const msg = try failure.string(testing.allocator, out.fatal);
@@ -411,7 +425,9 @@ test "init returns fatal event for parse failures" {
 }
 
 test "init keeps enum parse diagnostics" {
-    const out = try Args.init(testing.allocator, &.{ "--color", "bogus" });
+    const app = try App.testInit(testing.allocator);
+    defer app.destroy();
+    const out = try Args.init(app, &.{ "--color", "bogus" });
     defer out.deinit(testing.allocator);
     try testing.expect(out == .fatal);
     const msg = try failure.string(testing.allocator, out.fatal);
@@ -420,7 +436,9 @@ test "init keeps enum parse diagnostics" {
 }
 
 test "init returns fatal event for missing file" {
-    const out = try Args.init(testing.allocator, &.{"definitely-not-a-real-file.csv"});
+    const app = try App.testInit(testing.allocator);
+    defer app.destroy();
+    const out = try Args.init(app, &.{"definitely-not-a-real-file.csv"});
     defer out.deinit(testing.allocator);
     try testing.expect(out == .fatal);
     const msg = try failure.string(testing.allocator, out.fatal);
@@ -429,18 +447,24 @@ test "init returns fatal event for missing file" {
 }
 
 fn parseTest(argv: []const []const u8) !MainEvent {
+    const app = try App.testInit(testing.allocator);
+    defer app.destroy();
     var diag: clap.Diagnostic = .{};
-    return Args.parse(testing.allocator, argv, &diag);
+    return Args.parse(app, argv, &diag);
 }
 
 fn expectParseError(want: anyerror, argv: []const []const u8) !void {
+    const app = try App.testInit(testing.allocator);
+    defer app.destroy();
     var diag: clap.Diagnostic = .{};
-    try testing.expectError(want, Args.parse(testing.allocator, argv, &diag));
+    try testing.expectError(want, Args.parse(app, argv, &diag));
 }
 
 fn parseErrorString(argv: []const []const u8) ![]u8 {
+    const app = try App.testInit(testing.allocator);
+    defer app.destroy();
     var diag: clap.Diagnostic = .{};
-    _ = Args.parse(testing.allocator, argv, &diag) catch |err| {
+    _ = Args.parse(app, argv, &diag) catch |err| {
         const fatal = try failure.Failure.fromClapError(testing.allocator, err, &diag);
         defer fatal.deinit(testing.allocator);
         return failure.string(testing.allocator, fatal);
@@ -448,6 +472,7 @@ fn parseErrorString(argv: []const []const u8) ![]u8 {
     return error.TestUnexpectedResult;
 }
 
+const App = @import("app.zig").App;
 const border = @import("border.zig");
 const builtin = @import("builtin");
 const clap = @import("clap");

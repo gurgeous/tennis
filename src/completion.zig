@@ -17,22 +17,23 @@ const Options = struct {
 };
 
 // Write one shell completion script to stdout.
-pub fn write(alloc: std.mem.Allocator, shell: types.CompletionShell) !void {
+pub fn write(app: *App, shell: types.CompletionShell) !void {
     const options = parseOptions();
-    var buf: std.ArrayList(u8) = .empty;
-    defer buf.deinit(alloc);
-    var buf_writer = buf.writer(alloc);
+    var writer: std.Io.Writer.Allocating = .init(app.alloc);
+    defer writer.deinit();
 
     switch (shell) {
-        .bash => try writeBash(alloc, &buf_writer, options),
-        .zsh => try writeZsh(alloc, &buf_writer, options),
+        .bash => try writeBash(&writer.writer, options),
+        .zsh => try writeZsh(&writer.writer, options),
     }
-    try std.fs.File.stdout().writeAll(buf.items);
+    const out = try writer.toOwnedSlice();
+    defer app.alloc.free(out);
+    try app.stdout().writeAll(out);
+    try app.stdout().flush();
 }
 
 // Generate the bash completion script.
-fn writeBash(alloc: std.mem.Allocator, writer: anytype, options: Options) !void {
-    _ = alloc;
+fn writeBash(writer: anytype, options: Options) !void {
     try writer.writeAll(
         \\declare -F _init_completion >/dev/null || return 2>/dev/null
         \\
@@ -85,8 +86,7 @@ fn writeBash(alloc: std.mem.Allocator, writer: anytype, options: Options) !void 
 }
 
 // Generate the zsh completion script.
-fn writeZsh(alloc: std.mem.Allocator, writer: anytype, options: Options) !void {
-    _ = alloc;
+fn writeZsh(writer: anytype, options: Options) !void {
     try writer.writeAll(
         \\#compdef tennis
         \\compdef _tennis tennis
@@ -153,13 +153,13 @@ fn parseOptions() Options {
 
 // Parse one help line into a completion option.
 fn parseOption(line: []const u8) ?Option {
-    const trimmed = std.mem.trimLeft(u8, line, " ");
+    const trimmed = std.mem.trimStart(u8, line, " ");
     if (trimmed.len == 0 or trimmed[0] != '-') return null;
 
     // Help rows use a run of spaces to separate the option spec from the description.
     const desc_start = std.mem.indexOf(u8, trimmed, "  ") orelse return null;
-    const spec = std.mem.trimRight(u8, trimmed[0..desc_start], " ");
-    const desc = std.mem.trimLeft(u8, trimmed[desc_start..], " ");
+    const spec = std.mem.trimEnd(u8, trimmed[0..desc_start], " ");
+    const desc = std.mem.trimStart(u8, trimmed[desc_start..], " ");
 
     var short: ?[]const u8 = null;
     var long_and_value = spec;
@@ -252,17 +252,17 @@ test "writes zsh completion" {
 // Render one completion script into an owned buffer for tests.
 fn renderForTest(alloc: std.mem.Allocator, shell: types.CompletionShell) ![]u8 {
     const options = parseOptions();
-    var buf: std.ArrayList(u8) = .empty;
-    defer buf.deinit(alloc);
-    var writer = buf.writer(alloc);
+    var writer: std.Io.Writer.Allocating = .init(alloc);
+    errdefer writer.deinit();
 
     switch (shell) {
-        .bash => try writeBash(alloc, &writer, options),
-        .zsh => try writeZsh(alloc, &writer, options),
+        .bash => try writeBash(&writer.writer, options),
+        .zsh => try writeZsh(&writer.writer, options),
     }
-    return buf.toOwnedSlice(alloc);
+    return try writer.toOwnedSlice();
 }
 
+const App = @import("app.zig").App;
 const Args = @import("args.zig").Args;
 const border = @import("border.zig");
 const std = @import("std");

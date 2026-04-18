@@ -107,7 +107,7 @@ pub const Column = struct {
         self: *Column,
         comptime formatter: fn (*Column, std.mem.Allocator, []const u8) anyerror![]u8,
     ) !void {
-        const alloc = self.table.alloc;
+        const alloc = self.table.app.alloc;
         const fields = try alloc.alloc(Field, self.table.nrows());
         errdefer alloc.free(fields);
 
@@ -142,8 +142,9 @@ pub const ColumnType = enum { int, float, percent, string };
 //
 
 test "column init stores table header and index" {
-    const table = try Table.initCsv(testing.allocator, .{}, "a,b\nc,d\n");
-    defer table.deinit();
+    var tt = try test_support.initTable(testing.allocator, .{}, "a,b\nc,d\n");
+    defer tt.deinit();
+    const table = tt.table;
 
     const column = table.column(1);
     try testing.expectEqual(table, column.table);
@@ -154,8 +155,9 @@ test "column init stores table header and index" {
 }
 
 test "column tail formatting and width use visible rows" {
-    const table = try Table.initCsv(testing.allocator, .{ .tail = 1 }, "a,b\nsuper-wide,1\nok,2\n");
-    defer table.deinit();
+    var tt = try test_support.initTable(testing.allocator, .{ .tail = 1 }, "a,b\nsuper-wide,1\nok,2\n");
+    defer tt.deinit();
+    const table = tt.table;
 
     try testing.expectEqualStrings("ok", table.column(0).field(0));
     try testing.expectEqual(@as(usize, 2), table.column(0).width);
@@ -185,8 +187,9 @@ test "column formatting and inference cases" {
     };
 
     for (cases) |tc| {
-        const table = try Table.initCsv(testing.allocator, tc.config, tc.input);
-        defer table.deinit();
+        var tt = try test_support.initTable(testing.allocator, tc.config, tc.input);
+        defer tt.deinit();
+        const table = tt.table;
         const col = table.column(tc.index);
         try testing.expectEqual(tc.want_type, col.type);
         try testing.expectEqual(tc.want_width, col.width);
@@ -200,12 +203,15 @@ test "column inference ignores blanks and scans all rows" {
 
     try buf.appendSlice(testing.allocator, "a,b\n");
     for (0..100) |ii| {
-        try buf.writer(testing.allocator).print("{d},\n", .{ii});
+        var line: [32]u8 = undefined;
+        const text = try std.fmt.bufPrint(&line, "{d},\n", .{ii});
+        try buf.appendSlice(testing.allocator, text);
     }
     try buf.appendSlice(testing.allocator, "not-a-number,\n");
 
-    const table = try Table.initCsv(testing.allocator, .{}, buf.items);
-    defer table.deinit();
+    var tt = try test_support.initTable(testing.allocator, .{}, buf.items);
+    defer tt.deinit();
+    const table = tt.table;
 
     try testing.expectEqual(ColumnType.string, table.column(0).type);
     try testing.expectEqual(ColumnType.string, table.column(1).type);
@@ -219,4 +225,5 @@ const percent = @import("percent.zig");
 const std = @import("std");
 const testing = std.testing;
 const Table = @import("table.zig").Table;
+const test_support = @import("test_support.zig");
 const types = @import("types.zig");

@@ -65,7 +65,7 @@ fn getVersion(b: *std.Build) []const u8 {
     const sha = getSha(b);
 
     // 1. TENNIS_VERSION
-    if (b.graph.env_map.get("TENNIS_VERSION")) |v| {
+    if (b.graph.environ_map.get("TENNIS_VERSION")) |v| {
         _ = std.SemanticVersion.parse(v) catch @panic("TENNIS_VERSION must be int.int.int");
         return b.fmt("{s} ({s})", .{ v, sha orelse @panic("TENNIS_VERSION requires git sha") });
     }
@@ -79,7 +79,7 @@ fn getVersion(b: *std.Build) []const u8 {
 
 fn getSha(b: *std.Build) ?[]const u8 {
     var code: u8 = 0;
-    const sha_output = b.runAllowFail(&.{ "git", "rev-parse", "--short", "HEAD" }, &code, .Ignore) catch null;
+    const sha_output = b.runAllowFail(&.{ "git", "rev-parse", "--short", "HEAD" }, &code, .ignore) catch null;
     if (sha_output) |out| return std.mem.trim(u8, out, "\r\n");
     return null;
 }

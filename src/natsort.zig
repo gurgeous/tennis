@@ -10,8 +10,8 @@ pub fn order(a_in: []const u8, b_in: []const u8, ignore_case: bool) std.math.Ord
     var b = b_in;
 
     while (true) {
-        a = std.mem.trimLeft(u8, a, &std.ascii.whitespace);
-        b = std.mem.trimLeft(u8, b, &std.ascii.whitespace);
+        a = std.mem.trimStart(u8, a, &std.ascii.whitespace);
+        b = std.mem.trimStart(u8, b, &std.ascii.whitespace);
 
         if (a.len > 0 and b.len > 0 and isDigit(a[0]) and isDigit(b[0])) {
             // Leading-zero runs behave more like decimal fractions; other runs compare by magnitude.

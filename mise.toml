@@ -4,4 +4,4 @@ _.path = ["{{config_root}}/zig-out/bin", '{{config_root}}/bin']
 [tools]
 bats = "latest"
 just = "latest"
-zig = "0.15.2"
+zig = "0.16.0"

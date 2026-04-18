@@ -4,14 +4,21 @@
 //
 
 // Parse buffered CSV input and return owned table data.
-pub fn load(alloc: std.mem.Allocator, bytes: []const u8, delimiter: u8) !Data {
-    var timer = try std.time.Timer.start();
-    var loader = CsvLoader.init(alloc, bytes, delimiter);
+pub fn load(app: *App, bytes: []const u8, delimiter: u8) !Data {
+    const timer = std.Io.Timestamp.now(app.io, .awake);
+    var loader = CsvLoader.init(app.alloc, bytes, delimiter);
     defer loader.deinit();
 
     const data = try loader.load();
-    util.benchmark("csv", timer.read());
+    app.benchmark("csv", util.timerRead(app.io, timer));
     return data;
+}
+
+// Parse CSV input in tests without manually constructing an App at each call site.
+fn loadTest(alloc: std.mem.Allocator, bytes: []const u8, delimiter: u8) !Data {
+    const app = try App.testInit(alloc);
+    defer app.destroy();
+    return load(app, bytes, delimiter);
 }
 
 //
@@ -119,7 +126,7 @@ const CsvLoader = struct {
 
 test "readCsv handles quoted comma and escaped quote" {
     const alloc = testing.allocator;
-    const data = try load(alloc, "a,b\n\"x,y\",\"say \"\"hi\"\"\"\n", ',');
+    const data = try loadTest(alloc, "a,b\n\"x,y\",\"say \"\"hi\"\"\"\n", ',');
     defer data.deinit(alloc);
     try testing.expectEqual(2, data.rows.len);
     try testing.expectEqualStrings("a", data.row(0)[0]);
@@ -129,16 +136,16 @@ test "readCsv handles quoted comma and escaped quote" {
 }
 
 test "readCsv rejects jagged rows" {
-    try testing.expectError(error.JaggedCsv, load(testing.allocator, "a,b\nc\n", ','));
+    try testing.expectError(error.JaggedCsv, loadTest(testing.allocator, "a,b\nc\n", ','));
 }
 
 test "readCsv rejects malformed csv" {
-    try testing.expectError(error.UnexpectedEndOfFile, load(testing.allocator, "a,b\n\"oops\n", ','));
+    try testing.expectError(error.UnexpectedEndOfFile, loadTest(testing.allocator, "a,b\n\"oops\n", ','));
 }
 
 test "readCsv supports empty fields" {
     const alloc = testing.allocator;
-    const data = try load(alloc, "a,b,c\n1,,3\n", ',');
+    const data = try loadTest(alloc, "a,b,c\n1,,3\n", ',');
     defer data.deinit(alloc);
 
     try testing.expectEqualStrings("1", data.row(1)[0]);
@@ -148,12 +155,12 @@ test "readCsv supports empty fields" {
 
 test "readCsv rejects blank lines" {
     const alloc = testing.allocator;
-    try testing.expectError(error.UnexpectedEndOfFile, load(alloc, "a,b\n\nc,d\n", ','));
+    try testing.expectError(error.UnexpectedEndOfFile, loadTest(alloc, "a,b\n\nc,d\n", ','));
 }
 
 test "readCsv supports leading and trailing empty fields" {
     const alloc = testing.allocator;
-    const data = try load(alloc, "a,b,c\n,2,3\n1,2,\n", ',');
+    const data = try loadTest(alloc, "a,b,c\n,2,3\n1,2,\n", ',');
     defer data.deinit(alloc);
 
     try testing.expectEqualStrings("", data.row(1)[0]);
@@ -168,7 +175,7 @@ test "readCsv supports leading and trailing empty fields" {
 test "readCsv supports CRLF line endings" {
     const alloc = testing.allocator;
 
-    const data1 = try load(alloc, "a,b\r\nc,d\r\n", ',');
+    const data1 = try loadTest(alloc, "a,b\r\nc,d\r\n", ',');
     defer data1.deinit(alloc);
     try testing.expectEqualStrings("c", data1.row(1)[0]);
     try testing.expectEqualStrings("d", data1.row(1)[1]);
@@ -176,7 +183,7 @@ test "readCsv supports CRLF line endings" {
 
 test "readCsv supports final row without trailing newline" {
     const alloc = testing.allocator;
-    const data = try load(alloc, "a,b\nc,d", ',');
+    const data = try loadTest(alloc, "a,b\nc,d", ',');
     defer data.deinit(alloc);
 
     try testing.expectEqual(@as(usize, 2), data.rows.len);
@@ -186,7 +193,7 @@ test "readCsv supports final row without trailing newline" {
 
 test "readCsv supports quoted final row without trailing newline" {
     const alloc = testing.allocator;
-    const data = try load(alloc, "a,b\n\"x,y\",z", ',');
+    const data = try loadTest(alloc, "a,b\n\"x,y\",z", ',');
     defer data.deinit(alloc);
 
     try testing.expectEqual(@as(usize, 2), data.rows.len);
@@ -196,7 +203,7 @@ test "readCsv supports quoted final row without trailing newline" {
 
 test "readCsv supports embedded newlines in quoted fields" {
     const alloc = testing.allocator;
-    const data = try load(alloc, "a,b\n\"x\ny\",z\n", ',');
+    const data = try loadTest(alloc, "a,b\n\"x\ny\",z\n", ',');
     defer data.deinit(alloc);
 
     try testing.expectEqualStrings("x\\ny", data.row(1)[0]);
@@ -205,7 +212,7 @@ test "readCsv supports embedded newlines in quoted fields" {
 
 test "readCsv supports embedded CRLF in quoted fields" {
     const alloc = testing.allocator;
-    const data = try load(alloc, "a,b\r\n\"x\r\ny\",z\r\n", ',');
+    const data = try loadTest(alloc, "a,b\r\n\"x\r\ny\",z\r\n", ',');
     defer data.deinit(alloc);
 
     try testing.expectEqualStrings("x\\r\\ny", data.row(1)[0]);
@@ -214,7 +221,7 @@ test "readCsv supports embedded CRLF in quoted fields" {
 
 test "readCsv loads all rows" {
     const alloc = testing.allocator;
-    const data = try load(alloc, "a,b\n1,2\n3,4\n5,6\n", ',');
+    const data = try loadTest(alloc, "a,b\n1,2\n3,4\n5,6\n", ',');
     defer data.deinit(alloc);
 
     try testing.expectEqual(@as(usize, 4), data.rows.len);
@@ -225,7 +232,7 @@ test "readCsv loads all rows" {
 
 test "readCsv tab delimiter allows quoted fields after spaces" {
     const alloc = testing.allocator;
-    const data = try load(alloc, "a\tb\n  \"x\"\t  \"y\"\n", '\t');
+    const data = try loadTest(alloc, "a\tb\n  \"x\"\t  \"y\"\n", '\t');
     defer data.deinit(alloc);
 
     try testing.expectEqualStrings("x", data.row(1)[0]);
@@ -235,7 +242,7 @@ test "readCsv tab delimiter allows quoted fields after spaces" {
 test "readCsv supports very long rows" {
     const alloc = testing.allocator;
     const long = [_]u8{'x'} ** (17 * 1024);
-    const data = try load(alloc, "a,b\n" ++ long ++ ",z\n", ',');
+    const data = try loadTest(alloc, "a,b\n" ++ long ++ ",z\n", ',');
     defer data.deinit(alloc);
 
     try testing.expectEqual(@as(usize, 2), data.rows.len);
@@ -243,6 +250,7 @@ test "readCsv supports very long rows" {
     try testing.expectEqualStrings("z", data.row(1)[1]);
 }
 
+const App = @import("app.zig").App;
 const Data = @import("data.zig").Data;
 const DataRow = @import("data.zig").DataRow;
 const Field = @import("types.zig").Field;

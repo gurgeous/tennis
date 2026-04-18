@@ -10,17 +10,17 @@
 // Main entry point
 //
 
-pub fn load(alloc: std.mem.Allocator, bytes: []const u8) !Data {
-    var timer = try std.time.Timer.start();
-    defer util.benchmark("json", timer.read());
+pub fn load(app: *App, bytes: []const u8) !Data {
+    const timer = std.Io.Timestamp.now(app.io, .awake);
+    defer app.benchmark("json", util.timerRead(app.io, timer));
 
     // empty input?
-    if (bytes.len == 0) return .{ .rows = try alloc.alloc(DataRow, 0) };
+    if (bytes.len == 0) return .{ .rows = try app.alloc.alloc(DataRow, 0) };
 
     // pretty braindead, just try JSON and fallback to JSONL
-    const data = loadJson(alloc, bytes) catch |err|
+    const data = loadJson(app, bytes) catch |err|
         if (err == error.SyntaxError)
-            try loadJsonl(alloc, bytes)
+            try loadJsonl(app, bytes)
         else
             return err;
 
@@ -28,17 +28,17 @@ pub fn load(alloc: std.mem.Allocator, bytes: []const u8) !Data {
 }
 
 // Load one JSON document that is either an array of objects or one top-level object.
-fn loadJson(alloc: std.mem.Allocator, bytes: []const u8) !Data {
-    const loader = try JsonLoader.create(alloc, bytes);
+fn loadJson(app: *App, bytes: []const u8) !Data {
+    const loader = try JsonLoader.create(app.alloc, bytes);
     defer loader.destroy();
-    return loader.load();
+    return loader.load(app);
 }
 
 // Load JSONL by wrapping the lines into one synthetic JSON array.
-fn loadJsonl(alloc: std.mem.Allocator, bytes: []const u8) !Data {
-    const body = try jsonlToArray(alloc, bytes);
-    defer alloc.free(body);
-    return loadJson(alloc, body);
+fn loadJsonl(app: *App, bytes: []const u8) !Data {
+    const body = try jsonlToArray(app.alloc, bytes);
+    defer app.alloc.free(body);
+    return loadJson(app, body);
 }
 
 // Wrap JSONL into a JSON array
@@ -68,7 +68,7 @@ const JsonLoader = struct {
     alloc: std.mem.Allocator = undefined,
     mode: enum { array, object } = .array,
     json: std.ArrayList([]Entry) = .empty, // parsed json objects
-    keys: std.StringArrayHashMap(void) = undefined, // list of all keys discovered in json
+    keys: std.array_hash_map.String(void) = undefined, // list of all keys discovered in json
 
     //
     // ctor/dtor
@@ -82,7 +82,7 @@ const JsonLoader = struct {
         const self = try parent.create(JsonLoader);
         self.* = .{ .parent = parent, .bytes = bytes, .arena = arena };
         self.alloc = self.arena.allocator();
-        self.keys = std.StringArrayHashMap(void).init(self.alloc);
+        self.keys = try std.array_hash_map.String(void).init(self.alloc, &.{}, &.{});
         return self;
     }
 
@@ -96,7 +96,7 @@ const JsonLoader = struct {
     // Main entry point
     //
 
-    fn load(self: *Self) !Data {
+    fn load(self: *Self, app: *App) !Data {
         var rows: std.ArrayList(DataRow) = .empty;
         errdefer {
             for (rows.items) |row| row.deinit(self.parent);
@@ -104,12 +104,12 @@ const JsonLoader = struct {
         }
 
         // parse json
-        var timer = try std.time.Timer.start();
+        var timer = std.Io.Timestamp.now(app.io, .awake);
         try self.parseJson();
-        util.benchmark(" json.parse", timer.read());
-        defer util.benchmark(" json.rows", timer.read());
+        app.benchmark(" json.parse", util.timerRead(app.io, timer));
+        defer app.benchmark(" json.rows", util.timerRead(app.io, timer));
 
-        timer = try std.time.Timer.start();
+        timer = std.Io.Timestamp.now(app.io, .awake);
         switch (self.mode) {
             .array => {
                 const headers = try DataRow.init(self.parent, self.keys.keys());
@@ -167,7 +167,7 @@ const JsonLoader = struct {
                     try list.append(self.alloc, .{ key, value });
 
                     // also add this key to our grand list of keys
-                    _ = try self.keys.getOrPut(key);
+                    _ = try self.keys.getOrPut(self.alloc, key);
                 },
                 .object_end => break,
                 else => unreachable,
@@ -405,7 +405,9 @@ test "duplicate keys use first value" {
 }
 
 fn initTest(alloc: std.mem.Allocator, bytes: []const u8) !Data {
-    return load(alloc, bytes);
+    const app = try App.testInit(alloc);
+    defer app.destroy();
+    return load(app, bytes);
 }
 
 fn expectRow(rows: Data, index: usize, want: []const []const u8) !void {
@@ -413,6 +415,7 @@ fn expectRow(rows: Data, index: usize, want: []const []const u8) !void {
     for (want, rows.row(index)) |w, got| try testing.expectEqualStrings(w, got);
 }
 
+const App = @import("app.zig").App;
 const Data = @import("data.zig").Data;
 const DataRow = @import("data.zig").DataRow;
 const Entry = @import("types.zig").Entry;

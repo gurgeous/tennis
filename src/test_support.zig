@@ -8,26 +8,32 @@ pub fn expectEqualRows(want: []const []const u8, got: []const []const u8) !void 
 
 // Small owned-table harness used by unit tests.
 pub const TestTable = struct {
-    arena: std.heap.ArenaAllocator = undefined,
+    app: *App = undefined,
     table: *Table = undefined,
 
     // Build a test table from an inline CSV string.
-    pub fn init(self: *TestTable, alloc: std.mem.Allocator, input: []const u8) !void {
-        self.arena = std.heap.ArenaAllocator.init(alloc);
-        errdefer self.arena.deinit();
-        const data = try csv.load(self.arena.allocator(), input, ',');
-        errdefer data.deinit(self.arena.allocator());
-        self.table = try Table.init(self.arena.allocator(), .{}, data);
+    pub fn init(self: *TestTable, alloc: std.mem.Allocator, config: types.Config, input: []const u8) !void {
+        self.app = try App.testInit(alloc);
+        errdefer self.app.destroy();
+        self.table = try Table.initCsv(self.app, config, input);
     }
 
     // Release the arena and test table.
     pub fn deinit(self: *TestTable) void {
         self.table.deinit();
-        self.arena.deinit();
+        self.app.destroy();
     }
 };
 
-const csv = @import("csv.zig");
+// Build one owned test table and return the harness by value.
+pub fn initTable(alloc: std.mem.Allocator, config: types.Config, input: []const u8) !TestTable {
+    var out: TestTable = .{};
+    try out.init(alloc, config, input);
+    return out;
+}
+
+const App = @import("app.zig").App;
 const std = @import("std");
 const testing = std.testing;
 const Table = @import("table.zig").Table;
+const types = @import("types.zig");
