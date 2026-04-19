@@ -1,6 +1,5 @@
 .DS_Store
 .zig-cache
-std.md
 tmp/
 zig-out/
 zig-pkg/

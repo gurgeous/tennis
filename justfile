@@ -11,7 +11,7 @@ build-windows:
   zig build -Dtarget=x86_64-windows-gnu
 
 clean:
-  rm -rf tmp zig-out
+  rm -rf tmp zig-out zig-pkg .zig-cache
   mkdir tmp
 
 install: check build-release
