@@ -231,29 +231,7 @@ fn renderToWriter(app: *App, config: types.Config, table: *Table, writer: *std.I
 //
 
 test {
-    _ = @import("args.zig");
-    _ = @import("border.zig");
-    _ = @import("column.zig");
-    _ = @import("completion.zig");
-    _ = @import("color.zig");
-    _ = @import("csv.zig");
-    _ = @import("detect.zig");
-    _ = @import("doomicode.zig");
-    _ = @import("failure.zig");
-    _ = @import("float.zig");
-    _ = @import("json.zig");
-    _ = @import("json_to_string.zig");
-    _ = @import("layout.zig");
-    _ = @import("natsort.zig");
-    _ = @import("peek.zig");
-    _ = @import("render.zig");
-    _ = @import("sqlite.zig");
-    _ = @import("data.zig");
-    _ = @import("sort.zig");
-    _ = @import("sniffer.zig");
-    _ = @import("style.zig");
-    _ = @import("termbg.zig");
-    _ = @import("util.zig");
+    testing.refAllDecls(@This());
 }
 
 test "load strips UTF-8 BOM before parsing csv and jsonl" {
