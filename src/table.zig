@@ -61,6 +61,7 @@ pub const Table = struct {
 
     // Release the table, columns, style cache, and stored rows.
     pub fn deinit(self: *Self) void {
+        if (self._style) |cached_style| cached_style.deinit(self.app.alloc);
         for (self.columns) |col| col.deinit(self.app.alloc);
         self.app.alloc.free(self.columns);
         if (self.header) |header| header.deinit(self.app.alloc);
@@ -129,7 +130,11 @@ pub const Table = struct {
     // Return the cached style, building it on first use.
     pub fn style(self: *Self) *const Style {
         if (self._style == null) {
-            self._style = Style.init(self.app, self.config.color, self.config.theme);
+            var cached_style = Style.init(self.app, self.config.color, self.config.theme);
+            if (self.app.env.get("TEST_256") != null) {
+                cached_style = cached_style.downsample256(self.app.alloc) catch cached_style;
+            }
+            self._style = cached_style;
         }
         return &self._style.?;
     }
