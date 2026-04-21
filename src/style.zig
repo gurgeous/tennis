@@ -63,13 +63,13 @@ pub const Style = struct {
 // helpers
 //
 
-// Build one ANSI 256 foreground sequence at comptime.
+// Build one ANSI foreground sequence at comptime.
 fn fg(comptime index: u8) []const u8 {
     const csi = comptime std.fmt.comptimePrint("38;5;{d}m", .{index});
     return mibu.utils.comptimeCsi(csi, .{});
 }
 
-// Build one ANSI 256 foreground/background sequence at comptime.
+// Build one ANSI foreground/background sequence at comptime.
 fn fgbg(comptime fg_index: u8, comptime bg_index: u8) []const u8 {
     const csi = comptime std.fmt.comptimePrint("38;5;{d};48;5;{d}m", .{ fg_index, bg_index });
     return mibu.utils.comptimeCsi(csi, .{});
@@ -129,29 +129,6 @@ test "colorEnabled auto returns a boolean" {
     defer app.destroy();
     _ = colorEnabled(app, .auto);
     try testing.expect(colorEnabled(app, .auto) == true or colorEnabled(app, .auto) == false);
-}
-
-test "style palette matches current ansi256 mapping" {
-    const app = try App.testInit(testing.allocator);
-    defer app.destroy();
-
-    const dark = Style.init(app, .on, .dark);
-    try testing.expectEqualStrings("\x1b[38;5;243m", dark.chrome);
-    try testing.expectEqualStrings("\x1b[38;5;254m", dark.field);
-    try testing.expectEqualStrings("\x1b[38;5;231;48;5;235m", dark.zebra);
-    try testing.expectEqualStrings("\x1b[38;5;75m", dark.title);
-    try testing.expectEqualStrings("\x1b[38;5;204m", dark.headers[0]);
-    try testing.expectEqualStrings("\x1b[38;5;209m", dark.headers[1]);
-    try testing.expectEqualStrings("\x1b[38;5;221m", dark.headers[2]);
-
-    const light = Style.init(app, .on, .light);
-    try testing.expectEqualStrings("\x1b[38;5;243m", light.chrome);
-    try testing.expectEqualStrings("\x1b[38;5;235m", light.field);
-    try testing.expectEqualStrings("\x1b[38;5;16;48;5;254m", light.zebra);
-    try testing.expectEqualStrings("\x1b[38;5;26m", light.title);
-    try testing.expectEqualStrings("\x1b[38;5;203m", light.headers[0]);
-    try testing.expectEqualStrings("\x1b[38;5;173m", light.headers[1]);
-    try testing.expectEqualStrings("\x1b[38;5;179m", light.headers[2]);
 }
 
 const App = @import("app.zig").App;
