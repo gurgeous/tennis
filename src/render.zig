@@ -525,9 +525,9 @@ test "render content cases" {
 test "render zebra uses alternating row background" {
     const out = try renderTest("a,b\nc,d\ne,f\n", .{ .zebra = true, .theme = .dark });
     defer testing.allocator.free(out);
-    const zebra = "\x1b[38;2;255;255;255;48;2;34;34;34m";
+    const zebra = "\x1b[38;5;231;48;5;235m";
     try testing.expect(std.mem.containsAtLeast(u8, out, 1, zebra));
-    try testing.expect(std.mem.containsAtLeast(u8, out, 1, zebra ++ "\x1b[38;2;107;114;128m"));
+    try testing.expect(std.mem.containsAtLeast(u8, out, 1, zebra ++ "\x1b[38;5;243m"));
     try testing.expect(std.mem.containsAtLeast(u8, out, 1, ansi.reset ++ zebra));
 }
 
