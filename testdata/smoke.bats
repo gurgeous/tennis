@@ -358,7 +358,7 @@ setup() {
 @test "renders zebra stripes" {
   run "$TENNIS_BIN" --color=on --theme dark --zebra --width 80 "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 0 ]
-  [[ "$output" == *$'\e[38;2;255;255;255;48;2;34;34;34m'* ]]
+  [[ "$output" == *$'\e[38;5;231;48;5;235m'* ]]
 }
 
 @test "sorts naturally with mixed and float columns" {

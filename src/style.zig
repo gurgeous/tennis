@@ -9,7 +9,6 @@ pub const Style = struct {
     zebra: []const u8 = "", // alternate row background
     headers: []const []const u8 = &.{}, // header text color (colorful)
     title: []const u8 = "", // title text color (colorful)
-    _owned: bool = false, // whether this style owns allocated escape sequences
 
     // Pick a concrete style for the requested color and theme settings.
     pub fn init(app: *App, color: types.Color, theme: types.Theme) Style {
@@ -21,77 +20,37 @@ pub const Style = struct {
         };
     }
 
-    // Return a copy of this style rewritten to ANSI 256 escape sequences.
-    pub fn downsample256(self: Style, alloc: std.mem.Allocator) !Style {
-        var headers = try alloc.alloc([]const u8, self.headers.len);
-        errdefer alloc.free(headers);
-
-        var ii: usize = 0;
-        errdefer {
-            for (headers[0..ii]) |header| alloc.free(header);
-        }
-        for (self.headers, 0..) |header, index| {
-            headers[index] = try downsample256Ansi(alloc, header);
-            ii += 1;
-        }
-
-        errdefer {
-            for (headers) |header| alloc.free(header);
-            alloc.free(headers);
-        }
-
-        return .{
-            .chrome = try downsample256Ansi(alloc, self.chrome),
-            .field = try downsample256Ansi(alloc, self.field),
-            .zebra = try downsample256Ansi(alloc, self.zebra),
-            .headers = headers,
-            .title = try downsample256Ansi(alloc, self.title),
-            ._owned = true,
-        };
-    }
-
-    // Release any escape sequences owned by this style.
-    pub fn deinit(self: Style, alloc: std.mem.Allocator) void {
-        if (!self._owned) return;
-        alloc.free(self.chrome);
-        alloc.free(self.field);
-        alloc.free(self.zebra);
-        for (self.headers) |header| alloc.free(header);
-        alloc.free(self.headers);
-        alloc.free(self.title);
-    }
-
     //
     // the actual colors
     //
 
     const dark: Style = .{
-        .chrome = fg("#6b7280"),
-        .field = fg("#e5e7eb"),
-        .zebra = fgbg("#ffffff", "#222222"),
-        .title = fg("#60a5fa"),
+        .chrome = fg(243), // Grey46
+        .field = fg(254), // Grey89
+        .zebra = fgbg(231, 235), // White on Grey15
+        .title = fg(75), // SteelBlue1
         .headers = &.{
-            fg("#ff6188"),
-            fg("#fc9867"),
-            fg("#ffd866"),
-            fg("#a9dc76"),
-            fg("#78dce8"),
-            fg("#ab9df2"),
+            fg(204), // IndianRed1_2
+            fg(209), // Salmon1
+            fg(221), // LightGoldenrod2_2
+            fg(150), // DarkSeaGreen3_2
+            fg(116), // DarkSlateGray3
+            fg(147), // LightSteelBlue
         },
     };
 
     const light: Style = .{
-        .chrome = fg("#6b7280"),
-        .field = fg("#1f2937"),
-        .zebra = fgbg("#000000", "#e5e7eb"),
-        .title = fg("#2563eb"),
+        .chrome = fg(243), // Grey46
+        .field = fg(235), // Grey15
+        .zebra = fgbg(16, 254), // Black on Grey89
+        .title = fg(26), // DodgerBlue3
         .headers = &.{
-            fg("#ee4066"),
-            fg("#da7645"),
-            fg("#ddb644"),
-            fg("#87ba54"),
-            fg("#56bac6"),
-            fg("#897bd0"),
+            fg(203), // IndianRed1
+            fg(173), // LightSalmon3
+            fg(179), // LightGoldenrod3
+            fg(107), // DarkOliveGreen3
+            fg(74), // SkyBlue3
+            fg(104), // MediumPurple
         },
     };
 
@@ -104,73 +63,16 @@ pub const Style = struct {
 // helpers
 //
 
-// Build one ANSI foreground sequence at comptime.
-fn fg(comptime hex: []const u8) []const u8 {
-    const c = comptime Color.initHex(hex) catch @compileError("invalid hex color");
-    const csi = comptime std.fmt.comptimePrint("38;2;{d};{d};{d}m", .{ c.r, c.g, c.b });
+// Build one ANSI 256 foreground sequence at comptime.
+fn fg(comptime index: u8) []const u8 {
+    const csi = comptime std.fmt.comptimePrint("38;5;{d}m", .{index});
     return mibu.utils.comptimeCsi(csi, .{});
 }
 
-// Build one ANSI foreground/background sequence at comptime.
-fn fgbg(comptime fg_hex: []const u8, comptime bg_hex: []const u8) []const u8 {
-    const fg_color = comptime Color.initHex(fg_hex) catch @compileError("invalid fg hex color");
-    const bg_color = comptime Color.initHex(bg_hex) catch @compileError("invalid bg hex color");
-    const csi = comptime std.fmt.comptimePrint(
-        "38;2;{d};{d};{d};48;2;{d};{d};{d}m",
-        .{ fg_color.r, fg_color.g, fg_color.b, bg_color.r, bg_color.g, bg_color.b },
-    );
+// Build one ANSI 256 foreground/background sequence at comptime.
+fn fgbg(comptime fg_index: u8, comptime bg_index: u8) []const u8 {
+    const csi = comptime std.fmt.comptimePrint("38;5;{d};48;5;{d}m", .{ fg_index, bg_index });
     return mibu.utils.comptimeCsi(csi, .{});
-}
-
-// Rewrite a 24-bit fg/fgbg ANSI sequence to the nearest ANSI 256 equivalent.
-fn downsample256Ansi(alloc: std.mem.Allocator, ansi_code: []const u8) ![]const u8 {
-    if (ansi_code.len == 0) return alloc.dupe(u8, "");
-
-    const rgb = try parseRgbAnsi(ansi_code);
-    const fg_index = ansi.downsample256(rgb.fg);
-    if (rgb.bg) |bg| {
-        const bg_index = ansi.downsample256(bg);
-        return std.fmt.allocPrint(alloc, "\x1b[38;5;{d};48;5;{d}m", .{ fg_index, bg_index });
-    }
-    return std.fmt.allocPrint(alloc, "\x1b[38;5;{d}m", .{fg_index});
-}
-
-// Parse one fg or fgbg sequence produced by fg() or fgbg().
-fn parseRgbAnsi(ansi_code: []const u8) !struct { fg: Color, bg: ?Color } {
-    if (!std.mem.startsWith(u8, ansi_code, "\x1b[") or !std.mem.endsWith(u8, ansi_code, "m")) {
-        return error.InvalidAnsi;
-    }
-
-    var it = std.mem.tokenizeScalar(u8, ansi_code[2 .. ansi_code.len - 1], ';');
-    const fg_mode = try parseAnsiPart(it.next());
-    const fg_depth = try parseAnsiPart(it.next());
-    if (fg_mode != 38 or fg_depth != 2) return error.InvalidAnsi;
-
-    const fg_color: Color = .{
-        .r = try parseAnsiPart(it.next()),
-        .g = try parseAnsiPart(it.next()),
-        .b = try parseAnsiPart(it.next()),
-    };
-
-    const bg_mode = it.next() orelse {
-        if (it.next() != null) return error.InvalidAnsi;
-        return .{ .fg = fg_color, .bg = null };
-    };
-    const bg_depth = try parseAnsiPart(it.next());
-    if (try parseAnsiPart(bg_mode) != 48 or bg_depth != 2) return error.InvalidAnsi;
-
-    const bg: Color = .{
-        .r = try parseAnsiPart(it.next()),
-        .g = try parseAnsiPart(it.next()),
-        .b = try parseAnsiPart(it.next()),
-    };
-    if (it.next() != null) return error.InvalidAnsi;
-    return .{ .fg = fg_color, .bg = bg };
-}
-
-// Parse one numeric ANSI parameter.
-fn parseAnsiPart(part: ?[]const u8) !u8 {
-    return std.fmt.parseInt(u8, part orelse return error.InvalidAnsi, 10);
 }
 
 //
@@ -201,18 +103,18 @@ test "color title style" {
     const s1 = Style.init(app, .off, .dark);
     try testing.expectEqualStrings("", s1.title);
     const s2 = Style.init(app, .on, .dark);
-    try testing.expectEqualStrings("\x1b[38;2;96;165;250m", s2.title);
+    try testing.expectEqualStrings("\x1b[38;5;75m", s2.title);
     const s3 = Style.init(app, .on, .light);
-    try testing.expectEqualStrings("\x1b[38;2;37;99;235m", s3.title);
+    try testing.expectEqualStrings("\x1b[38;5;26m", s3.title);
 }
 
 test "zebra style colors match table_tennis" {
     const app = try App.testInit(testing.allocator);
     defer app.destroy();
     const dark = Style.init(app, .on, .dark);
-    try testing.expectEqualStrings("\x1b[38;2;255;255;255;48;2;34;34;34m", dark.zebra);
+    try testing.expectEqualStrings("\x1b[38;5;231;48;5;235m", dark.zebra);
     const light = Style.init(app, .on, .light);
-    try testing.expectEqualStrings("\x1b[38;2;0;0;0;48;2;229;231;235m", light.zebra);
+    try testing.expectEqualStrings("\x1b[38;5;16;48;5;254m", light.zebra);
 }
 
 test "colorEnabled handles explicit modes" {
@@ -229,32 +131,30 @@ test "colorEnabled auto returns a boolean" {
     try testing.expect(colorEnabled(app, .auto) == true or colorEnabled(app, .auto) == false);
 }
 
-test "downsample256 rewrites fg and fgbg sequences" {
-    const fg_code = try downsample256Ansi(testing.allocator, fg("#ff0000"));
-    defer testing.allocator.free(fg_code);
-    try testing.expectEqualStrings("\x1b[38;5;196m", fg_code);
-
-    const fgbg_code = try downsample256Ansi(testing.allocator, fgbg("#ffffff", "#000000"));
-    defer testing.allocator.free(fgbg_code);
-    try testing.expectEqualStrings("\x1b[38;5;231;48;5;16m", fgbg_code);
-}
-
-test "Style.downsample256 returns an owned copy" {
+test "style palette matches current ansi256 mapping" {
     const app = try App.testInit(testing.allocator);
     defer app.destroy();
-    const style = Style.init(app, .on, .dark);
-    const downsampled = try style.downsample256(testing.allocator);
-    defer downsampled.deinit(testing.allocator);
 
-    try testing.expect(downsampled._owned);
-    try testing.expectEqualStrings("\x1b[38;5;243m", downsampled.chrome);
-    try testing.expectEqualStrings("\x1b[38;5;231;48;5;235m", downsampled.zebra);
-    try testing.expectEqualStrings("\x1b[38;5;204m", downsampled.headers[0]);
+    const dark = Style.init(app, .on, .dark);
+    try testing.expectEqualStrings("\x1b[38;5;243m", dark.chrome);
+    try testing.expectEqualStrings("\x1b[38;5;254m", dark.field);
+    try testing.expectEqualStrings("\x1b[38;5;231;48;5;235m", dark.zebra);
+    try testing.expectEqualStrings("\x1b[38;5;75m", dark.title);
+    try testing.expectEqualStrings("\x1b[38;5;204m", dark.headers[0]);
+    try testing.expectEqualStrings("\x1b[38;5;209m", dark.headers[1]);
+    try testing.expectEqualStrings("\x1b[38;5;221m", dark.headers[2]);
+
+    const light = Style.init(app, .on, .light);
+    try testing.expectEqualStrings("\x1b[38;5;243m", light.chrome);
+    try testing.expectEqualStrings("\x1b[38;5;235m", light.field);
+    try testing.expectEqualStrings("\x1b[38;5;16;48;5;254m", light.zebra);
+    try testing.expectEqualStrings("\x1b[38;5;26m", light.title);
+    try testing.expectEqualStrings("\x1b[38;5;203m", light.headers[0]);
+    try testing.expectEqualStrings("\x1b[38;5;173m", light.headers[1]);
+    try testing.expectEqualStrings("\x1b[38;5;179m", light.headers[2]);
 }
 
-const ansi = @import("ansi.zig");
 const App = @import("app.zig").App;
-const Color = @import("color.zig").Color;
 const mibu = @import("mibu");
 const std = @import("std");
 const testing = std.testing;
