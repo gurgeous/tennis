@@ -31,7 +31,7 @@ git push origin "${new_tag}"
 # goreleaseer
 banner "goreleaser..."
 goreleaser healthcheck
-"TENNIS_VERSION=${new_tag#v} goreleaser release --clean"
+TENNIS_VERSION=${new_tag#v} goreleaser release --clean
 
 # done
 banner "✓ release ✓"
