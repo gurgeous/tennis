@@ -127,9 +127,10 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 ### Changelog
 
-#### 0.5.0 (unreleased)
+#### 0.5.0 (Apr '26)
 
 - zig 0.16 and centralize env handling. #45
+- switch to ANSI 256 for some older terminals #43 (@dwormuth)
 - style numeric columns. #35 (@jakob1379)
 - `--width min` to layout based on header width, or `--width max` to disable truncation
 - percent columns are justified (thanks @nkriege)
