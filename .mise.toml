@@ -1,7 +1,162 @@
 [env]
 _.path = ["{{config_root}}/zig-out/bin", '{{config_root}}/bin']
 
+[settings]
+task.output = "quiet"
+
 [tools]
 bats = "latest"
-just = "latest"
 zig = "0.16.0"
+
+[tasks]
+# one-liners
+"build"         = "zig build -Doptimize=Debug"
+"build-release" = "zig build -Doptimize=ReleaseSmall"
+"build-windows" = "zig build -Dtarget=x86_64-windows-gnu"
+"clean"         = "rm -rf tmp zig-out zig-pkg .zig-cache && mkdir tmp"
+"readme"        = "glow --pager README.md"
+"run"           = "zig build run --"
+"test-watch"    = "watchexec --clear=clear --stop-timeout=0 mise run test"
+
+[tasks.install]
+depends = ["check", "build-release"]
+run = "cp zig-out/bin/tennis ~/.local/bin/tennis"
+
+[tasks.check]
+run = '''
+mise run --jobs 1 clean-weekly ::: build ::: lint ::: test ::: test-bats
+mise run banner -- "✓ check ✓"
+'''
+
+[tasks.ci]
+run = "mise run check"
+run_windows = "mise run build-windows"
+
+[tasks."clean-weekly"]
+run = '''
+if [ -d tmp ] && [ "$(find tmp -type d -prune -mtime +7 | wc -l)" -gt 0 ]; then
+  mise run clean
+fi
+'''
+
+[tasks.fmt]
+run = '''
+zig fmt src build.zig
+mise run banner -- "✓ fmt ✓"
+'''
+
+[tasks.lint]
+run = '''
+zig fmt --check src build.zig
+bin/lint-args
+bin/lint-imports
+mise run banner -- "✓ lint ✓"
+'''
+
+[tasks.llm]
+depends = ["fmt"]
+run = "LLM=1 mise run check"
+
+[tasks.man]
+depends = ["gen"]
+run = "man -l extra/tennis.1"
+
+[tasks.test]
+run = '''
+if [ -n "${LLM:-}" ]; then
+  zig build test --summary none
+else
+  zig build test --summary all
+fi
+mise run banner -- "✓ test ✓"
+'''
+
+[tasks."test-bats"]
+run = '''
+if [ -n "${LLM:-}" ]; then
+  bats testdata/smoke.bats > /dev/null
+else
+  bats --print-output-on-failure testdata/smoke.bats
+fi
+mise run banner -- "✓ test-bats ✓"
+'''
+
+[tasks.valgrind]
+depends = ["build"]
+run = '''
+valgrind --quiet --leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all --error-exitcode=1 \
+  ./zig-out/bin/tennis --color=on -n --title foo testdata/test.csv > /dev/null
+mise run banner -- "✓ valgrind ✓"
+'''
+
+[tasks.benchmark]
+depends = ["benchmark-csv", "benchmark-json"]
+
+[tasks."benchmark-csv"]
+depends = ["build-release"]
+run = '''
+mise run banner -- "benchmark-csv"
+bin/gen-benchmark-csv > tmp/tennis-benchmark.csv
+BENCHMARK=1 ./zig-out/bin/tennis --width 80 tmp/tennis-benchmark.csv > /dev/null
+'''
+
+[tasks."benchmark-json"]
+depends = ["build-release"]
+run = '''
+bin/gen-benchmark-json > tmp/tennis-benchmark.json
+cat tmp/tennis-benchmark.json | sed '1d;$d;s/,$//' > tmp/tennis-benchmark.jsonl
+mise run banner -- "benchmark-json"
+BENCHMARK=1 ./zig-out/bin/tennis --width 80 tmp/tennis-benchmark.json > /dev/null
+mise run banner -- "benchmark-jsonl"
+BENCHMARK=1 ./zig-out/bin/tennis --width 80 tmp/tennis-benchmark.jsonl > /dev/null
+'''
+
+[tasks.gen]
+run = '''
+zig build run -- --completion bash > extra/tennis.bash
+zig build run -- --completion zsh > extra/_tennis
+scdoc < extra/tennis.scd > extra/tennis.1
+mise run banner -- "✓ gen ✓"
+'''
+
+[tasks.release]
+depends = ["check", "valgrind"]
+run = "bin/release"
+
+[tasks."release-preview"]
+depends = ["check"]
+run = '''
+goreleaser release --clean --snapshot
+mise run banner -- "macOS tarball preview..."
+tar -tvzf "$(find tmp/dist -maxdepth 1 -name 'tennis_*_darwin_arm64.tar.gz' | head -n 1)"
+'''
+
+[tasks.screenshot]
+depends = ["build"]
+run = '''
+cd tmp ; ../bin/screenshot
+mise run banner -- "✓ screenshot - see tmp/vhs.png ✓"
+'''
+
+#
+# banner and friends
+#
+
+[tasks.banner]
+usage = 'flag "--bg <bg>" default="48;2;64;160;43" ; arg "<message>"'
+run = '''
+if [ -z "${LLM:-}" ]; then
+  printf '\033[1;38;5;231;%sm[%s] %-72s\033[0m\n' "${usage_bg}" "$(date '+%H:%M:%S')" "${usage_message}"
+fi
+'''
+
+[tasks.warning]
+usage = 'arg "<message>"'
+run = [{ task = "banner", args = ["--bg", "48;2;251;100;11", "{{usage.message}}"] }]
+
+[tasks.fatal]
+usage = 'arg "<message>"'
+run = [
+  { task = "banner", args = ["--bg", "48;2;210;15;57", "{{usage.message}}"] },
+  "exit 1",
+]

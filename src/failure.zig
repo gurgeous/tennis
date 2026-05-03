@@ -75,7 +75,7 @@ pub const Failure = struct {
     // Write one failure to the provided writer.
     pub fn write(self: Failure, writer: *std.Io.Writer) !void {
         switch (self.code) {
-            .benchmark_requires_release => try writer.writeAll("BENCHMARK=1 requires `just benchmark` or a release build"),
+            .benchmark_requires_release => try writer.writeAll("BENCHMARK=1 requires `mise run benchmark` or a release build"),
             .could_not_read_stdin => try writer.writeAll("Could not read from stdin"),
             .invalid_csv => try writer.writeAll("That CSV file doesn't look right"),
             .invalid_digits => try writer.writeAll("Digits must be between 1 and 6"),

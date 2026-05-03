@@ -18,4 +18,4 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: jdx/mise-action@v3
-      - run: just ci
+      - run: mise run ci

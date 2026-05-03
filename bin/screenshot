@@ -1,7 +1,10 @@
 #!/bin/bash
 
 set -euo pipefail
-source "$(dirname "$0")/_banner"
+
+banner() {
+  printf '\e[1;38;5;231;48;2;64;160;43m[%s] %-72s\e[0m\n' "$(date '+%H:%M:%S')" "$1"
+}
 
 # build raw screenshot with vhs
 banner "running vhs => vhs0.png..."

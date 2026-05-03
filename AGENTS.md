@@ -20,8 +20,8 @@
 
 ## Tests
 
-- Use `just` rules instead of running `mise` or `zig` directly.
-- Prefer `just llm`. Run `just check` before commits and after larger refactors.
+- Use `mise run` tasks instead of running `zig` directly.
+- Prefer `mise run llm`. Run `mise run check` before commits and after larger refactors.
 - Keep tests deterministic. Force `--width 80` where layout matters.
 - Prefer table-driven tests and tiny helpers in `test_support`, reduce repetition.
 - This is partly for token reduction, collapse if clarity stays good
