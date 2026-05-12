@@ -33,7 +33,7 @@ ci: check
 ci: windows-maybe
 
 windows-maybe: build-windows
-  bats --print-output-on-failure testdata/smoke.bats || true
+  mise exec -- bats --print-output-on-failure testdata/smoke.bats || true
   just banner "✓ windows-maybe ✓"
 
 clean-weekly:
