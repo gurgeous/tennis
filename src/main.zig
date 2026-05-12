@@ -4,6 +4,8 @@
 //
 
 pub fn main(init_process: std.process.Init) !u8 {
+    initWindows();
+
     const app = try App.init(init_process);
     defer app.destroy();
     defer app.flush();
@@ -20,6 +22,14 @@ pub fn main(init_process: std.process.Init) !u8 {
     }
 
     return exit;
+}
+
+fn initWindows() void {
+    // Windows 10 1903+ and Windows 11 both support UTF-8 output code page natively
+    if (comptime builtin.os.tag == .windows) {
+        _ = windows.kernel32.SetConsoleCP(65001);
+        _ = windows.kernel32.SetConsoleOutputCP(65001);
+    }
 }
 
 //
@@ -297,3 +307,4 @@ const testing = std.testing;
 const types = @import("types.zig");
 const util = @import("util.zig");
 const version = @import("build_options").version;
+const windows = std.os.windows;
