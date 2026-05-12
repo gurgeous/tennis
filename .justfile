@@ -30,10 +30,13 @@ check: clean-weekly build lint test test-bats
 [unix]
 ci: check
 [windows]
-ci: windows-maybe
+ci: build-windows windows-maybe
 
-windows-maybe: build-windows
-  mise exec -- bash -c 'bats --print-output-on-failure testdata/smoke.bats' || true
+windows-maybe:
+  just banner "starting windows-maybe... ✓"
+  env | sort
+  which bats
+  bats --print-output-on-failure testdata/smoke.bats || true
   just banner "✓ windows-maybe ✓"
 
 clean-weekly:
