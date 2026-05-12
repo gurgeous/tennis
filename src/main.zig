@@ -24,11 +24,17 @@ pub fn main(init_process: std.process.Init) !u8 {
     return exit;
 }
 
+//
+// Windows 10 1903+ and Windows 11 both support UTF-8 output code page natively
+//
+
+extern "kernel32" fn SetConsoleCP(code_page_id: windows.UINT) callconv(.winapi) windows.BOOL;
+extern "kernel32" fn SetConsoleOutputCP(code_page_id: windows.UINT) callconv(.winapi) windows.BOOL;
+
 fn initWindows() void {
-    // Windows 10 1903+ and Windows 11 both support UTF-8 output code page natively
     if (comptime builtin.os.tag == .windows) {
-        _ = windows.kernel32.SetConsoleCP(65001);
-        _ = windows.kernel32.SetConsoleOutputCP(65001);
+        _ = SetConsoleCP(65001);
+        _ = SetConsoleOutputCP(65001);
     }
 }
 
