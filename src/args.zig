@@ -101,57 +101,59 @@ pub const Args = struct {
         return .{ .chars = value };
     }
 
-    // Parse argv into one top-level main event.
-    pub fn init(app: *const App, argv: []const []const u8) !MainEvent {
-        var diagnostics: clap.Diagnostic = .{};
-        const event = parse(app, argv, &diagnostics) catch |err| {
-            return .{ .fatal = try failure.Failure.fromClapError(app.alloc, err, &diagnostics) };
-        };
+    // Parse process args into owned CLI config.
+    pub fn init(app: *const App, process_args: std.process.Args, diagnostics: *Diagnostics) !Config {
+        // std.process.Args.toSlice requires arena-style allocation because the
+        // returned argv may reference multiple allocations depending on
+        // platform. First thing we do is create a dup, but be careful with it.
+        var arena = std.heap.ArenaAllocator.init(app.alloc);
+        defer arena.deinit();
+        const unowned_argv = try process_args.toSlice(arena.allocator());
+        const argv = try util.deepDupe(u8, app.alloc, unowned_argv[1..]);
+        var handed_off = false;
+        errdefer if (!handed_off) util.deepFree(u8, app.alloc, argv);
+
+        var config = try parse(app, argv, diagnostics);
+        handed_off = true;
 
         // quick check of file here
-        if (event == .run) {
-            if (event.run.filename) |filename| {
-                if (!std.mem.eql(u8, filename, "-") and !util.fileExists(app.io, filename)) {
-                    return .{ .fatal = try failure.Failure.fromFileNotFound(app.alloc, filename) };
-                }
+        if (config.filename) |filename| {
+            if (!std.mem.eql(u8, filename, "-") and !util.fileExists(app.io, filename)) {
+                config.deinit(app.alloc);
+                return error.FileNotFound;
             }
         }
 
-        return event;
+        return config;
     }
 
-    // Parse process args into one top-level main event.
-    pub fn initProcessArgs(app: *const App, process_args: std.process.Args) !MainEvent {
-        // std.process.Args.toSlice requires arena-style allocation because the
-        // returned argv may reference multiple allocations depending on platform.
-        var arena = std.heap.ArenaAllocator.init(app.alloc);
-        defer arena.deinit();
-        const argv = try process_args.toSlice(arena.allocator());
-        return init(app, argv[1..]);
-    }
-
-    // Parse argv and map supported flags into config.
-    fn parse(app: *const App, argv: []const []const u8, diag: *clap.Diagnostic) !MainEvent {
-        var iter = clap.args.SliceIterator{ .args = argv };
-        var res = try clap.parseEx(clap.Help, &params, parsers, &iter, .{
+    // Parse owned argv and hand it to Config when producing a run event.
+    fn parse(app: *const App, argv: []const []const u8, diagnostics: *Diagnostics) !Config {
+        var config: Config = .{ .argv = argv };
+        var iter = clap.args.SliceIterator{ .args = config.argv };
+        var clap_diag: clap.Diagnostic = .{};
+        var res = clap.parseEx(clap.Help, &params, parsers, &iter, .{
             .allocator = app.alloc,
-            .diagnostic = diag,
-        });
+            .diagnostic = &clap_diag,
+        }) catch |err| {
+            try diagnostics.report(app.alloc, err, clap_diag);
+            return err;
+        };
         defer res.deinit();
 
         //
         // these are early exits
         //
 
-        if (res.args.help > 0) return .help;
-        if (res.args.completion) |shell| return .{ .completion = shell };
-        if (res.args.version > 0) return .version;
+        config.completion = res.args.completion;
+        config.help = res.args.help > 0;
+        config.version = res.args.version > 0;
+        if (config.help or config.completion != null or config.version) return config;
 
         //
         // copy args into Config
         //
 
-        var config: Config = .{};
         if (res.args.border) |v| config.border = v;
         if (res.args.color) |v| config.color = v;
         if (res.args.deselect) |v| config.deselect = v;
@@ -166,7 +168,6 @@ pub const Args = struct {
         if (res.args.sort) |v| config.sort = v;
         if (res.args.table) |v| config.table = v;
         if (res.args.theme) |v| config.theme = v;
-        if (res.args.title) |v| config.title = try app.alloc.dupe(u8, v);
         config.vanilla = res.args.vanilla > 0;
         if (res.args.width) |v| config.width = v;
         config.zebra = res.args.zebra > 0;
@@ -183,37 +184,42 @@ pub const Args = struct {
             if (v == 0) return error.InvalidTailValue;
             if (config.head > 0) return error.InvalidHeadTail;
         }
+        if (res.args.title) |v| config.title = try app.alloc.dupe(u8, v);
+        errdefer if (config.title.len > 0) app.alloc.free(config.title);
 
-        //
-        // now handle filename
-        //
-
-        return try resolveInput(config, argv.len, res.positionals[0], std.Io.File.stdin().isTty(app.io) catch false);
-    }
-
-    // Resolve positional input into stdin, file, or banner behavior.
-    fn resolveInput(
-        config: Config,
-        argv_len: usize,
-        files: []const []const u8,
-        stdin_is_tty: bool,
-    ) !MainEvent {
-        switch (files.len) {
-            0 => {
-                if (stdin_is_tty) {
-                    if (argv_len != 0) return error.CouldNotReadStdin;
-                    return .banner;
-                }
-                return .{ .run = config };
-            },
-            1 => {
-                var out = config;
-                out.filename = files[0];
-                return .{ .run = out };
-            },
+        switch (res.positionals[0].len) {
+            0 => if (util.isTty(app.io, std.Io.File.stdin()) and argv.len != 0) return error.CouldNotReadStdin,
+            1 => config.filename = res.positionals[0][0],
             else => return error.TooManyArguments,
         }
+
+        return config;
     }
+
+    // Our diagnostics from parse
+    pub const Diagnostics = struct {
+        const Self = @This();
+
+        detail: []const u8 = "",
+
+        // Render and own clap's diagnostic message.
+        pub fn report(self: *Self, alloc: std.mem.Allocator, err: anyerror, diag: clap.Diagnostic) !void {
+            var buf: [512]u8 = undefined;
+            var writer = std.Io.Writer.fixed(&buf);
+            diag.report(&writer, err) catch {};
+
+            const msg = util.strip(u8, writer.buffered());
+            self.detail = if (msg.len > 0)
+                try alloc.dupe(u8, msg)
+            else
+                try std.fmt.allocPrint(alloc, "Error while parsing arguments: {s}", .{@errorName(err)});
+        }
+
+        // Release any rendered diagnostic message.
+        pub fn deinit(self: Self, alloc: std.mem.Allocator) void {
+            alloc.free(self.detail);
+        }
+    };
 };
 
 //
@@ -221,11 +227,9 @@ pub const Args = struct {
 //
 
 test "parse args accepts dash positional" {
-    const app = try App.testInit(testing.allocator);
-    defer app.destroy();
-    const out = try Args.init(app, &.{"-"});
-    try testing.expect(out == .run);
-    try testing.expectEqualStrings("-", out.run.filename.?);
+    const out = try parseTest(&.{"-"});
+    defer out.deinit(testing.allocator);
+    try testing.expectEqualStrings("-", out.filename.?);
 }
 
 test "parse option config case" {
@@ -265,35 +269,36 @@ test "parse option config case" {
     });
     defer out.deinit(testing.allocator);
 
-    try testing.expect(out == .run);
-    try testing.expectEqual(border.BorderName.double, out.run.border);
-    try testing.expectEqual(types.Color.off, out.run.color);
-    try testing.expectEqualStrings("city,tags", out.run.deselect);
-    try testing.expectEqual(@as(usize, 4), out.run.digits);
-    try testing.expectEqualStrings("ali", out.run.filter);
-    try testing.expectEqual(@as(usize, 5), out.run.head);
-    try testing.expect(out.run.pager);
-    try testing.expect(out.run.peek);
-    try testing.expect(out.run.reverse);
-    try testing.expect(out.run.zebra);
-    try testing.expect(out.run.shuffle);
-    try testing.expectEqualStrings("name,score", out.run.select);
-    try testing.expectEqualStrings("score,name", out.run.sort);
-    try testing.expectEqualStrings("players", out.run.table);
-    try testing.expectEqual(types.Theme.light, out.run.theme);
-    try testing.expectEqualStrings("foo", out.run.title);
-    try testing.expect(out.run.vanilla);
-    try testing.expectEqual(types.Width{ .chars = 80 }, out.run.width);
-    try testing.expect(out.run.row_numbers);
-    try testing.expectEqualStrings("-", out.run.filename.?);
+    try testing.expectEqual(border.BorderName.double, out.border);
+    try testing.expectEqual(types.Color.off, out.color);
+    try testing.expectEqualStrings("city,tags", out.deselect);
+    try testing.expectEqual(@as(usize, 4), out.digits);
+    try testing.expectEqualStrings("ali", out.filter);
+    try testing.expectEqual(@as(usize, 5), out.head);
+    try testing.expect(out.pager);
+    try testing.expect(out.peek);
+    try testing.expect(out.reverse);
+    try testing.expect(out.zebra);
+    try testing.expect(out.shuffle);
+    try testing.expectEqualStrings("name,score", out.select);
+    try testing.expectEqualStrings("score,name", out.sort);
+    try testing.expectEqualStrings("players", out.table);
+    try testing.expectEqual(types.Theme.light, out.theme);
+    try testing.expectEqualStrings("foo", out.title);
+    try testing.expect(out.vanilla);
+    try testing.expectEqual(types.Width{ .chars = 80 }, out.width);
+    try testing.expect(out.row_numbers);
+    try testing.expectEqualStrings("-", out.filename.?);
 }
 
-test "parse option event cases" {
+test "parse option cases" {
     const cases = [_]struct {
         argv: []const []const u8,
         delimiter: ?u8 = null,
         border_name: ?border.BorderName = null,
-        event: ?types.MainEvent = null,
+        completion: ?types.CompletionShell = null,
+        help: bool = false,
+        version: bool = false,
     }{
         .{ .argv = &.{ "--delimiter", ";", "-" }, .delimiter = ';' },
         .{ .argv = &.{ "--delimiter", "tab", "-" }, .delimiter = '\t' },
@@ -312,29 +317,31 @@ test "parse option event cases" {
         .{ .argv = &.{ "--width", "min", "-" } },
         .{ .argv = &.{ "--width", "max", "-" } },
         .{ .argv = &.{ "--width", "80", "-" } },
-        .{ .argv = &.{ "--completion", "zsh" }, .event = .{ .completion = .zsh } },
-        .{ .argv = &.{"--help"}, .event = .help },
-        .{ .argv = &.{"--version"}, .event = .version },
+        .{ .argv = &.{ "--completion", "zsh" }, .completion = .zsh },
+        .{ .argv = &.{"--help"}, .help = true },
+        .{ .argv = &.{"--version"}, .version = true },
     };
 
     for (cases) |tc| {
         var parsed = try parseTest(tc.argv);
         defer parsed.deinit(testing.allocator);
-        if (tc.delimiter) |d| try testing.expectEqual(d, parsed.run.delimiter);
-        if (tc.border_name) |b| try testing.expectEqual(b, parsed.run.border);
-        if (std.mem.eql(u8, tc.argv[0], "--deselect")) try testing.expectEqualStrings("score,name", parsed.run.deselect);
-        if (std.mem.eql(u8, tc.argv[0], "--filter")) try testing.expectEqualStrings("ali", parsed.run.filter);
-        if (std.mem.eql(u8, tc.argv[0], "--pager") or std.mem.eql(u8, tc.argv[0], "-p")) try testing.expect(parsed.run.pager);
-        if (std.mem.eql(u8, tc.argv[0], "--peek")) try testing.expect(parsed.run.peek);
+        if (tc.delimiter) |d| try testing.expectEqual(d, parsed.delimiter);
+        if (tc.border_name) |b| try testing.expectEqual(b, parsed.border);
+        if (std.mem.eql(u8, tc.argv[0], "--deselect")) try testing.expectEqualStrings("score,name", parsed.deselect);
+        if (std.mem.eql(u8, tc.argv[0], "--filter")) try testing.expectEqualStrings("ali", parsed.filter);
+        if (std.mem.eql(u8, tc.argv[0], "--pager") or std.mem.eql(u8, tc.argv[0], "-p")) try testing.expect(parsed.pager);
+        if (std.mem.eql(u8, tc.argv[0], "--peek")) try testing.expect(parsed.peek);
         if (std.mem.eql(u8, tc.argv[0], "--shuffle") or std.mem.eql(u8, tc.argv[0], "--shuf")) {
-            try testing.expect(parsed.run.shuffle);
+            try testing.expect(parsed.shuffle);
         }
-        if (std.mem.eql(u8, tc.argv[0], "--table")) try testing.expectEqualStrings("players", parsed.run.table);
-        if (std.mem.eql(u8, tc.argv[0], "--width") and std.mem.eql(u8, tc.argv[1], "min")) try testing.expectEqual(types.Width.min, parsed.run.width);
-        if (std.mem.eql(u8, tc.argv[0], "--width") and std.mem.eql(u8, tc.argv[1], "max")) try testing.expectEqual(types.Width.max, parsed.run.width);
-        if (std.mem.eql(u8, tc.argv[0], "--width") and std.mem.eql(u8, tc.argv[1], "80")) try testing.expectEqual(types.Width{ .chars = 80 }, parsed.run.width);
-        if (std.mem.eql(u8, tc.argv[0], "--zebra")) try testing.expect(parsed.run.zebra);
-        if (tc.event) |event| try testing.expectEqual(event, parsed);
+        if (std.mem.eql(u8, tc.argv[0], "--table")) try testing.expectEqualStrings("players", parsed.table);
+        if (std.mem.eql(u8, tc.argv[0], "--width") and std.mem.eql(u8, tc.argv[1], "min")) try testing.expectEqual(types.Width.min, parsed.width);
+        if (std.mem.eql(u8, tc.argv[0], "--width") and std.mem.eql(u8, tc.argv[1], "max")) try testing.expectEqual(types.Width.max, parsed.width);
+        if (std.mem.eql(u8, tc.argv[0], "--width") and std.mem.eql(u8, tc.argv[1], "80")) try testing.expectEqual(types.Width{ .chars = 80 }, parsed.width);
+        if (std.mem.eql(u8, tc.argv[0], "--zebra")) try testing.expect(parsed.zebra);
+        if (tc.completion) |shell| try testing.expectEqual(shell, parsed.completion.?);
+        try testing.expectEqual(tc.help, parsed.help);
+        try testing.expectEqual(tc.version, parsed.version);
     }
 }
 
@@ -400,76 +407,82 @@ test "fromClapError keeps clap diagnostics" {
     }
 }
 
-test "resolveInput handles stdin cases" {
-    const config: types.Config = .{};
-
-    const banner = try Args.resolveInput(config, 0, &.{}, true);
-    try testing.expectEqual(types.MainEvent.banner, banner);
-
-    try testing.expectError(error.CouldNotReadStdin, Args.resolveInput(config, 1, &.{}, true));
-
-    const stdin = try Args.resolveInput(config, 1, &.{}, false);
-    try testing.expect(stdin == .run);
-    try testing.expectEqual(null, stdin.run.filename);
-}
-
-test "init returns fatal event for parse failures" {
-    const app = try App.testInit(testing.allocator);
-    defer app.destroy();
-    const out = try Args.init(app, &.{"--bogus"});
-    defer out.deinit(testing.allocator);
-    try testing.expect(out == .fatal);
-    const msg = try failure.string(testing.allocator, out.fatal);
+test "init returns diagnostics for parse failures" {
+    const msg = try parseErrorString(&.{"--bogus"});
     defer testing.allocator.free(msg);
     try testing.expect(std.mem.indexOf(u8, msg, "--bogus") != null);
 }
 
 test "init keeps enum parse diagnostics" {
-    const app = try App.testInit(testing.allocator);
-    defer app.destroy();
-    const out = try Args.init(app, &.{ "--color", "bogus" });
-    defer out.deinit(testing.allocator);
-    try testing.expect(out == .fatal);
-    const msg = try failure.string(testing.allocator, out.fatal);
+    const msg = try parseErrorString(&.{ "--color", "bogus" });
     defer testing.allocator.free(msg);
     try testing.expect(std.mem.indexOf(u8, msg, "NameNotPartOfEnum") != null);
 }
 
-test "init returns fatal event for missing file" {
-    const app = try App.testInit(testing.allocator);
-    defer app.destroy();
-    const out = try Args.init(app, &.{"definitely-not-a-real-file.csv"});
-    defer out.deinit(testing.allocator);
-    try testing.expect(out == .fatal);
-    const msg = try failure.string(testing.allocator, out.fatal);
-    defer testing.allocator.free(msg);
-    try testing.expect(std.mem.indexOf(u8, msg, "definitely-not-a-real-file.csv") != null);
+test "init rejects missing files" {
+    try testing.expectError(error.FileNotFound, initTest(&.{"definitely-not-a-real-file.csv"}));
 }
 
-fn parseTest(argv: []const []const u8) !MainEvent {
+fn parseTest(unowned_argv: []const []const u8) !Config {
     const app = try App.testInit(testing.allocator);
     defer app.destroy();
-    var diag: clap.Diagnostic = .{};
-    return Args.parse(app, argv, &diag);
+    const argv = try util.deepDupe(u8, testing.allocator, unowned_argv);
+    errdefer util.deepFree(u8, testing.allocator, argv);
+    var diagnostics: Args.Diagnostics = .{};
+    defer diagnostics.deinit(testing.allocator);
+    return Args.parse(app, argv, &diagnostics);
 }
 
-fn expectParseError(want: anyerror, argv: []const []const u8) !void {
+fn expectParseError(want: anyerror, unowned_argv: []const []const u8) !void {
     const app = try App.testInit(testing.allocator);
     defer app.destroy();
-    var diag: clap.Diagnostic = .{};
-    try testing.expectError(want, Args.parse(app, argv, &diag));
+    const argv = try util.deepDupe(u8, testing.allocator, unowned_argv);
+    defer util.deepFree(u8, testing.allocator, argv);
+    var diagnostics: Args.Diagnostics = .{};
+    defer diagnostics.deinit(testing.allocator);
+    try testing.expectError(want, Args.parse(app, argv, &diagnostics));
 }
 
 fn parseErrorString(argv: []const []const u8) ![]u8 {
     const app = try App.testInit(testing.allocator);
     defer app.destroy();
-    var diag: clap.Diagnostic = .{};
-    _ = Args.parse(app, argv, &diag) catch |err| {
-        const fatal = try failure.Failure.fromClapError(testing.allocator, err, &diag);
-        defer fatal.deinit(testing.allocator);
-        return failure.string(testing.allocator, fatal);
-    };
+    var diagnostics: Args.Diagnostics = .{};
+    defer diagnostics.deinit(testing.allocator);
+    var config = initTestWithDiagnostics(app, argv, &diagnostics) catch |err| return parseErrorToString(err, diagnostics.detail);
+    config.deinit(testing.allocator);
     return error.TestUnexpectedResult;
+}
+
+fn parseErrorToString(err: anyerror, detail: []const u8) ![]u8 {
+    const fatal = try failure.Failure.fromArgsError(testing.allocator, err, detail);
+    defer fatal.deinit(testing.allocator);
+    return failure.string(testing.allocator, fatal);
+}
+
+fn initTest(unowned_argv: []const []const u8) !Config {
+    const app = try App.testInit(testing.allocator);
+    defer app.destroy();
+    var diagnostics: Args.Diagnostics = .{};
+    defer diagnostics.deinit(testing.allocator);
+    return try initTestWithDiagnostics(app, unowned_argv, &diagnostics);
+}
+
+fn initTestWithDiagnostics(app: *const App, unowned_argv: []const []const u8, diagnostics: *Args.Diagnostics) !Config {
+    const argv = try util.deepDupe(u8, testing.allocator, unowned_argv);
+    var handed_off = false;
+    errdefer if (!handed_off) util.deepFree(u8, testing.allocator, argv);
+
+    var config = try Args.parse(app, argv, diagnostics);
+    handed_off = true;
+
+    if (config.filename) |filename| {
+        if (!std.mem.eql(u8, filename, "-") and !util.fileExists(app.io, filename)) {
+            config.deinit(testing.allocator);
+            return error.FileNotFound;
+        }
+    }
+
+    return config;
 }
 
 const App = @import("app.zig").App;
@@ -482,4 +495,3 @@ const testing = std.testing;
 const types = @import("types.zig");
 const util = @import("util.zig");
 const Config = types.Config;
-const MainEvent = types.MainEvent;

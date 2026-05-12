@@ -5,6 +5,12 @@ pub const CompletionShell = enum { bash, zsh };
 
 // User-facing configuration resolved from CLI arguments.
 pub const Config = struct {
+    // Owned argv backing CLI string fields that point into parsed arguments.
+    argv: []const []const u8 = &.{},
+    completion: ?CompletionShell = null,
+    help: bool = false,
+    version: bool = false,
+
     border: border.BorderName = .rounded,
     color: Color = .on,
     deselect: []const u8 = "",
@@ -23,8 +29,8 @@ pub const Config = struct {
     table: []const u8 = "",
     tail: usize = 0,
     theme: Theme = .auto,
-    title: []const u8 = "",
-    footer: []const u8 = "",
+    title: []const u8 = "", // always owned (not in argv)
+    footer: []const u8 = "", // always owned (not in argv)
     vanilla: bool = false,
     width: Width = .auto,
     zebra: bool = false,
@@ -48,10 +54,11 @@ pub const Config = struct {
         }
     }
 
-    // Release any resolved config slices owned by a bound config.
+    // Release strings and resolved column slices owned by this config.
     pub fn deinit(self: Config, alloc: std.mem.Allocator) void {
         if (self.title.len > 0) alloc.free(self.title);
         if (self.footer.len > 0) alloc.free(self.footer);
+        util.deepFree(u8, alloc, self.argv);
         alloc.free(self.deselect_cols);
         alloc.free(self.select_cols);
         alloc.free(self.sort_cols);
@@ -85,32 +92,6 @@ fn resolveColumns(alloc: std.mem.Allocator, headers: Row, spec: []const u8) ![]u
 
     return cols.toOwnedSlice(alloc);
 }
-
-// Top-level CLI event returned from arg parsing.
-pub const MainEvent = union(enum) {
-    run: Config,
-    banner,
-    help,
-    version,
-    completion: CompletionShell,
-    fatal: failure.Failure,
-
-    // Release any owned failure data attached to this event.
-    pub fn deinit(self: MainEvent, alloc: std.mem.Allocator) void {
-        switch (self) {
-            .fatal => |fatal| fatal.deinit(alloc),
-            .run => |*config| config.deinit(alloc),
-            else => {},
-        }
-    }
-
-    // Move the owned failure out of this event and disarm later cleanup.
-    pub fn takeFailure(self: *MainEvent) failure.Failure {
-        const fatal = self.fatal;
-        self.* = .banner;
-        return fatal;
-    }
-};
 
 // Row/Field plus a simple two-field entry pair.
 pub const Field = []const u8;
@@ -154,7 +135,6 @@ test "Config.bind rejects bad column specs" {
 }
 
 const border = @import("border.zig");
-const failure = @import("failure.zig");
 const std = @import("std");
 const testing = std.testing;
 const util = @import("util.zig");

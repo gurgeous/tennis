@@ -19,8 +19,7 @@ pub const Sqlite = struct {
 
     // Release cached table metadata.
     pub fn deinit(self: Self) void {
-        for (self.tables) |name| self.app.alloc.free(name);
-        self.app.alloc.free(self.tables);
+        util.deepFree(u8, self.app.alloc, self.tables);
     }
 
     // Load data from the requested or inferred table.

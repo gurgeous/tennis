@@ -36,6 +36,13 @@ pub const Failure = struct {
         return .{ .code = .clap, .detail = try formatClap(alloc, err, diag) };
     }
 
+    // Args error => failure with an optional pre-rendered clap detail.
+    pub fn fromArgsError(alloc: std.mem.Allocator, err: anyerror, detail: []const u8) !Failure {
+        if (Failure.fromError(err)) |fatal| return fatal;
+        if (detail.len > 0) return .{ .code = .clap, .detail = try alloc.dupe(u8, detail) };
+        return .{ .code = .clap, .detail = try formatError(alloc, err) };
+    }
+
     // FileNotFound => failure.
     pub fn fromFileNotFound(alloc: std.mem.Allocator, filename: []const u8) !Failure {
         return .{
@@ -75,7 +82,7 @@ pub const Failure = struct {
     // Write one failure to the provided writer.
     pub fn write(self: Failure, writer: *std.Io.Writer) !void {
         switch (self.code) {
-            .benchmark_requires_release => try writer.writeAll("BENCHMARK=1 requires `mise run benchmark` or a release build"),
+            .benchmark_requires_release => try writer.writeAll("BENCHMARK=1 requires `just benchmark` or a release build"),
             .could_not_read_stdin => try writer.writeAll("Could not read from stdin"),
             .invalid_csv => try writer.writeAll("That CSV file doesn't look right"),
             .invalid_digits => try writer.writeAll("Digits must be between 1 and 6"),
@@ -144,6 +151,11 @@ fn formatClap(alloc: std.mem.Allocator, err: anyerror, diag: *clap.Diagnostic) !
 
     const msg = util.strip(u8, writer.buffered());
     if (msg.len > 0) return alloc.dupe(u8, msg);
+    return formatError(alloc, err);
+}
+
+// Render a generic parse error without clap diagnostics.
+fn formatError(alloc: std.mem.Allocator, err: anyerror) ![]u8 {
     return std.fmt.allocPrint(alloc, "Error while parsing arguments: {s}", .{@errorName(err)});
 }
 

@@ -4,6 +4,8 @@
 //
 
 pub fn main(init_process: std.process.Init) !u8 {
+    initWindows();
+
     const app = try App.init(init_process);
     defer app.destroy();
     defer app.flush();
@@ -20,6 +22,21 @@ pub fn main(init_process: std.process.Init) !u8 {
     }
 
     return exit;
+}
+
+//
+// Windows 10 1903+ and Windows 11 both support UTF-8 output code page natively
+//
+
+extern "kernel32" fn SetConsoleCP(code_page_id: windows.UINT) callconv(.winapi) windows.BOOL;
+extern "kernel32" fn SetConsoleOutputCP(code_page_id: windows.UINT) callconv(.winapi) windows.BOOL;
+
+fn initWindows() void {
+    // NOTE: CI seems to already be in this mode
+    if (comptime builtin.os.tag == .windows) {
+        _ = SetConsoleCP(65001);
+        _ = SetConsoleOutputCP(65001);
+    }
 }
 
 //
@@ -42,42 +59,29 @@ fn main0(app: *App, process_args: std.process.Args) !?failure.Failure {
     //
 
     var timer = std.Io.Timestamp.now(app.io, .awake);
-    var event = try Args.initProcessArgs(app, process_args);
-    defer event.deinit(app.alloc);
-
-    //
-    // handle early exits ("actions")
-    //
-
-    var config = switch (event) {
-        .banner => {
-            // plain `tennis` with no file/stdin prints the banner
-            try failure.printBanner(app.stdout(), null);
-            return null;
-        },
-        .completion => |shell| {
-            // shell completion is generated immediately
-            try completion.write(app, shell);
-            return null;
-        },
-        // arg/setup failures are already fully formed Failures
-        .fatal => return event.takeFailure(),
-        .help => {
-            // help text bypasses the rest of the CLI
-            try app.stdout().writeAll(Args.help);
-            return null;
-        },
-        .version => {
-            // version is another direct early exit
-            try app.stdout().print("tennis: {s}\n", .{version});
-            return null;
-        },
-        // otherwise keep the parsed config and continue
-        .run => |cfg| blk: {
-            event = .banner;
-            break :blk cfg;
-        },
+    var diagnostics: Args.Diagnostics = .{};
+    defer diagnostics.deinit(app.alloc);
+    var config = Args.init(app, process_args, &diagnostics) catch |err| {
+        return try failure.Failure.fromArgsError(app.alloc, err, diagnostics.detail);
     };
+    defer config.deinit(app.alloc);
+
+    //
+    // early exits
+    //
+
+    if (config.help or config.completion != null or config.version) {
+        if (config.help) try app.stdout().writeAll(Args.help);
+        if (config.completion) |shell| try completion.write(app, shell);
+        if (config.version) try app.stdout().print("tennis: {s}\n", .{version});
+        return null;
+    }
+
+    const isTty = util.isTty(app.io, std.Io.File.stdin());
+    if (config.filename == null and isTty) {
+        try failure.printBanner(app.stdout(), null);
+        return null;
+    }
 
     //
     // where are we reading from?
@@ -109,7 +113,6 @@ fn main0(app: *App, process_args: std.process.Args) !?failure.Failure {
     config.bind(app.alloc, data.headers()) catch |err| {
         const fatal = try failure.Failure.fromTableError(app.alloc, err, data.headers());
         data.deinit(app.alloc);
-        config.deinit(app.alloc);
         return fatal;
     };
 
@@ -117,8 +120,8 @@ fn main0(app: *App, process_args: std.process.Args) !?failure.Failure {
     // data => table
     //
 
-    // Hand off both config and data here; Table.init owns cleanup from this point on.
-    const table = try Table.init(app, config, data);
+    // Hand off data here; config is borrowed and cleaned up by main0.
+    const table = try Table.init(app, &config, data);
     defer table.deinit();
     app.benchmark("table.init", util.timerRead(app.io, timer));
 
@@ -127,10 +130,10 @@ fn main0(app: *App, process_args: std.process.Args) !?failure.Failure {
     //
 
     timer = std.Io.Timestamp.now(app.io, .awake);
-    if (config.pager and (std.Io.File.stdout().isTty(app.io) catch false)) {
-        try renderToPager(app, config, table);
+    if (table.config.pager and isTty) {
+        try renderToPager(app, table);
     } else {
-        try renderToWriter(app, config, table, app.stdout());
+        try renderToWriter(app, table, app.stdout());
     }
 
     app.benchmark("table.render", util.timerRead(app.io, timer));
@@ -183,10 +186,10 @@ fn loadBytes(app: *App, config: types.Config, bytes_in: []const u8) !Data {
 // rendering
 //
 
-fn renderToPager(app: *App, config: types.Config, table: *Table) !void {
-    if (builtin.os.tag == .windows) return renderToWriter(app, config, table, app.stdout());
+fn renderToPager(app: *App, table: *Table) !void {
+    if (builtin.os.tag == .windows) return renderToWriter(app, table, app.stdout());
     const cmd = app.env.PAGER orelse "less";
-    if (std.mem.eql(u8, cmd, "cat")) return renderToWriter(app, config, table, app.stdout());
+    if (std.mem.eql(u8, cmd, "cat")) return renderToWriter(app, table, app.stdout());
 
     var env = try app.env.clone(app.alloc);
     defer env.deinit();
@@ -209,7 +212,7 @@ fn renderToPager(app: *App, config: types.Config, table: *Table) !void {
 
     var buf: [4096]u8 = undefined;
     var out = child.stdin.?.writerStreaming(app.io, &buf);
-    try renderToWriter(app, config, table, &out.interface);
+    try renderToWriter(app, table, &out.interface);
     try out.interface.flush();
     child.stdin.?.close(app.io);
     child.stdin = null;
@@ -218,8 +221,8 @@ fn renderToPager(app: *App, config: types.Config, table: *Table) !void {
     waited = true;
 }
 
-fn renderToWriter(app: *App, config: types.Config, table: *Table, writer: *std.Io.Writer) !void {
-    if (config.peek) {
+fn renderToWriter(app: *App, table: *Table, writer: *std.Io.Writer) !void {
+    if (table.config.peek) {
         try peek.render(app.alloc, table, writer);
     } else {
         try table.renderTable(writer);
@@ -297,3 +300,4 @@ const testing = std.testing;
 const types = @import("types.zig");
 const util = @import("util.zig");
 const version = @import("build_options").version;
+const windows = std.os.windows;

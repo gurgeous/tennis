@@ -1,13 +1,17 @@
 // Build and render a compact sample + stats view for one visible table.
 pub fn render(alloc: std.mem.Allocator, table: *Table, writer: *std.Io.Writer) !void {
     // sample
-    const sample = try buildSampleTable(alloc, table);
+    var sample_config = sampleConfig(table.config.*);
+    defer sample_config.deinit(alloc);
+    const sample = try buildSampleTable(alloc, table, &sample_config);
     defer sample.deinit();
     try sample.renderTable(writer);
     try writer.writeByte('\n');
 
     // stats
-    const stats = try buildStatsTable(alloc, table);
+    var stats_config = try statsConfig(alloc, table.config.*);
+    defer stats_config.deinit(alloc);
+    const stats = try buildStatsTable(alloc, table, &stats_config);
     defer stats.deinit();
     try stats.renderTable(writer);
 }
@@ -17,8 +21,7 @@ pub fn render(alloc: std.mem.Allocator, table: *Table, writer: *std.Io.Writer) !
 //
 
 // Build a small visible-row sample table with shape embedded in the title.
-fn buildSampleTable(alloc: std.mem.Allocator, table: *Table) !*Table {
-    var config = sampleConfig(table.config);
+fn buildSampleTable(alloc: std.mem.Allocator, table: *Table, config: *Config) !*Table {
     config.title = try sampleTitle(alloc, table);
 
     config.head = 5;
@@ -62,7 +65,7 @@ fn sampleFooter(alloc: std.mem.Allocator, nmore: usize) ![]u8 {
 //
 
 // Build one visible-column stats table for the current visible table.
-fn buildStatsTable(alloc: std.mem.Allocator, table: *Table) !*Table {
+fn buildStatsTable(alloc: std.mem.Allocator, table: *Table, config: *Config) !*Table {
     const headers = [_]Field{ "column", "type", "fill", "uniq", "min", "max" };
     var rows: std.ArrayList(DataRow) = .empty;
     defer {
@@ -72,7 +75,7 @@ fn buildStatsTable(alloc: std.mem.Allocator, table: *Table) !*Table {
     try rows.append(alloc, try DataRow.init(alloc, &headers));
     for (0..table.ncols()) |ii| try rows.append(alloc, try buildStatsRow(alloc, table, ii));
 
-    return try Table.init(table.app, try statsConfig(alloc, table.config), .{ .rows = try rows.toOwnedSlice(alloc) });
+    return try Table.init(table.app, config, .{ .rows = try rows.toOwnedSlice(alloc) });
 }
 
 // Build one owned stats row for one visible column.
@@ -269,7 +272,9 @@ test "buildStatsTable reports basic visible stats" {
     defer tt.deinit();
     const table = tt.table;
 
-    const stats = try buildStatsTable(testing.allocator, table);
+    var config = try statsConfig(testing.allocator, table.config.*);
+    defer config.deinit(testing.allocator);
+    const stats = try buildStatsTable(testing.allocator, table, &config);
     defer stats.deinit();
 
     try test_support.expectEqualRows(&.{ "column", "type", "fill", "uniq", "min", "max" }, stats.headers());
@@ -283,7 +288,9 @@ test "buildStatsTable tolerates oversized ints in peek stats" {
     defer tt.deinit();
     const table = tt.table;
 
-    const stats = try buildStatsTable(testing.allocator, table);
+    var config = try statsConfig(testing.allocator, table.config.*);
+    defer config.deinit(testing.allocator);
+    const stats = try buildStatsTable(testing.allocator, table, &config);
     defer stats.deinit();
 
     try testing.expectEqualStrings("id", stats.row(0)[0]);
@@ -297,7 +304,9 @@ test "buildStatsTable truncates float min and max to three digits" {
     defer tt.deinit();
     const table = tt.table;
 
-    const stats = try buildStatsTable(testing.allocator, table);
+    var config = try statsConfig(testing.allocator, table.config.*);
+    defer config.deinit(testing.allocator);
+    const stats = try buildStatsTable(testing.allocator, table, &config);
     defer stats.deinit();
 
     try test_support.expectEqualRows(&.{ "score", "float", "100%", "2", "1.234", "20.999" }, stats.row(0));
@@ -308,7 +317,9 @@ test "buildStatsTable treats percent columns as numeric" {
     defer tt.deinit();
     const table = tt.table;
 
-    const stats = try buildStatsTable(testing.allocator, table);
+    var config = try statsConfig(testing.allocator, table.config.*);
+    defer config.deinit(testing.allocator);
+    const stats = try buildStatsTable(testing.allocator, table, &config);
     defer stats.deinit();
 
     try test_support.expectEqualRows(&.{ "score", "percent", "66%", "2", "-3.500%", "12.000%" }, stats.row(0));
