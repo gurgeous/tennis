@@ -31,7 +31,7 @@ check: clean-weekly build lint test test-bats
 [windows]
 check: build-windows
   just test-bats --filter-tags '!skipwin'
-  just test # an experiment
+  just banner "✓ check ✓"
 
 ci: check
 
