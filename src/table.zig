@@ -5,7 +5,7 @@ pub const Table = struct {
     header: ?DataRow = null,
     rows: []DataRow = &.{},
     columns: []Column,
-    config: Config = .{},
+    config: *Config,
     empty: bool = false,
     _style: ?Style = null,
     _term_width: ?usize = null,
@@ -17,7 +17,7 @@ pub const Table = struct {
     //
 
     // Build a table from pre-parsed stored rows.
-    pub fn init(app: *App, config: Config, data: Data) !*Table {
+    pub fn init(app: *App, config: *Config, data: Data) !*Table {
         const table = try app.alloc.create(Table);
         errdefer app.alloc.destroy(table);
 
@@ -44,21 +44,6 @@ pub const Table = struct {
         return table;
     }
 
-    // This is just for testing at the moment
-    pub fn initCsv(app: *App, config: Config, bytes: []const u8) !*Table {
-        const data = try csv.load(app, bytes, config.delimiter);
-        errdefer data.deinit(app.alloc);
-        var bound = config;
-        if (config.title.len > 0) bound.title = try app.alloc.dupe(u8, config.title);
-        if (config.footer.len > 0) bound.footer = try app.alloc.dupe(u8, config.footer);
-        var handed_off = false;
-        defer if (!handed_off) bound.deinit(app.alloc);
-        try bound.bind(app.alloc, data.headers());
-        const table = try init(app, bound, data);
-        handed_off = true;
-        return table;
-    }
-
     // Release the table, columns, style cache, and stored rows.
     pub fn deinit(self: *Self) void {
         for (self.columns) |col| col.deinit(self.app.alloc);
@@ -69,7 +54,6 @@ pub const Table = struct {
             self.app.alloc.free(self.rows);
         }
         self.data.deinit(self.app.alloc);
-        self.config.deinit(self.app.alloc);
         self.app.alloc.destroy(self);
     }
 
@@ -535,7 +519,6 @@ test "termWidth respects config width" {
 
 const App = @import("app.zig").App;
 const Column = @import("column.zig").Column;
-const csv = @import("csv.zig");
 const Data = @import("data.zig").Data;
 const DataRow = @import("data.zig").DataRow;
 const Field = @import("types.zig").Field;

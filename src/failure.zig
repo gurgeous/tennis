@@ -36,6 +36,13 @@ pub const Failure = struct {
         return .{ .code = .clap, .detail = try formatClap(alloc, err, diag) };
     }
 
+    // Args error => failure with an optional pre-rendered clap detail.
+    pub fn fromArgsError(alloc: std.mem.Allocator, err: anyerror, detail: []const u8) !Failure {
+        if (Failure.fromError(err)) |fatal| return fatal;
+        if (detail.len > 0) return .{ .code = .clap, .detail = try alloc.dupe(u8, detail) };
+        return .{ .code = .clap, .detail = try formatError(alloc, err) };
+    }
+
     // FileNotFound => failure.
     pub fn fromFileNotFound(alloc: std.mem.Allocator, filename: []const u8) !Failure {
         return .{
@@ -144,6 +151,11 @@ fn formatClap(alloc: std.mem.Allocator, err: anyerror, diag: *clap.Diagnostic) !
 
     const msg = util.strip(u8, writer.buffered());
     if (msg.len > 0) return alloc.dupe(u8, msg);
+    return formatError(alloc, err);
+}
+
+// Render a generic parse error without clap diagnostics.
+fn formatError(alloc: std.mem.Allocator, err: anyerror) ![]u8 {
     return std.fmt.allocPrint(alloc, "Error while parsing arguments: {s}", .{@errorName(err)});
 }
 

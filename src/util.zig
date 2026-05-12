@@ -15,6 +15,10 @@ pub fn isSeekable(io: std.Io, file: std.Io.File) bool {
     return true;
 }
 
+pub fn isTty(io: std.Io, file: std.Io.File) bool {
+    return file.isTty(io) catch false;
+}
+
 // read a single byte from an fd
 pub fn readByte(fd: std.posix.fd_t) !u8 {
     var buf: [1]u8 = undefined;
@@ -41,32 +45,6 @@ pub fn digits(comptime T: type, n: T) usize {
 // slices
 //
 
-// sum values in slice
-pub fn sum(comptime T: type, slice: []const T) T {
-    var total: T = 0;
-    for (slice) |w| total += w;
-    return total;
-}
-
-// Return the min and max value in a non-empty slice.
-pub fn minmax(comptime T: type, slice: []const T) ?struct { min: T, max: T } {
-    if (slice.len == 0) return null;
-    var min = slice[0];
-    var max = slice[0];
-    for (slice[1..]) |value| {
-        if (value < min) min = value;
-        if (value > max) max = value;
-    }
-    return .{ .min = min, .max = max };
-}
-
-// Return an owned slice filled with ascending indexes from 0 to len - 1.
-pub fn range(alloc: std.mem.Allocator, len: usize) ![]usize {
-    const out = try alloc.alloc(usize, len);
-    for (out, 0..) |*slot, ii| slot.* = ii;
-    return out;
-}
-
 // Deep-copy a slice of slices.
 pub fn deepDupe(comptime T: type, alloc: std.mem.Allocator, items: []const []const T) ![][]const T {
     const out = try alloc.alloc([]const T, items.len);
@@ -88,6 +66,32 @@ pub fn deepDupe(comptime T: type, alloc: std.mem.Allocator, items: []const []con
 pub fn deepFree(comptime T: type, alloc: std.mem.Allocator, items: []const []const T) void {
     for (items) |item| alloc.free(item);
     alloc.free(items);
+}
+
+// Return the min and max value in a non-empty slice.
+pub fn minmax(comptime T: type, slice: []const T) ?struct { min: T, max: T } {
+    if (slice.len == 0) return null;
+    var min = slice[0];
+    var max = slice[0];
+    for (slice[1..]) |value| {
+        if (value < min) min = value;
+        if (value > max) max = value;
+    }
+    return .{ .min = min, .max = max };
+}
+
+// Return an owned slice filled with ascending indexes from 0 to len - 1.
+pub fn range(alloc: std.mem.Allocator, len: usize) ![]usize {
+    const out = try alloc.alloc(usize, len);
+    for (out, 0..) |*slot, ii| slot.* = ii;
+    return out;
+}
+
+// sum values in slice
+pub fn sum(comptime T: type, slice: []const T) T {
+    var total: T = 0;
+    for (slice) |w| total += w;
+    return total;
 }
 
 //

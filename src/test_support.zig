@@ -9,18 +9,33 @@ pub fn expectEqualRows(want: []const []const u8, got: []const []const u8) !void 
 // Small owned-table harness used by unit tests.
 pub const TestTable = struct {
     app: *App = undefined,
+    config: *types.Config = undefined,
     table: *Table = undefined,
 
     // Build a test table from an inline CSV string.
     pub fn init(self: *TestTable, alloc: std.mem.Allocator, config: types.Config, input: []const u8) !void {
         self.app = try App.testInit(alloc);
         errdefer self.app.destroy();
-        self.table = try Table.initCsv(self.app, config, input);
+
+        const data = try csv.load(self.app, input, config.delimiter);
+        errdefer data.deinit(self.app.alloc);
+
+        self.config = try self.app.alloc.create(types.Config);
+        errdefer self.app.alloc.destroy(self.config);
+        self.config.* = config;
+        errdefer self.config.deinit(self.app.alloc);
+        if (config.title.len > 0) self.config.title = try self.app.alloc.dupe(u8, config.title);
+        if (config.footer.len > 0) self.config.footer = try self.app.alloc.dupe(u8, config.footer);
+
+        try self.config.bind(self.app.alloc, data.headers());
+        self.table = try Table.init(self.app, self.config, data);
     }
 
     // Release the arena and test table.
     pub fn deinit(self: *TestTable) void {
         self.table.deinit();
+        self.config.deinit(self.app.alloc);
+        self.app.alloc.destroy(self.config);
         self.app.destroy();
     }
 };
@@ -33,6 +48,7 @@ pub fn initTable(alloc: std.mem.Allocator, config: types.Config, input: []const 
 }
 
 const App = @import("app.zig").App;
+const csv = @import("csv.zig");
 const std = @import("std");
 const testing = std.testing;
 const Table = @import("table.zig").Table;
