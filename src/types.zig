@@ -34,6 +34,8 @@ pub const Config = struct {
     sort_cols: []usize = &.{},
     // Test-only shuffle seed for deterministic row order assertions.
     srand: u64 = 0,
+    // Owned argv backing CLI string fields that point into parsed arguments.
+    argv: []const []const u8 = &.{},
 
     // Resolve any header-based config against the loaded header row.
     pub fn bind(self: *Config, alloc: std.mem.Allocator, headers: Row) !void {
@@ -48,10 +50,11 @@ pub const Config = struct {
         }
     }
 
-    // Release any resolved config slices owned by a bound config.
+    // Release strings and resolved column slices owned by this config.
     pub fn deinit(self: Config, alloc: std.mem.Allocator) void {
         if (self.title.len > 0) alloc.free(self.title);
         if (self.footer.len > 0) alloc.free(self.footer);
+        util.deepFree(u8, alloc, self.argv);
         alloc.free(self.deselect_cols);
         alloc.free(self.select_cols);
         alloc.free(self.sort_cols);

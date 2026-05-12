@@ -103,16 +103,22 @@ pub const Args = struct {
 
     // Parse argv into one top-level main event.
     pub fn init(app: *const App, argv: []const []const u8) !MainEvent {
+        const owned_argv = try util.deepDupe(u8, app.alloc, argv);
+
         var diagnostics: clap.Diagnostic = .{};
-        const event = parse(app, argv, &diagnostics) catch |err| {
-            return .{ .fatal = try failure.Failure.fromClapError(app.alloc, err, &diagnostics) };
+        var event = parseOwned(app, owned_argv, &diagnostics) catch |err| {
+            const fatal = try failure.Failure.fromClapError(app.alloc, err, &diagnostics);
+            util.deepFree(u8, app.alloc, owned_argv);
+            return .{ .fatal = fatal };
         };
 
         // quick check of file here
         if (event == .run) {
             if (event.run.filename) |filename| {
                 if (!std.mem.eql(u8, filename, "-") and !util.fileExists(app.io, filename)) {
-                    return .{ .fatal = try failure.Failure.fromFileNotFound(app.alloc, filename) };
+                    const fatal = try failure.Failure.fromFileNotFound(app.alloc, filename);
+                    event.deinit(app.alloc);
+                    return .{ .fatal = fatal };
                 }
             }
         }
@@ -132,7 +138,16 @@ pub const Args = struct {
 
     // Parse argv and map supported flags into config.
     fn parse(app: *const App, argv: []const []const u8, diag: *clap.Diagnostic) !MainEvent {
-        var iter = clap.args.SliceIterator{ .args = argv };
+        const owned_argv = try util.deepDupe(u8, app.alloc, argv);
+        errdefer util.deepFree(u8, app.alloc, owned_argv);
+        return try parseOwned(app, owned_argv, diag);
+    }
+
+    // Parse owned argv and hand it to Config when producing a run event.
+    fn parseOwned(app: *const App, argv: []const []const u8, diag: *clap.Diagnostic) !MainEvent {
+        var config: Config = .{ .argv = argv };
+
+        var iter = clap.args.SliceIterator{ .args = config.argv };
         var res = try clap.parseEx(clap.Help, &params, parsers, &iter, .{
             .allocator = app.alloc,
             .diagnostic = diag,
@@ -143,15 +158,23 @@ pub const Args = struct {
         // these are early exits
         //
 
-        if (res.args.help > 0) return .help;
-        if (res.args.completion) |shell| return .{ .completion = shell };
-        if (res.args.version > 0) return .version;
+        if (res.args.help > 0) {
+            config.deinit(app.alloc);
+            return .help;
+        }
+        if (res.args.completion) |shell| {
+            config.deinit(app.alloc);
+            return .{ .completion = shell };
+        }
+        if (res.args.version > 0) {
+            config.deinit(app.alloc);
+            return .version;
+        }
 
         //
         // copy args into Config
         //
 
-        var config: Config = .{};
         if (res.args.border) |v| config.border = v;
         if (res.args.color) |v| config.color = v;
         if (res.args.deselect) |v| config.deselect = v;
@@ -166,7 +189,6 @@ pub const Args = struct {
         if (res.args.sort) |v| config.sort = v;
         if (res.args.table) |v| config.table = v;
         if (res.args.theme) |v| config.theme = v;
-        if (res.args.title) |v| config.title = try app.alloc.dupe(u8, v);
         config.vanilla = res.args.vanilla > 0;
         if (res.args.width) |v| config.width = v;
         config.zebra = res.args.zebra > 0;
@@ -183,12 +205,14 @@ pub const Args = struct {
             if (v == 0) return error.InvalidTailValue;
             if (config.head > 0) return error.InvalidHeadTail;
         }
+        if (res.args.title) |v| config.title = try app.alloc.dupe(u8, v);
+        errdefer if (config.title.len > 0) app.alloc.free(config.title);
 
         //
         // now handle filename
         //
 
-        return try resolveInput(config, argv.len, res.positionals[0], std.Io.File.stdin().isTty(app.io) catch false);
+        return try resolveInput(config, config.argv.len, res.positionals[0], std.Io.File.stdin().isTty(app.io) catch false);
     }
 
     // Resolve positional input into stdin, file, or banner behavior.
@@ -224,6 +248,7 @@ test "parse args accepts dash positional" {
     const app = try App.testInit(testing.allocator);
     defer app.destroy();
     const out = try Args.init(app, &.{"-"});
+    defer out.deinit(testing.allocator);
     try testing.expect(out == .run);
     try testing.expectEqualStrings("-", out.run.filename.?);
 }
@@ -463,12 +488,9 @@ fn expectParseError(want: anyerror, argv: []const []const u8) !void {
 fn parseErrorString(argv: []const []const u8) ![]u8 {
     const app = try App.testInit(testing.allocator);
     defer app.destroy();
-    var diag: clap.Diagnostic = .{};
-    _ = Args.parse(app, argv, &diag) catch |err| {
-        const fatal = try failure.Failure.fromClapError(testing.allocator, err, &diag);
-        defer fatal.deinit(testing.allocator);
-        return failure.string(testing.allocator, fatal);
-    };
+    var event = try Args.init(app, argv);
+    defer event.deinit(testing.allocator);
+    if (event == .fatal) return failure.string(testing.allocator, event.fatal);
     return error.TestUnexpectedResult;
 }
 

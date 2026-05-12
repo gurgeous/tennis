@@ -67,6 +67,29 @@ pub fn range(alloc: std.mem.Allocator, len: usize) ![]usize {
     return out;
 }
 
+// Deep-copy a slice of slices.
+pub fn deepDupe(comptime T: type, alloc: std.mem.Allocator, items: []const []const T) ![][]const T {
+    const out = try alloc.alloc([]const T, items.len);
+    var copied: usize = 0;
+    errdefer {
+        for (out[0..copied]) |item| alloc.free(item);
+        alloc.free(out);
+    }
+
+    for (items) |item| {
+        out[copied] = try alloc.dupe(T, item);
+        copied += 1;
+    }
+
+    return out;
+}
+
+// Free a slice of slices allocated by deepDupe or an equivalent owner.
+pub fn deepFree(comptime T: type, alloc: std.mem.Allocator, items: []const []const T) void {
+    for (items) |item| alloc.free(item);
+    alloc.free(items);
+}
+
 //
 // string
 //
