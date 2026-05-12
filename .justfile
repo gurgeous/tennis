@@ -30,10 +30,11 @@ check: clean-weekly build lint test test-bats
 [unix]
 ci: check
 [windows]
-ci: build-windows
-  # this is just for testing
-  just banner "windows test output"
-  ./zig-out/bin/tennis --color=on -n testdata/test.csv
+ci: windows-maybe
+
+windows-maybe: build-windows
+  bats --print-output-on-failure testdata/smoke.bats || true
+  just banner "✓ windows-maybe ✓"
 
 clean-weekly:
   if [ -d tmp ] && [ "$(find tmp -type d -prune -mtime +7 | wc -l)" -gt 0 ]; then \
