@@ -24,20 +24,16 @@ run *ARGS:
 # dev
 #
 
+[unix]
 check: clean-weekly build lint test test-bats
   just banner "✓ check ✓"
 
-[unix]
-ci: check
 [windows]
-ci: build-windows windows-maybe
+check: build-windows
+  just test-bats --filter-tags '!skipwin'
+  just test # an experiment
 
-windows-maybe:
-  just banner "starting windows-maybe... ✓"
-  env | sort
-  which bats
-  bats --print-output-on-failure testdata/smoke.bats || true
-  just banner "✓ windows-maybe ✓"
+ci: check
 
 clean-weekly:
   if [ -d tmp ] && [ "$(find tmp -type d -prune -mtime +7 | wc -l)" -gt 0 ]; then \
@@ -73,11 +69,11 @@ test:
   if [ -n "${LLM:-}" ]; then zig build test --summary none ; else zig build test --summary all ; fi
   just banner "✓ test ✓"
 
-test-bats:
+test-bats *ARGS:
   if [ -n "${LLM:-}" ]; then \
-    bats testdata/smoke.bats > /dev/null ; \
+    bats {{ARGS}} testdata/smoke.bats > /dev/null ; \
   else \
-    bats --print-output-on-failure testdata/smoke.bats ; \
+    bats {{ARGS}} --print-output-on-failure testdata/smoke.bats ; \
   fi
   just banner "✓ test-bats ✓"
 

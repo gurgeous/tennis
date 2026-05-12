@@ -5,6 +5,11 @@ setup() {
   TENNIS_BIN="$REPO_ROOT/zig-out/bin/tennis"
 }
 
+# Strip \r before comparing to paper over unix/win newline issues
+assert_output_matches() {
+  [ "$(tr -d '\r' <<< "$output")" = "$(tr -d '\r' <<< "$1")" ]
+}
+
 @test "rejects unknown flags" {
   run "$TENNIS_BIN" --bogus
   [ "$status" -eq 1 ]
@@ -174,6 +179,7 @@ setup() {
   [[ "$output" == *"bob"* ]]
 }
 
+# bats test_tags=skipwin
 @test "renders sqlite with one table" {
   run "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/sqlite-single.db"
   [ "$status" -eq 0 ]
@@ -183,6 +189,7 @@ setup() {
   [[ "$output" == *"cara"* ]]
 }
 
+# bats test_tags=skipwin
 @test "renders named sqlite table" {
   run "$TENNIS_BIN" --color=off --width 80 --table PLAYERS "$REPO_ROOT/testdata/sqlite-single.db"
   [ "$status" -eq 0 ]
@@ -192,6 +199,7 @@ setup() {
   [[ "$output" == *"cara"* ]]
 }
 
+# bats test_tags=skipwin
 @test "detects sqlite by magic bytes for unknown extensions" {
   local db
   db="$BATS_TEST_TMPDIR/sqlite-single.bin"
@@ -204,6 +212,7 @@ setup() {
   [[ "$output" == *"cara"* ]]
 }
 
+# bats test_tags=skipwin
 @test "renders sqlite by picking the largest table" {
   run "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/sqlite-multi.db"
   [ "$status" -eq 0 ]
@@ -214,12 +223,14 @@ setup() {
   [[ "$output" != *"solo"* ]]
 }
 
+# bats test_tags=skipwin
 @test "fails on invalid sqlite input" {
   run "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/sqlite-invalid.db"
   [ "$status" -eq 1 ]
   [[ "$output" == *"tennis: Could not read that file with sqlite3"* ]]
 }
 
+# bats test_tags=skipwin
 @test "fails when sqlite table is missing" {
   run "$TENNIS_BIN" --color=off --width 80 --table missing "$REPO_ROOT/testdata/sqlite-single.db"
   [ "$status" -eq 1 ]
@@ -498,15 +509,13 @@ setup() {
 @test "renders basic snapshot" {
   run "$TENNIS_BIN" --color=off --width 80 --title foo "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 0 ]
-  expected="$(cat "$REPO_ROOT/testdata/basic.out")"
-  [ "$output" = "$expected" ]
+  assert_output_matches "$(cat "$REPO_ROOT/testdata/basic.out")"
 }
 
 @test "renders basic color snapshot" {
   run "$TENNIS_BIN" --color=on --width 80 --title foo "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 0 ]
-  expected="$(printf '%b' "$(cat "$REPO_ROOT/testdata/basic-color.out")")"
-  [ "$output" = "$expected" ]
+  assert_output_matches "$(printf '%b' "$(cat "$REPO_ROOT/testdata/basic-color.out")")"
 }
 
 @test "exits cleanly on short downstream pipe" {

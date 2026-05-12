@@ -18,8 +18,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v4
-      - uses: taiki-e/install-action@just
-        if: runner.os == 'Windows'
       - uses: bats-core/bats-action@4.0.0
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' # mise can't this one on windows
       - run: just ci
