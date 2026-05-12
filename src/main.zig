@@ -32,10 +32,11 @@ extern "kernel32" fn SetConsoleCP(code_page_id: windows.UINT) callconv(.winapi) 
 extern "kernel32" fn SetConsoleOutputCP(code_page_id: windows.UINT) callconv(.winapi) windows.BOOL;
 
 fn initWindows() void {
-    if (comptime builtin.os.tag == .windows) {
-        _ = SetConsoleCP(65001);
-        _ = SetConsoleOutputCP(65001);
-    }
+    // EXPERIMENT
+    // if (comptime builtin.os.tag == .windows) {
+    //     _ = SetConsoleCP(65001);
+    //     _ = SetConsoleOutputCP(65001);
+    // }
 }
 
 //
