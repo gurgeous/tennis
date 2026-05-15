@@ -48,40 +48,44 @@ fn layout(table: *Table) ![]usize {
     // This is the default, where we squeeze into termwidth (auto)
     //
 
-    const measured = try measure(table, .cells);
-    defer alloc.free(measured);
-    const ncols = measured.len;
+    const natural = try measure(table, .cells);
+    defer alloc.free(natural);
+    const ncols = natural.len;
 
-    // a little breathing room on the right side, which is nice visually and
+    // A little breathing room on the right side, which is nice visually and
     // helps alleviate minor terminal layout snafus
     const fudge = 2;
 
-    // is the terminal big enough to contain the table without truncation? if
-    // not, abandon hope
-    const input: Layout = .{ .widths = measured };
+    // Is the terminal big enough to contain the table without any truncation?
+    // if not, abandon hope
+    const input: Layout = .{ .widths = natural };
     const term_width = table.termWidth();
     const available = term_width -| (input.chromeWidth() + fudge);
     if (available >= input.dataWidth()) {
-        return try alloc.dupe(usize, measured);
+        return try alloc.dupe(usize, natural);
     }
 
-    // what is the lower bound for a column width? 2 is pretty severe, let it
-    // grow up to 10 if we don't have a lot of columns.
-    const lower_min = 2;
-    const lower_max = 10;
-    const lower_bound = std.math.clamp(available / ncols, lower_min, lower_max);
+    // What is the lower bound for column width? We want something between 2 and
+    // 10.
+    const lower_bound = std.math.clamp(available / ncols, 2, 10);
 
-    // calculate min & max for each column. min is the width of the widest cell
-    // or lower_bound, whichever is smaller. max is the width of the widest
-    // cell.
+    // min is min(lower_bound, natural). Note special slack adjustment to avoid
+    // the dreaded "oops we foolishly cut the final char" snafu
     var min = try alloc.alloc(usize, ncols);
     defer alloc.free(min);
-    for (measured, 0..) |w, ii| {
-        min[ii] = @min(w, lower_bound);
+    for (natural, 0..) |nat, ii| {
+        min[ii] = @min(nat, lower_bound);
+        if (nat >= 10 and min[ii] + 4 >= nat) min[ii] = nat;
     }
-    const max = measured;
 
-    // calculate the ratio betweein min/max
+    // max is nat, but capped so bloated columns don't go berserk
+    var max = try alloc.alloc(usize, ncols);
+    defer alloc.free(max);
+    for (natural, 0..) |nat, ii| {
+        max[ii] = @min(nat, lower_bound * 5);
+    }
+
+    // calculate ratio betweein min/max
     const min_sum = util.sum(usize, min);
     const max_sum = util.sum(usize, max);
     if (available <= min_sum or max_sum == min_sum) {
@@ -164,6 +168,7 @@ test "layout cases" {
         .{ .config = .{ .width = .{ .chars = 100 } }, .input = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,bbbbbbbbbbbbbbbbbbbb,cccccccccc\nx,y,z\n", .want = &.{ 32, 20, 10 } },
         .{ .config = .{ .width = .{ .chars = 50 } }, .input = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,bbbbbbbbbbbbbbbbbbbb,cccccccccc\nx,y,z\n", .want = &.{ 16, 12, 10 } },
         .{ .config = .{ .width = .{ .chars = 39 } }, .input = "1234567,123456789,12345678901\nx,y,z\n", .want = &.{ 7, 9, 11 } },
+        .{ .config = .{ .width = .{ .chars = 100 } }, .input = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb,ccccccccccccc,dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd,eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\nx,x,x,x,x\n", .want = &.{ 15, 18, 13, 18, 18 } },
         .{ .config = .{ .width = .max }, .input = "1234567,123456789,12345678901\nx,y,z\n", .want = &.{ 7, 9, 11 } },
         .{ .config = .{ .width = .min }, .input = "alpha,beta,gamma\nx,y,z\n", .want = &.{ 5, 4, 5 } },
         .{ .config = .{ .width = .{ .chars = 80 } }, .input = "", .want = &.{} },
