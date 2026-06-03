@@ -188,15 +188,19 @@ fn loadBytes(app: *App, config: types.Config, bytes_in: []const u8) !Data {
 
 fn renderToPager(app: *App, table: *Table) !void {
     if (builtin.os.tag == .windows) return renderToWriter(app, table, app.stdout());
-    const cmd = app.env.PAGER orelse "less";
-    if (std.mem.eql(u8, cmd, "cat")) return renderToWriter(app, table, app.stdout());
+    const argv = try pagerArgv(app);
+    defer util.deepFree(u8, app.alloc, argv);
+    if (argv.len == 1 and std.mem.eql(u8, argv[0], "cat")) return renderToWriter(app, table, app.stdout());
 
     var env = try app.env.clone(app.alloc);
     defer env.deinit();
-    if (app.env.LESS == null) try env.put("LESS", "FRX");
+
+    // Init style early in this case, because termbg mucks with termios. Doing
+    // that AFTER pager startup breaks all pager key handling.
+    _ = table.style();
 
     var child = try std.process.spawn(app.io, .{
-        .argv = &.{ "/bin/sh", "-c", cmd },
+        .argv = argv,
         .environ_map = &env,
         .stdin = .pipe,
         .stdout = .inherit,
@@ -219,6 +223,16 @@ fn renderToPager(app: *App, table: *Table) !void {
 
     _ = try child.wait(app.io);
     waited = true;
+}
+
+// Return pager argv from $PAGER or the default ANSI-aware less command.
+fn pagerArgv(app: *App) ![]const []const u8 {
+    if (app.env.PAGER) |cmd| {
+        const argv = try util.shellsplit(app.alloc, cmd);
+        if (argv.len > 0) return argv;
+        util.deepFree(u8, app.alloc, argv);
+    }
+    return try util.deepDupe(u8, app.alloc, &.{ "less", "--RAW-CONTROL-CHARS" });
 }
 
 fn renderToWriter(app: *App, table: *Table, writer: *std.Io.Writer) !void {

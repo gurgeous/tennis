@@ -129,6 +129,53 @@ pub fn inspect(alloc: std.mem.Allocator, s: []const u8) ![]u8 {
     return out.toOwnedSlice(alloc);
 }
 
+// Split one shell-like command string into argv.
+pub fn shellsplit(alloc: std.mem.Allocator, cmd: []const u8) ![]const []const u8 {
+    var args = std.ArrayList([]const u8).empty;
+    errdefer {
+        for (args.items) |arg| alloc.free(arg);
+        args.deinit(alloc);
+    }
+
+    var token = std.ArrayList(u8).empty;
+    defer token.deinit(alloc);
+
+    var quote: ?u8 = null;
+    var escaped = false;
+    for (cmd) |ch| {
+        if (escaped) {
+            try token.append(alloc, ch);
+            escaped = false;
+            continue;
+        }
+        if (ch == '\\') {
+            escaped = true;
+            continue;
+        }
+        if (quote) |q| {
+            if (ch == q) {
+                quote = null;
+            } else {
+                try token.append(alloc, ch);
+            }
+            continue;
+        }
+        switch (ch) {
+            '\t', '\n', '\r', ' ' => if (token.items.len > 0) {
+                try args.append(alloc, try token.toOwnedSlice(alloc));
+                token.clearRetainingCapacity();
+            },
+            '\'', '"' => quote = ch,
+            else => try token.append(alloc, ch),
+        }
+    }
+    if (escaped) try token.append(alloc, '\\');
+    if (quote != null) return error.InvalidShellCommand;
+    if (token.items.len > 0) try args.append(alloc, try token.toOwnedSlice(alloc));
+
+    return args.toOwnedSlice(alloc);
+}
+
 // Lowercase ASCII bytes from `src` into `dest` and return the written prefix.
 pub fn lowerAscii(dest: []u8, src: []const u8) []const u8 {
     std.debug.assert(dest.len >= src.len);
@@ -297,6 +344,29 @@ test "inspect" {
     });
     defer testing.allocator.free(s2);
     try testing.expectEqualStrings("\"\\\"\\\\\\t\\e\\r\\n\\x08\\x0c\\x0b\\xff\"", s2);
+}
+
+test "shellsplit" {
+    const cases = [_]struct {
+        cmd: []const u8,
+        want: []const []const u8,
+    }{
+        .{ .cmd = "", .want = &.{} },
+        .{ .cmd = "less --RAW-CONTROL-CHARS", .want = &.{ "less", "--RAW-CONTROL-CHARS" } },
+        .{ .cmd = "less -R '+/^foo bar'", .want = &.{ "less", "-R", "+/^foo bar" } },
+        .{ .cmd = "pager\\ name \"quoted arg\"", .want = &.{ "pager name", "quoted arg" } },
+    };
+
+    for (cases) |tc| {
+        const got = try shellsplit(testing.allocator, tc.cmd);
+        defer deepFree(u8, testing.allocator, got);
+        try testing.expectEqual(tc.want.len, got.len);
+        for (tc.want, got) |want, arg| try testing.expectEqualStrings(want, arg);
+    }
+}
+
+test "shellsplit rejects unterminated quotes" {
+    try testing.expectError(error.InvalidShellCommand, shellsplit(testing.allocator, "less 'oops"));
 }
 
 test "containsIgnoreCase" {
