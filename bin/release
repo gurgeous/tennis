@@ -43,3 +43,6 @@ fatal() {
   printf '\e[1;38;5;231;48;2;210;15;57m[%s] %-72s\e[0m\n' "$(date '+%H:%M:%S')" "$1"
   exit 1
 }
+
+# go
+main
