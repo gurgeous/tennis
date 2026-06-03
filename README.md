@@ -127,7 +127,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 ### Changelog
 
-#### 0.6.0 (unreleased)
+#### 0.6.0 (Jun '26)
 
 - improve layout for near-fit and bloated columns
 - some windows fixes, hopefully #47
