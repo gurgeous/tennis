@@ -1,37 +1,45 @@
 #!/usr/bin/env bash
 
-# REMIND: this has never been run for real
-
 set -euo pipefail
-source "$(dirname "$0")/_banner"
 
-# get ready
+# what tags are we talking about?
 old_tag="$(svu current)"
 new_tag="$(svu minor)"
 
-# sanity
-[ -z "$(git status --porcelain)" ]  || fatal "git worktree is dirty"
-[ -n "${GITHUB_TOKEN:-}" ]          || fatal "GITHUB_TOKEN is required"
-[ -z "$(git tag -l "${new_tag}")" ] || fatal "tag already exists: ${new_tag}"
+main() {
+  # sanity
+  [ -z "$(git status --porcelain)" ] || fatal "git worktree is dirty"
+  [ -n "${GITHUB_TOKEN:-}" ] || fatal "GITHUB_TOKEN is required"
+  [ -z "$(git tag -l "${new_tag}")" ] || fatal "tag already exists: ${new_tag}"
 
-# preview
-banner "changes since ${old_tag}"
-git --no-pager diff --stat "${old_tag}"...HEAD
+  # preview
+  banner "changes since ${old_tag}"
+  git --no-pager diff --stat "${old_tag}"...HEAD
 
-# confirm
-banner "are you sure?"
-echo
-gum confirm "Release ${old_tag} => ${new_tag}?"
+  # confirm
+  banner "are you sure?"
+  echo
+  gum confirm "Release ${old_tag} => ${new_tag}?"
 
-# tag
-banner "tagging..."
-git tag -a "${new_tag}" -m "release ${new_tag}"
-git push origin "${new_tag}"
+  # tag
+  banner "tagging..."
+  git tag -a "${new_tag}" -m "release ${new_tag}"
+  git push origin "${new_tag}"
 
-# goreleaseer
-banner "goreleaser..."
-goreleaser healthcheck
-TENNIS_VERSION=${new_tag#v} goreleaser release --clean
+  # goreleaseer
+  banner "goreleaser..."
+  goreleaser healthcheck
+  TENNIS_VERSION=${new_tag#v} goreleaser release --clean
+}
 
-# done
-banner "✓ release ✓"
+#
+# helpers
+#
+
+banner() {
+  printf '\e[1;38;5;231;48;2;64;160;43m[%s] %-72s\e[0m\n' "$(date '+%H:%M:%S')" "$1"
+}
+fatal() {
+  printf '\e[1;38;5;231;48;2;210;15;57m[%s] %-72s\e[0m\n' "$(date '+%H:%M:%S')" "$1"
+  exit 1
+}

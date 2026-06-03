@@ -117,6 +117,7 @@ gen:
 
 release: check valgrind
   bin/release
+  just banner "✓ release ✓"
 
 release-preview: check
   goreleaser release --clean --snapshot
