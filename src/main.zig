@@ -130,11 +130,13 @@ fn main0(app: *App, process_args: std.process.Args) !?failure.Failure {
     //
 
     timer = std.Io.Timestamp.now(app.io, .awake);
-    if (table.config.pager and isTty) {
-        try renderToPager(app, table);
-    } else {
-        try renderToWriter(app, table, app.stdout());
-    }
+    const render_err = if (table.config.pager and isTty)
+        renderToPager(app, table)
+    else
+        renderToWriter(app, table, app.stdout());
+    render_err catch |err| {
+        return if (err == error.InvalidBig) try failure.Failure.fromTableError(app.alloc, err, table.headers()) else err;
+    };
 
     app.benchmark("table.render", util.timerRead(app.io, timer));
     return null;

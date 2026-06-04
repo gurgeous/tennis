@@ -15,7 +15,9 @@
 - Use `util.stdout` and `util.stderr` for shared buffered output.
 - Never return slices into stack buffers.
 - Allocate any string that must outlive the current scope.
-- In `src/*.zig`, add a one-line comment to each struct and function.
+- Comments should explain intent, jargon, or tradeoffs; skip name/type restatements.
+- Preserve user-written comments unless explicitly asked to remove them.
+- Avoid one-line wrappers used only once.
 - Keep imports sorted at the bottom of each file.
 
 ## Tests

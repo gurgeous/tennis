@@ -11,6 +11,9 @@ _tennis() {
     '--pager[Send output through $PAGER or less]' \
     '--peek[Show csv shape, sample, and handy stats]' \
     '--zebra[Turn on zebra stripes]' \
+    '-b[Make these columns Bigger]:headers:' \
+    '-bb[Make even BIGGER (p90)]:headers:' \
+    '-bbb[Make BIGGEST (full width)]:headers:' \
     '--deselect[De-select comma-separated headers]:headers:' \
     '--select[Select or reorder comma-separated headers]:headers:' \
     '--sort[Sort rows by comma-separated headers]:headers:' \

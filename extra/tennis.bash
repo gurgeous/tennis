@@ -7,6 +7,9 @@ _tennis() {
   case "${prev}" in
     -t|--title) COMPREPLY=() ; return ;;
     --border) COMPREPLY=($(compgen -W "ascii_rounded basic basic_compact compact compact_double dots double heavy light markdown none psql reinforced restructured rounded single thin with_love" -- "${cur}")) ; return ;;
+    -b) COMPREPLY=() ; return ;;
+    -bb) COMPREPLY=() ; return ;;
+    -bbb) COMPREPLY=() ; return ;;
     --deselect) COMPREPLY=() ; return ;;
     --select) COMPREPLY=() ; return ;;
     --sort) COMPREPLY=() ; return ;;
@@ -23,7 +26,7 @@ _tennis() {
   esac
 
   if [[ "${cur}" == -* ]]; then
-    COMPREPLY=($(compgen -W "-n --row-numbers -t --title --border -p --pager --peek --zebra --deselect --select --sort -r --reverse --shuffle --shuf --head --tail --filter --color --delimiter --digits --table --theme --vanilla --width --completion --help --version " -- "${cur}"))
+    COMPREPLY=($(compgen -W "-n --row-numbers -t --title --border -p --pager --peek --zebra -b -bb -bbb --deselect --select --sort -r --reverse --shuffle --shuf --head --tail --filter --color --delimiter --digits --table --theme --vanilla --width --completion --help --version " -- "${cur}"))
   else
     _filedir csv
     [[ ${#COMPREPLY[@]} -eq 0 ]] && _filedir

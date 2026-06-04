@@ -52,6 +52,9 @@ $ zig build
   -p, --pager                Send output through $PAGER or less
       --peek                 Show csv shape, sample, and handy stats
       --zebra                Turn on zebra stripes
+  -b <headers>               Make these columns Bigger
+  -bb <headers>              Make even BIGGER (p90)
+  -bbb <headers>             Make BIGGEST (full width)
 
  Sort, filter, etc:
       --deselect <headers>   De-select comma-separated headers

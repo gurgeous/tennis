@@ -19,7 +19,6 @@ pub const Table = struct {
     // Build a table from pre-parsed stored rows.
     pub fn init(app: *App, config: *Config, data: Data) !*Table {
         const table = try app.alloc.create(Table);
-        errdefer app.alloc.destroy(table);
 
         const empty = data.rows.len < 2;
         table.* = .{

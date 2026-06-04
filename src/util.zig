@@ -80,6 +80,14 @@ pub fn minmax(comptime T: type, slice: []const T) ?struct { min: T, max: T } {
     return .{ .min = min, .max = max };
 }
 
+// Return the nearest-rank percentile from a sorted, non-empty slice.
+pub fn percentile(comptime T: type, sorted: []const T, pct: usize) T {
+    std.debug.assert(sorted.len > 0);
+    std.debug.assert(pct >= 1 and pct <= 100);
+    const index = ((sorted.len * pct) + 99) / 100 - 1;
+    return sorted[index];
+}
+
 // Return an owned slice filled with ascending indexes from 0 to len - 1.
 pub fn range(alloc: std.mem.Allocator, len: usize) ![]usize {
     const out = try alloc.alloc(usize, len);
@@ -294,6 +302,14 @@ test "minmax handles floats" {
     const got = minmax(f64, &floats).?;
     try testing.expectEqual(@as(f64, -3.0), got.min);
     try testing.expectEqual(@as(f64, 9.25), got.max);
+}
+
+test "percentile" {
+    const values = [_]usize{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+    try testing.expectEqual(@as(usize, 1), percentile(usize, &values, 1));
+    try testing.expectEqual(@as(usize, 5), percentile(usize, &values, 50));
+    try testing.expectEqual(@as(usize, 9), percentile(usize, &values, 90));
+    try testing.expectEqual(@as(usize, 10), percentile(usize, &values, 100));
 }
 
 test "isSeekable handles file and pipe" {

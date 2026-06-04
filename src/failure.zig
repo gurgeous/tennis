@@ -57,6 +57,7 @@ pub const Failure = struct {
             error.InvalidSelect => .{ .code = .invalid_select, .detail = try formatColumns(alloc, "--select", headers) },
             error.InvalidDeselect => .{ .code = .invalid_deselect, .detail = try formatColumns(alloc, "--deselect", headers) },
             error.InvalidSort => .{ .code = .invalid_sort, .detail = try formatColumns(alloc, "--sort", headers) },
+            error.InvalidBig => .{ .code = .invalid_big, .detail = try formatColumns(alloc, "-b/-bb/-bbb", headers) },
             else => unreachable,
         };
     }
@@ -101,7 +102,7 @@ pub const Failure = struct {
             .windows => try writer.writeAll("Windows is not yet supported"),
 
             // these have details
-            .clap, .file_not_found, .invalid_deselect, .invalid_select, .invalid_sort, .sqlite_invalid_table => try writer.writeAll(self.detail orelse unreachable),
+            .clap, .file_not_found, .invalid_big, .invalid_deselect, .invalid_select, .invalid_sort, .sqlite_invalid_table => try writer.writeAll(self.detail orelse unreachable),
         }
     }
 };
@@ -113,6 +114,7 @@ pub const FailureCode = enum {
     could_not_read_stdin,
     file_not_found,
     invalid_csv,
+    invalid_big,
     invalid_deselect,
     invalid_digits,
     invalid_head_tail,
@@ -265,6 +267,13 @@ test "write includes column headers" {
     defer testing.allocator.free(deselect_msg);
     try testing.expect(std.mem.indexOf(u8, deselect_msg, "--deselect") != null);
     try testing.expect(std.mem.indexOf(u8, deselect_msg, "tennis: Here are the columns in that file:\ntennis:   name\ntennis:   score") != null);
+
+    const big_failure = try Failure.fromTableError(testing.allocator, error.InvalidBig, &.{ "name", "score" });
+    defer big_failure.deinit(testing.allocator);
+    const big_msg = try string(testing.allocator, big_failure);
+    defer testing.allocator.free(big_msg);
+    try testing.expect(std.mem.indexOf(u8, big_msg, "-b/-bb/-bbb") != null);
+    try testing.expect(std.mem.indexOf(u8, big_msg, "tennis: Here are the columns in that file:\ntennis:   name\ntennis:   score") != null);
 
     const sqlite_failure = try Failure.fromSqliteTableError(testing.allocator, "missing", &.{ "players", "stats" });
     defer sqlite_failure.deinit(testing.allocator);
