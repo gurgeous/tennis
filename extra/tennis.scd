@@ -57,6 +57,15 @@ $ tennis diamonds.csv
 *--zebra*
 	Turn on zebra stripes.
 
+*-b* <headers>
+	Make these columns Bigger.
+
+*-bb* <headers>
+	Make even BIGGER (p90).
+
+*-bbb* <headers>
+	Make BIGGEST (full width).
+
 # SORTING & FILTERING
 
 *--filter* <string>

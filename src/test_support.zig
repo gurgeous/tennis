@@ -18,7 +18,8 @@ pub const TestTable = struct {
         errdefer self.app.destroy();
 
         const data = try csv.load(self.app, input, config.delimiter);
-        errdefer data.deinit(self.app.alloc);
+        var data_handed_off = false;
+        errdefer if (!data_handed_off) data.deinit(self.app.alloc);
 
         self.config = try self.app.alloc.create(types.Config);
         errdefer self.app.alloc.destroy(self.config);
@@ -28,6 +29,7 @@ pub const TestTable = struct {
         if (config.footer.len > 0) self.config.footer = try self.app.alloc.dupe(u8, config.footer);
 
         try self.config.bind(self.app.alloc, data.headers());
+        data_handed_off = true;
         self.table = try Table.init(self.app, self.config, data);
     }
 

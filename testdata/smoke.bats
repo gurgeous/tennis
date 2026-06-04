@@ -405,6 +405,27 @@ assert_output_matches() {
   [[ "$output" == *$'tennis: Here are the columns in that file:\ntennis:   carat\ntennis:   cut\ntennis:   color'* ]]
 }
 
+@test "rejects invalid big columns without panicking" {
+  run "$TENNIS_BIN" --color=off -b version "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"tennis: -b/-bb/-bbb didn't look right, should be a comma-separated list of columns."* ]]
+  [[ "$output" == *$'tennis: Here are the columns in that file:\ntennis:   carat\ntennis:   cut\ntennis:   color'* ]]
+}
+
+@test "renders with big column flags" {
+  run "$TENNIS_BIN" --color=off --width 80 -b cut "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Ideal"* ]]
+
+  run "$TENNIS_BIN" --color=off --width 80 -bb cut "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Ideal"* ]]
+
+  run "$TENNIS_BIN" --color=off --width 80 -bbb cut "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Ideal"* ]]
+}
+
 @test "rejects head and tail together" {
   run "$TENNIS_BIN" --head 2 --tail 2 "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 1 ]

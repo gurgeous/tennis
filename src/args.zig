@@ -15,6 +15,9 @@ pub const Args = struct {
         \\  -p, --pager                Send output through $PAGER or less
         \\      --peek                 Show csv shape, sample, and handy stats
         \\      --zebra                Turn on zebra stripes
+        \\  -b <headers>               Make these columns Bigger
+        \\  -bb <headers>              Make even BIGGER (p90)
+        \\  -bbb <headers>             Make BIGGEST (full width)
         \\
         \\ Sort, filter, etc:
         \\      --deselect <headers>   De-select comma-separated headers
@@ -43,6 +46,9 @@ pub const Args = struct {
 
     const params = clap.parseParamsComptime(
         \\    --border <BORDER>
+        \\-b <STRING>
+        \\    --_b2 <STRING>
+        \\    --_b3 <STRING>
         \\    --color <COLOR>
         \\    --completion <SHELL>
         \\    --deselect <STRING>
@@ -128,7 +134,8 @@ pub const Args = struct {
     }
 
     // Parse owned argv and hand it to Config when producing a run event.
-    fn parse(app: *const App, argv: []const []const u8, diagnostics: *Diagnostics) !Config {
+    fn parse(app: *const App, argv: [][]const u8, diagnostics: *Diagnostics) !Config {
+        try normalizeBigArgs(app.alloc, argv);
         var config: Config = .{ .argv = argv };
         var iter = clap.args.SliceIterator{ .args = config.argv };
         var clap_diag: clap.Diagnostic = .{};
@@ -155,6 +162,9 @@ pub const Args = struct {
         //
 
         if (res.args.border) |v| config.border = v;
+        if (res.args.b) |v| config.big1 = v;
+        if (res.args._b2) |v| config.big2 = v;
+        if (res.args._b3) |v| config.big3 = v;
         if (res.args.color) |v| config.color = v;
         if (res.args.deselect) |v| config.deselect = v;
         config.delimiter = if (res.args.delimiter) |v| v else 0;
@@ -194,6 +204,20 @@ pub const Args = struct {
         }
 
         return config;
+    }
+
+    // Rewrite repeated -b shorthands into clap-compatible long flags.
+    fn normalizeBigArgs(alloc: std.mem.Allocator, argv: [][]const u8) !void {
+        for (argv) |*arg| {
+            const replacement = if (std.mem.eql(u8, arg.*, "-bb"))
+                "--_b2"
+            else if (std.mem.eql(u8, arg.*, "-bbb"))
+                "--_b3"
+            else
+                continue;
+            alloc.free(arg.*);
+            arg.* = try alloc.dupe(u8, replacement);
+        }
     }
 
     // Our diagnostics from parse
@@ -236,6 +260,12 @@ test "parse option config case" {
     var out = try parseTest(&.{
         "--border",
         "double",
+        "-b",
+        "input",
+        "-bb",
+        "output",
+        "-bbb",
+        "warnings",
         "--color",
         "off",
         "--digits",
@@ -270,6 +300,9 @@ test "parse option config case" {
     defer out.deinit(testing.allocator);
 
     try testing.expectEqual(border.BorderName.double, out.border);
+    try testing.expectEqualStrings("input", out.big1);
+    try testing.expectEqualStrings("output", out.big2);
+    try testing.expectEqualStrings("warnings", out.big3);
     try testing.expectEqual(types.Color.off, out.color);
     try testing.expectEqualStrings("city,tags", out.deselect);
     try testing.expectEqual(@as(usize, 4), out.digits);
@@ -299,7 +332,13 @@ test "parse option cases" {
         completion: ?types.CompletionShell = null,
         help: bool = false,
         version: bool = false,
+        big1: []const u8 = "",
+        big2: []const u8 = "",
+        big3: []const u8 = "",
     }{
+        .{ .argv = &.{ "-b", "score", "-" }, .big1 = "score" },
+        .{ .argv = &.{ "-bb", "score", "-" }, .big2 = "score" },
+        .{ .argv = &.{ "-bbb", "score", "-" }, .big3 = "score" },
         .{ .argv = &.{ "--delimiter", ";", "-" }, .delimiter = ';' },
         .{ .argv = &.{ "--delimiter", "tab", "-" }, .delimiter = '\t' },
         .{ .argv = &.{ "--delimiter", "\\t", "-" }, .delimiter = '\t' },
@@ -327,6 +366,9 @@ test "parse option cases" {
         defer parsed.deinit(testing.allocator);
         if (tc.delimiter) |d| try testing.expectEqual(d, parsed.delimiter);
         if (tc.border_name) |b| try testing.expectEqual(b, parsed.border);
+        try testing.expectEqualStrings(tc.big1, parsed.big1);
+        try testing.expectEqualStrings(tc.big2, parsed.big2);
+        try testing.expectEqualStrings(tc.big3, parsed.big3);
         if (std.mem.eql(u8, tc.argv[0], "--deselect")) try testing.expectEqualStrings("score,name", parsed.deselect);
         if (std.mem.eql(u8, tc.argv[0], "--filter")) try testing.expectEqualStrings("ali", parsed.filter);
         if (std.mem.eql(u8, tc.argv[0], "--pager") or std.mem.eql(u8, tc.argv[0], "-p")) try testing.expect(parsed.pager);

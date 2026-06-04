@@ -52,6 +52,9 @@ $ zig build
   -p, --pager                Send output through $PAGER or less
       --peek                 Show csv shape, sample, and handy stats
       --zebra                Turn on zebra stripes
+  -b <headers>               Make these columns Bigger
+  -bb <headers>              Make even BIGGER (p90)
+  -bbb <headers>             Make BIGGEST (full width)
 
  Sort, filter, etc:
       --deselect <headers>   De-select comma-separated headers
@@ -126,6 +129,11 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 - [visidata](https://www.visidata.org) - the best for poking around large files, it does everything
 
 ### Changelog
+
+#### 0.7.0 (unreleased)
+
+- support for `-b -bb -bbb` to Biggify columns
+- `--pager / -p` works properly now, I think
 
 #### 0.6.0 (Jun '26)
 

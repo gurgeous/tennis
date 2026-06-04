@@ -12,6 +12,9 @@ pub const Config = struct {
     version: bool = false,
 
     border: border.BorderName = .rounded,
+    big1: []const u8 = "",
+    big2: []const u8 = "",
+    big3: []const u8 = "",
     color: Color = .on,
     deselect: []const u8 = "",
     delimiter: u8 = ',',
@@ -43,15 +46,9 @@ pub const Config = struct {
 
     // Resolve any header-based config against the loaded header row.
     pub fn bind(self: *Config, alloc: std.mem.Allocator, headers: Row) !void {
-        if (self.select.len > 0) {
-            self.select_cols = resolveColumns(alloc, headers, self.select) catch return error.InvalidSelect;
-        }
-        if (self.deselect.len > 0) {
-            self.deselect_cols = resolveColumns(alloc, headers, self.deselect) catch return error.InvalidDeselect;
-        }
-        if (self.sort.len > 0) {
-            self.sort_cols = resolveColumns(alloc, headers, self.sort) catch return error.InvalidSort;
-        }
+        self.select_cols = resolveColumns(alloc, headers, self.select) catch return error.InvalidSelect;
+        self.deselect_cols = resolveColumns(alloc, headers, self.deselect) catch return error.InvalidDeselect;
+        self.sort_cols = resolveColumns(alloc, headers, self.sort) catch return error.InvalidSort;
     }
 
     // Release strings and resolved column slices owned by this config.
@@ -74,7 +71,9 @@ pub const Width = union(enum) {
 };
 
 // Resolve a comma-separated column spec into header indexes.
-fn resolveColumns(alloc: std.mem.Allocator, headers: Row, spec: []const u8) ![]usize {
+pub fn resolveColumns(alloc: std.mem.Allocator, headers: Row, spec: []const u8) ![]usize {
+    if (spec.len == 0) return alloc.alloc(usize, 0);
+
     var cols: std.ArrayList(usize) = .empty;
     defer cols.deinit(alloc);
 
@@ -132,6 +131,12 @@ test "Config.bind rejects bad column specs" {
     var bad_deselect: Config = .{ .deselect = "bogus" };
     defer bad_deselect.deinit(testing.allocator);
     try testing.expectError(error.InvalidDeselect, bad_deselect.bind(testing.allocator, &.{ "name", "score" }));
+}
+
+test "resolveColumns accepts empty spec" {
+    const cols = try resolveColumns(testing.allocator, &.{ "name", "score" }, "");
+    defer testing.allocator.free(cols);
+    try testing.expectEqual(@as(usize, 0), cols.len);
 }
 
 const border = @import("border.zig");
