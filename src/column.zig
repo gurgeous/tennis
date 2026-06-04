@@ -64,6 +64,18 @@ pub const Column = struct {
         return width;
     }
 
+    // Return the p90 visible field width, never below the header width.
+    pub fn p90(self: Column, alloc: std.mem.Allocator) !usize {
+        const header_width = doomicode.displayWidth(self.name);
+        if (self.table.nrows() == 0) return header_width;
+
+        const widths = try alloc.alloc(usize, self.table.nrows());
+        defer alloc.free(widths);
+        for (0..self.table.nrows()) |ii| widths[ii] = doomicode.displayWidth(self.field(ii));
+        const p90_width: usize = @intFromFloat(@ceil(util.percentile(usize, widths, 0.9)));
+        return @max(header_width, p90_width);
+    }
+
     // Infer the display type for the visible cells in this column.
     fn inferColumnType(self: Column) ColumnType {
         var floats: bool = false;
@@ -197,6 +209,22 @@ test "column formatting and inference cases" {
     }
 }
 
+test "column p90 uses visible fields and header floor" {
+    var tt = try test_support.initTable(testing.allocator, .{}, "alpha\nx\nxx\nxxx\nxxxxxxxxxx\n");
+    defer tt.deinit();
+    const col = tt.table.column(0);
+
+    try testing.expectEqual(@as(usize, 8), try col.p90(testing.allocator));
+}
+
+test "column p90 handles header-only columns" {
+    var tt = try test_support.initTable(testing.allocator, .{ .filter = "missing" }, "alpha\nx\n");
+    defer tt.deinit();
+    const col = tt.table.column(0);
+
+    try testing.expectEqual(@as(usize, 5), try col.p90(testing.allocator));
+}
+
 test "column inference ignores blanks and scans all rows" {
     var buf = std.ArrayList(u8).empty;
     defer buf.deinit(testing.allocator);
@@ -227,3 +255,4 @@ const testing = std.testing;
 const Table = @import("table.zig").Table;
 const test_support = @import("test_support.zig");
 const types = @import("types.zig");
+const util = @import("util.zig");

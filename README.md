@@ -91,13 +91,17 @@ Tennis works fine with Unicode and emoji content. Calculating non-ASCII display 
 
 ### Colors, Themes, Appearance
 
-Tennis picks a color theme based on the color of your terminal. Color is on by default. It also honors `NO_COLOR=1`. Terminal width is pulled from your terminal, or defaults to 80 if we can't figure it out. See `--width` if you want to override layout.
-
-Use `--border`, `--row-numbers`, `--title`, and `--zebra` for more bling. Tennis supports the same borders as `nushell`.
-
-It's common to use `--pager` to send output through $PAGER or less.
+Tennis picks a color theme based on the color of your terminal. Color is on by default. It also honors `NO_COLOR=1`. Use `--border`, `--row-numbers`, `--title`, and `--zebra` for more bling. Tennis supports the same borders as `nushell`.
 
 <img src="./bling.png" width="60%">
+
+### Big, Bigger, Biggest
+
+Terminal width is pulled from your terminal, or defaults to 80 if we can't figure it out. Use `--width` to override the table width, like `--width 1000` or even `--width max`. See [layout.zig](https://github.com/gurgeous/tennis/blob/main/src/layout.zig) if you want the hairy details on autolayout.
+
+Use `-b` (big), `-bb` (bigger) and `-bbb` (biggest) to enlarge a specific column. With `-b`, the table will still fit into the terminal width, while `-bb` & `-bbb` usually cause the table to overflow.
+
+It's common to use `--pager` / `-p` to turn on a pager. This is perfect for tables with many rows, or tables that overflow terminal width due to `--width` or `-bb` or `-bbb`.
 
 ### Data, Selection, Order
 
@@ -132,8 +136,9 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 #### 0.7.0 (unreleased)
 
+- new and greatly improved autolayout
 - support for `-b -bb -bbb` to Biggify columns
-- `--pager / -p` works properly now, I think
+- `--pager / -p` fixed
 
 #### 0.6.0 (Jun '26)
 

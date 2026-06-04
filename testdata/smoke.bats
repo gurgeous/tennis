@@ -104,7 +104,7 @@ assert_output_matches() {
 }
 
 @test "auto-detects tab-delimited csv from file" {
-  run "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/test.tsv"
+  run "$TENNIS_BIN" --color=off --width 120 "$REPO_ROOT/testdata/test.tsv"
   [ "$status" -eq 0 ]
   [[ "$output" == *"carat"* ]]
   [[ "$output" == *"Ideal"* ]]
@@ -254,13 +254,13 @@ assert_output_matches() {
 @test "renders basic border" {
   run "$TENNIS_BIN" --color=off --border basic --width 80 "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"+-------+---------+------+--------+"* ]]
-  [[ "$output" == *"| carat | cut     |"* ]]
-  [[ "$output" == *"| 0.230 | Ideal   |"* ]]
+  [[ "$output" == *"+-------+------+-------+"* ]]
+  [[ "$output" == *"| carat | cut  |"* ]]
+  [[ "$output" == *"| 0.230 | Ide… |"* ]]
 }
 
 @test "renders csv from stdin" {
-  run bash -lc "cat '$REPO_ROOT/testdata/test.csv' | '$TENNIS_BIN' --color=off --width 80"
+  run bash -lc "cat '$REPO_ROOT/testdata/test.csv' | '$TENNIS_BIN' --color=off --width 120"
   [ "$status" -eq 0 ]
   [[ "$output" == *"carat"* ]]
   [[ "$output" == *"Ideal"* ]]
@@ -269,7 +269,7 @@ assert_output_matches() {
 }
 
 @test "renders head rows" {
-  run "$TENNIS_BIN" --color=off --width 80 --head 2 "$REPO_ROOT/testdata/test.csv"
+  run "$TENNIS_BIN" --color=off --width 120 --head 2 "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 0 ]
   [[ "$output" == *"Ideal"* ]]
   [[ "$output" == *"Premi"* ]]
@@ -413,9 +413,15 @@ assert_output_matches() {
 }
 
 @test "renders with big column flags" {
+  run "$TENNIS_BIN" --color=off --width 80 "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Ide…"* ]]
+  [[ "$output" != *"Ideal"* ]]
+
   run "$TENNIS_BIN" --color=off --width 80 -b cut "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 0 ]
   [[ "$output" == *"Ideal"* ]]
+  [[ "${lines[0]}" == "╭───────┬───────────┬───────┬──────┬──────┬──────┬──────┬──────┬──────┬──────╮" ]]
 
   run "$TENNIS_BIN" --color=off --width 80 -bb cut "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 0 ]
@@ -423,7 +429,7 @@ assert_output_matches() {
 
   run "$TENNIS_BIN" --color=off --width 80 -bbb cut "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"Ideal"* ]]
+  [[ "$output" == *"Very Good"* ]]
 }
 
 @test "rejects head and tail together" {
@@ -446,8 +452,8 @@ assert_output_matches() {
   run "$TENNIS_BIN" --color=off --width 80 -n "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 0 ]
   [[ "$output" == *"│ #  │"* ]]
-  [[ "$output" == *"│  1 │ 0.2… │"* ]]
-  [[ "$output" == *"│ 14 │ 0.3… │"* ]]
+  [[ "$output" == *"│  1 │ 0.230 │"* ]]
+  [[ "$output" == *"│ 14 │ 0.310 │"* ]]
 }
 
 @test "renders unicode csv" {
@@ -455,8 +461,8 @@ assert_output_matches() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"│ accent    │ café noir"* ]]
   [[ "$output" == *"│ heart     │ I ❤️ Zig"* ]]
-  [[ "$output" == *"│ skin_tone │ thumbs  …"* ]]
-  [[ "$output" == *"│ family    │ family  …"* ]]
+  [[ "$output" == *"│ skin_tone │ thumbs 👍🏽…"* ]]
+  [[ "$output" == *"│ family    │ family 👨‍👩‍👧‍👦…"* ]]
   [[ "$output" == *"│ flag      │ go 🇺🇸 now"* ]]
 }
 
@@ -509,7 +515,7 @@ assert_output_matches() {
 }
 
 @test "renders a title" {
-  run "$TENNIS_BIN" --color=off --width 80 --title foo "$REPO_ROOT/testdata/test.csv"
+  run "$TENNIS_BIN" --color=off --width 120 --title foo "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 0 ]
   [[ "$output" == *"foo"* ]]
   [[ "$output" == *"carat"* ]]
