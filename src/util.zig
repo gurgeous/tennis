@@ -80,12 +80,46 @@ pub fn minmax(comptime T: type, slice: []const T) ?struct { min: T, max: T } {
     return .{ .min = min, .max = max };
 }
 
-// Return the nearest-rank percentile from a sorted, non-empty slice.
-pub fn percentile(comptime T: type, sorted: []const T, pct: usize) T {
-    std.debug.assert(sorted.len > 0);
-    std.debug.assert(pct >= 1 and pct <= 100);
-    const index = ((sorted.len * pct) + 99) / 100 - 1;
-    return sorted[index];
+// Stable in-place partition. Returns the split point: yes = items[0..split], no = items[split..].
+pub fn partition(comptime T: type, items: []T, comptime pred: fn (T) bool) usize {
+    var split: usize = 0;
+    for (0..items.len) |ii| {
+        if (!pred(items[ii])) continue;
+
+        const item = items[ii];
+        var jj = ii;
+        while (jj > split) : (jj -= 1) {
+            items[jj] = items[jj - 1];
+        }
+        items[split] = item;
+        split += 1;
+    }
+    return split;
+}
+
+// Return an interpolated percentile, sorting values in place.
+pub fn percentile(comptime T: type, values: []T, pct_in: f64) f64 {
+    if (values.len == 0) return 0;
+
+    const pct = if (pct_in >= 0.0 and pct_in <= 1.0) pct_in else 0.5;
+    std.sort.block(T, values, {}, comptime std.sort.asc(T));
+
+    const rank = @as(f64, @floatFromInt(values.len - 1)) * pct;
+    const lo: usize = @intFromFloat(@floor(rank));
+    const hi: usize = @intFromFloat(@ceil(rank));
+    if (lo == hi) return asF64(T, values[lo]);
+
+    const left = asF64(T, values[lo]);
+    const right = asF64(T, values[hi]);
+    return left + (right - left) * (rank - @as(f64, @floatFromInt(lo)));
+}
+
+fn asF64(comptime T: type, value: T) f64 {
+    return switch (@typeInfo(T)) {
+        .int => @floatFromInt(value),
+        .float => @floatCast(value),
+        else => @compileError("asF64 expects an int or float"),
+    };
 }
 
 // Return an owned slice filled with ascending indexes from 0 to len - 1.
@@ -304,12 +338,45 @@ test "minmax handles floats" {
     try testing.expectEqual(@as(f64, 9.25), got.max);
 }
 
+test "partition splits without changing relative order" {
+    var values = [_]usize{ 1, 2, 3, 4, 5, 6 };
+    const split = partition(usize, &values, struct {
+        fn pred(value: usize) bool {
+            return value % 2 == 0;
+        }
+    }.pred);
+    try testing.expectEqual(@as(usize, 3), split);
+    try testing.expectEqualSlices(usize, &.{ 2, 4, 6 }, values[0..split]);
+    try testing.expectEqualSlices(usize, &.{ 1, 3, 5 }, values[split..]);
+}
+
 test "percentile" {
-    const values = [_]usize{ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
-    try testing.expectEqual(@as(usize, 1), percentile(usize, &values, 1));
-    try testing.expectEqual(@as(usize, 5), percentile(usize, &values, 50));
-    try testing.expectEqual(@as(usize, 9), percentile(usize, &values, 90));
-    try testing.expectEqual(@as(usize, 10), percentile(usize, &values, 100));
+    var values = [_]usize{ 10, 3, 7, 1, 8, 2, 9, 4, 6, 5 };
+    try testing.expectEqual(@as(f64, 1.0), percentile(usize, &values, 0.0));
+    values = [_]usize{ 10, 3, 7, 1, 8, 2, 9, 4, 6, 5 };
+    try testing.expectEqual(@as(f64, 5.5), percentile(usize, &values, 0.5));
+    values = [_]usize{ 10, 3, 7, 1, 8, 2, 9, 4, 6, 5 };
+    try testing.expectEqual(@as(f64, 9.1), percentile(usize, &values, 0.9));
+    values = [_]usize{ 10, 3, 7, 1, 8, 2, 9, 4, 6, 5 };
+    try testing.expectEqual(@as(f64, 10.0), percentile(usize, &values, 1.0));
+}
+
+test "percentile handles single value" {
+    var values = [_]usize{42};
+    try testing.expectEqual(@as(f64, 42.0), percentile(usize, &values, 0.9));
+}
+
+test "percentile handles floats" {
+    var values = [_]f64{ 4.0, 1.0, 2.0 };
+    try testing.expectEqual(@as(f64, 3.0), percentile(f64, &values, 0.75));
+}
+
+test "percentile handles empty and invalid percentile" {
+    var empty = [_]usize{};
+    try testing.expectEqual(@as(f64, 0.0), percentile(usize, &empty, 0.9));
+
+    var values = [_]usize{ 1, 10 };
+    try testing.expectEqual(@as(f64, 5.5), percentile(usize, &values, 9.0));
 }
 
 test "isSeekable handles file and pipe" {

@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+import argparse
+import csv
+import io
+import json
+import math
+import sys
+from pathlib import Path
+
+
+def value_len(value):
+    if value is None:
+        return 0
+    if isinstance(value, (dict, list)):
+        return len(json.dumps(value, separators=(",", ":")))
+    return len(str(value))
+
+
+def percentile(values, pct):
+    if not values:
+        return 0
+    ordered = sorted(values)
+    index = max(0, math.ceil(len(ordered) * pct / 100) - 1)
+    return ordered[index]
+
+
+def ensure_column(columns, order, name, prior_rows=0):
+    if name not in columns:
+        columns[name] = [0] * prior_rows
+        order.append(name)
+
+
+def read_jsonl(input):
+    columns = {}
+    order = []
+    rows = 0
+
+    for lineno, line in enumerate(input, 1):
+        if not line.strip():
+            continue
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError as err:
+            sys.exit(f"histogram: invalid jsonl on line {lineno}: {err}")
+        if not isinstance(obj, dict):
+            sys.exit(f"histogram: jsonl line {lineno} is not an object")
+
+        rows += 1
+        seen = set()
+        for name, value in obj.items():
+            ensure_column(columns, order, name, rows - 1)
+            columns[name].append(value_len(value))
+            seen.add(name)
+
+        # Missing fields are still part of the table shape, with zero display width.
+        for name in order:
+            if name not in seen:
+                columns[name].append(0)
+
+    return rows, order, columns
+
+
+def read_csv(input):
+    reader = csv.reader(input)
+    try:
+        headers = next(reader)
+    except StopIteration:
+        return 0, [], {}
+
+    columns = {name: [] for name in headers}
+    order = list(headers)
+    rows = 0
+
+    for row in reader:
+        rows += 1
+        for ii, value in enumerate(row):
+            if ii >= len(order):
+                name = f"extra_{ii - len(headers) + 1}"
+                ensure_column(columns, order, name, rows - 1)
+            columns[order[ii]].append(value_len(value))
+
+        for name in order[len(row) :]:
+            columns[name].append(0)
+
+    return rows, order, columns
+
+
+def detect_format(path, requested):
+    if requested != "auto":
+        return requested
+    suffix = Path(path).suffix.lower()
+    if suffix == ".csv":
+        return "csv"
+    if suffix in (".jsonl", ".ndjson"):
+        return "jsonl"
+    sys.exit("histogram: could not detect input format; use --format csv or --format jsonl")
+
+
+def open_input(path):
+    if path == "-":
+        return io.StringIO(sys.stdin.read())
+    return open(path, newline="")
+
+
+def print_table(rows, order, columns):
+    print(f"rows: {rows}")
+    print()
+
+    data = []
+    for name in order:
+        values = columns[name]
+        data.append(
+            (
+                name,
+                percentile(values, 50),
+                percentile(values, 75),
+                percentile(values, 90),
+                percentile(values, 100),
+            )
+        )
+
+    headers = ("column", "p50", "p75", "p90", "p100")
+    widths = [len(header) for header in headers]
+    for row in data:
+        for ii, value in enumerate(row):
+            widths[ii] = max(widths[ii], len(str(value)))
+
+    print(
+        f"{headers[0]:<{widths[0]}}  "
+        f"{headers[1]:>{widths[1]}}  "
+        f"{headers[2]:>{widths[2]}}  "
+        f"{headers[3]:>{widths[3]}}  "
+        f"{headers[4]:>{widths[4]}}"
+    )
+    for row in data:
+        print(
+            f"{row[0]:<{widths[0]}}  "
+            f"{row[1]:>{widths[1]}}  "
+            f"{row[2]:>{widths[2]}}  "
+            f"{row[3]:>{widths[3]}}  "
+            f"{row[4]:>{widths[4]}}"
+        )
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Print per-column string length percentiles for CSV or JSONL.")
+    parser.add_argument("file", help="Input file, or '-' for stdin.")
+    parser.add_argument("--format", choices=("auto", "csv", "jsonl"), default="auto")
+    args = parser.parse_args()
+
+    format = detect_format(args.file, args.format)
+    with open_input(args.file) as input:
+        if format == "csv":
+            rows, order, columns = read_csv(input)
+        else:
+            rows, order, columns = read_jsonl(input)
+    print_table(rows, order, columns)
+
+
+if __name__ == "__main__":
+    main()

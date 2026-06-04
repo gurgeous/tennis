@@ -1,21 +1,10 @@
 //
 // Glossary:
 //   natural    Measured full width of a column, including header and fields.
-//   floor      Lower bound used by autolayout.
-//   ceil       Upper bound used by autolayout; usually below natural.
-//   basis      Like flex-basis. Usually 1, but -b can increase.
 //   budget     Data-field width available after borders and slack.
-//   expansion  Post-autolayout increase due to -bb or -bbb.
+//   narrow     "Narrow" columns get to keep natural width.
+//   wide       "Wide "columns split the leftover budget after narrow.
 //
-// TLDR - measure natural column widths, build floor/ceil range for each column,
-// then distribute the terminal-width budget across those ranges. AutoLayout
-// stays within budget. Plain -b only changes basis and still fits.
-//
-// -bb/-bbb expansions apply AFTER autolayout and may make the rendered table
-// wider than termwidth.
-//
-
-const width_fudge = 2;
 
 //
 // simple struct to contain the results of layout
@@ -30,10 +19,10 @@ pub const Layout = struct {
         if (table.config.width == .min) return .{ .widths = try measure(table, .headers) };
         if (table.config.width == .max) return .{ .widths = try measure(table, .fields) };
 
-        // AutoLayout, the main event!
+        // the main event!
         var auto = try AutoLayout.init(table);
         defer auto.deinit();
-        return .{ .widths = try auto.run() };
+        return .{ .widths = try auto.autolayout() };
     }
 
     pub fn deinit(self: Layout, alloc: std.mem.Allocator) void {
@@ -64,29 +53,51 @@ fn calcChromeWidth(ncols: usize) usize {
 // internal AutoLayout calculation
 //
 
+const fudge = 2;
+
 const AutoLayout = struct {
     alloc: std.mem.Allocator,
-    budget: usize = 0,
-    cols: []AutoCol = &.{},
-    synthetic: usize = 0, // 1 if row numbers
+    cols: []LayoutCol = &.{},
     table: *Table,
 
     fn init(table: *Table) !AutoLayout {
         const alloc = table.app.alloc;
 
+        // calculate synthetic/ncols
+        var synthetic: usize = 0;
+        if (table.config.row_numbers) synthetic += 1;
+        const ncols = synthetic + table.ncols();
+
         // calc natural (full) width of each col
         const natural = try measure(table, .fields);
         defer alloc.free(natural);
 
-        var self: AutoLayout = .{
-            .alloc = alloc,
-            .budget = table.termWidth() -| (calcChromeWidth(natural.len) + width_fudge),
-            .synthetic = if (table.config.row_numbers) 1 else 0,
-            .table = table,
-        };
+        // which cols are big?
+        var bigs: [3][]usize = undefined;
+        const specs = [_][]const u8{ table.config.big1, table.config.big2, table.config.big3 };
+        for (specs, 0..) |spec, ii| {
+            bigs[ii] = types.resolveColumns(alloc, table.headers(), spec) catch return error.InvalidBig;
+        }
+        defer for (bigs) |cols| alloc.free(cols);
+
+        var self: AutoLayout = .{ .alloc = alloc, .table = table, .cols = try alloc.alloc(LayoutCol, ncols) };
         errdefer self.deinit();
 
-        self.cols = try AutoCol.initAll(alloc, natural);
+        // populate cols
+        for (0..ncols) |ii| {
+            const src = if (ii >= synthetic) ii - synthetic else null;
+            const big = bigLevel(src, &bigs);
+            self.cols[ii] = .{ .big = big, .ii = ii, .natural = natural[ii], .src = src };
+        }
+
+        // sort cols by natural width
+        std.sort.block(LayoutCol, self.cols, {}, struct {
+            fn lessThan(_: void, a: LayoutCol, b: LayoutCol) bool {
+                if (a.natural == b.natural) return a.ii < b.ii;
+                return a.natural < b.natural;
+            }
+        }.lessThan);
+
         return self;
     }
 
@@ -94,231 +105,142 @@ const AutoLayout = struct {
         self.alloc.free(self.cols);
     }
 
-    // If natural widths fit, skip truncation and preserve full values.
-    fn run(self: *AutoLayout) ![]usize {
-        // Validate -b/-bb/-bbb before the natural-fit exit so invalid columns
-        // fail consistently, even when no truncation is needed.
-        try self.buildBig();
+    fn autolayout(self: *AutoLayout) ![]usize {
+        // how much space do we have? only goes down as we proceed here
+        var budget = self.table.termWidth() -| (calcChromeWidth(self.cols.len) + fudge);
 
-        // early exit if we fit easily
-        if (self.budget >= AutoCol.sum(self.cols, .natural)) {
-            return try AutoCol.dupe(self.alloc, self.cols, .natural);
-        }
-
-        // inputs
-        self.buildFloor();
-        self.buildCeil();
-        self.buildBasis();
-
-        // autolayout
-        const widths = try self.allocate();
-        errdefer self.alloc.free(widths);
-
-        // -bb and -bbb are expansions: apply them after autolayout, even if the
-        // rendered table becomes wider than the terminal.
-        try self.bigger(widths);
-
-        return widths;
-    }
-
-    //
-    // big handling
-    //
-
-    fn buildBig(self: *AutoLayout) !void {
-        // If a column appears in multiple big flags, keep the strongest level.
-        try self.applyBig(self.table.config.big1, 1);
-        try self.applyBig(self.table.config.big2, 2);
-        try self.applyBig(self.table.config.big3, 3);
-    }
-
-    fn applyBig(self: *AutoLayout, spec: []const u8, level: usize) !void {
-        const cols = types.resolveColumns(self.alloc, self.table.headers(), spec) catch return error.InvalidBig;
-        defer self.alloc.free(cols);
-        for (cols) |col| self.cols[col + self.synthetic].big = @max(self.cols[col + self.synthetic].big, level);
-    }
-
-    //
-    // buildXXX
-    //
-
-    // Regular columns get up to 10 chars of floor. Big columns get up to 15 so
-    // modest columns can become fully readable with -b.
-    fn buildFloor(self: *AutoLayout) void {
-        const fair_share = self.budget / self.cols.len;
-
-        for (self.cols) |*col| {
-            const max_width: usize = if (col.big != 0) 15 else 10;
-            const bound = std.math.clamp(fair_share, 2, max_width);
-            col.floor = @min(col.natural, bound);
-            // If truncation would save only a few chars, show the whole value.
-            if (col.natural >= 10 and col.floor + 4 >= col.natural) col.floor = col.natural;
-        }
-    }
-
-    // Cap each column's autolayout range so one giant column cannot absorb the
-    // entire width budget before narrower columns get useful space.
-    fn buildCeil(self: *AutoLayout) void {
-        // Let a wide column grow, but cap it at 5x fair share so it cannot
-        // dominate the table.
-        const ceil_bound = std.math.clamp(self.budget / self.cols.len, 2, 10) * 5;
-        for (self.cols) |*col| {
-            col.ceil = @min(col.natural, ceil_bound);
-        }
-    }
-
-    // Plain -b only changes allocation basis. It must still fit termwidth.
-    fn buildBasis(self: *AutoLayout) void {
-        for (self.cols) |*col| {
-            col.basis = if (col.big == 0) 1 else 2;
-        }
-    }
-
-    //
-    // Apply -bb/-bbb. Note that this happens after autolayout and can
-    // intentionally overflow term
-    //
-
-    fn bigger(self: *AutoLayout, widths: []usize) !void {
-        for (self.cols, 0..) |col, ii| {
-            if (col.big >= 2) {
-                const off = ii - self.synthetic;
-                widths[ii] = @max(widths[ii], @min(try p90Width(self.alloc, self.table.column(off)), col.natural));
+        // 1. Big1: -b columns reserve half the budget.
+        const parts = util.partition(LayoutCol, self.cols, struct {
+            fn pred(col: LayoutCol) bool {
+                return col.big == 1;
             }
-            if (col.big >= 3) {
-                widths[ii] = @max(widths[ii], col.natural);
-            }
-        }
-    }
-
-    // Water-fill between floor and ceil. Basis changes how quickly columns grow
-    // inside that bounded range; ceil still protects the total fit.
-    fn allocate(self: AutoLayout) ![]usize {
-        const ncols = self.cols.len;
-
-        // If budget is too small, give up and just use floor
-        const floor_sum = AutoCol.sum(self.cols, .floor);
-        const ceil_sum = AutoCol.sum(self.cols, .ceil);
-        if (self.budget <= floor_sum or ceil_sum == floor_sum) {
-            return try AutoCol.dupe(self.alloc, self.cols, .floor);
+        }.pred);
+        const big1 = self.cols[0..parts];
+        const work = self.cols[parts..];
+        if (big1.len > 0) {
+            budget = self.reserveBig1(big1, budget);
         }
 
-        // diffs is each column's ceil-floor span, scaled by basis.
-        var diffs = try self.alloc.alloc(usize, ncols);
-        defer self.alloc.free(diffs);
-        for (self.cols, 0..) |col, i| {
-            diffs[i] = (col.ceil - col.floor) * col.basis;
-        }
-        const diffs_sum = util.sum(usize, diffs);
+        // 2. Narrow: "narrow" columns get natural width
+        const mark = narrow(work, &budget);
 
-        // ratio maps remaining budget onto each weighted diff.
-        const ratio = @as(f64, @floatFromInt(self.budget - floor_sum)) / @as(f64, @floatFromInt(diffs_sum));
-        var nice = try self.alloc.alloc(usize, ncols);
+        // 3. Wide: leftover "wide" columns split leftover budget.
+        if (mark < work.len) {
+            wide(work[mark..], budget);
+        }
+
+        // 4. Big23: Overflow for -b and -bb
+        try self.big23();
+
+        // done!
+        const nice = try self.alloc.alloc(usize, self.cols.len);
         errdefer self.alloc.free(nice);
-        for (self.cols, 0..) |col, i| {
-            nice[i] = col.floor + @min(col.ceil - col.floor, @as(usize, @trunc(@as(f64, @floatFromInt(diffs[i])) * ratio)));
+        for (self.cols) |col| {
+            nice[col.ii] = col.nice;
         }
-
-        // due to @trunc, may have a few bit leftover
-        const extra = self.budget -| util.sum(usize, nice);
-        if (extra > 0) {
-            try self.roundUpToBudget(nice, extra);
-        }
-
         return nice;
     }
 
-    // Handa extra budget to cols that need it the most
-    fn roundUpToBudget(self: AutoLayout, nice: []usize, extra: usize) !void {
-        const SpareWidth = struct { cols: []const AutoCol, result: []const usize };
+    // 1. Big1: -b cols get half our budget.
+    fn reserveBig1(_: *AutoLayout, cols: []LayoutCol, budget_in: usize) usize {
+        var budget = budget_in;
+        const per = (budget_in / 2) / cols.len;
+        for (cols) |*col| {
+            col.nice = @min(col.natural, per);
+            budget -|= col.nice;
+        }
+        return budget;
+    }
 
-        const indexes = try util.range(self.alloc, self.cols.len);
-        defer self.alloc.free(indexes);
-        const spare: SpareWidth = .{ .cols = self.cols, .result = nice };
-        std.sort.block(usize, indexes, spare, struct {
-            fn lessThan(ctx: SpareWidth, a: usize, b: usize) bool {
-                return (ctx.cols[b].ceil - ctx.result[b]) < (ctx.cols[a].ceil - ctx.result[a]);
+    // 2. Narrow phase: "narrow" columns get natural width while they fit into
+    // fair share. Each accepted column lowers the budget, but also lowers the
+    // number of columns competing for that budget. Stop when the current column
+    // is wider than its fair share. `mark` tracks where we stopped.
+    fn narrow(cols: []LayoutCol, budget: *usize) usize {
+        for (0..cols.len) |ii| {
+            // what's the "fair" share for remaining cols from here on out?
+            const ncols = cols.len - ii;
+            const fair_share = budget.* / ncols;
+
+            // is this column "narrow" enough to fit into fair_share? If not, bail
+            var cur = &cols[ii];
+            if (cur.natural > fair_share) return ii;
+
+            // narrow column gets to be full width
+            cur.nice = cur.natural;
+            budget.* -|= cur.nice;
+        }
+        return cols.len;
+    }
+
+    // 3. Wide phase: leftover "wide" columns split leftover budget. how
+    // much space do we have to fill? this only goes down..
+    fn wide(cols: []LayoutCol, budget_in: usize) void {
+        const fair_share = budget_in / cols.len;
+        var budget = budget_in % cols.len;
+        for (cols) |*cur| {
+            cur.nice = fair_share;
+            if (budget > 0) {
+                cur.nice += 1;
+                budget -= 1;
             }
-        }.lessThan);
+        }
+    }
 
-        var remaining = extra;
-        for (indexes) |index| {
-            if (remaining == 0) break;
-            if (nice[index] < self.cols[index].ceil) {
-                nice[index] += 1;
-                remaining -= 1;
+    // 4. Adjust layout for -b and -bb
+    fn big23(self: *AutoLayout) !void {
+        for (self.cols) |*cur| {
+            const src = cur.src orelse continue;
+            if (cur.big == 2) {
+                cur.nice = @max(cur.nice, try self.table.column(src).p90(self.alloc));
+            }
+            if (cur.big == 3) {
+                cur.nice = @max(cur.nice, cur.natural);
             }
         }
     }
 };
 
 //
-// Per-col state during AutoLayout. A few simple helpers as well.
+// Per-col state for AutoLayout.
 //
 
-const AutoCol = struct {
-    natural: usize,
-    floor: usize = 0,
-    ceil: usize = 0,
-    basis: usize = 1,
-    big: usize = 0,
-
-    // Synthetic columns never get big behavior because users address only real
-    // table headers.
-    fn initAll(alloc: std.mem.Allocator, natural: []const usize) ![]AutoCol {
-        const cols = try alloc.alloc(AutoCol, natural.len);
-        for (natural, 0..) |nat, ii| {
-            cols[ii] = .{
-                .natural = nat,
-            };
-        }
-        return cols;
-    }
-
-    const AutoColField = enum { natural, floor, ceil };
-
-    fn sum(cols: []const AutoCol, comptime which: AutoColField) usize {
-        var total: usize = 0;
-        for (cols) |col| total += col.field(which);
-        return total;
-    }
-
-    fn dupe(alloc: std.mem.Allocator, cols: []const AutoCol, comptime which: AutoColField) ![]usize {
-        const out = try alloc.alloc(usize, cols.len);
-        errdefer alloc.free(out);
-        for (cols, 0..) |col, ii| out[ii] = col.field(which);
-        return out;
-    }
-
-    fn field(self: AutoCol, comptime which: AutoColField) usize {
-        return switch (which) {
-            .natural => self.natural,
-            .floor => self.floor,
-            .ceil => self.ceil,
-        };
-    }
+const LayoutCol = struct {
+    big: usize = 0, // -b -bb -bbb level for this col, if any
+    ii: usize, // display order (row_numbers will be 0, for example)
+    natural: usize, // "natural" width (max width across all fields)
+    nice: usize = 0, // final width
+    src: ?usize, // which data column does this belong to? (row_numbers will be null)
 };
 
 //
-// helpers
+// standalone helpers
 //
 
-fn p90Width(alloc: std.mem.Allocator, column: @import("column.zig").Column) !usize {
-    const n = column.table.nrows();
-    const widths = try alloc.alloc(usize, n);
-    defer alloc.free(widths);
-    for (0..n) |ii| widths[ii] = doomicode.displayWidth(column.field(ii));
-    std.sort.block(usize, widths, {}, comptime std.sort.asc(usize));
-    return @max(doomicode.displayWidth(column.name), util.percentile(usize, widths, 90));
+// -b -bb -bbb level for src, if any
+fn bigLevel(src: ?usize, bigs: []const []const usize) usize {
+    const col = src orelse return 0;
+    var level = bigs.len;
+    while (level > 0) : (level -= 1) {
+        const present = std.mem.indexOfScalar(usize, bigs[level - 1], col) != null;
+        if (present) return level;
+    }
+    return 0;
 }
 
+// measure natural field/header widths for all cols
 fn measure(table: *const Table, rows: enum { headers, fields }) ![]usize {
     const alloc = table.app.alloc;
+
     var widths = std.ArrayList(usize).empty;
     errdefer widths.deinit(alloc);
+
+    // synthetic cols
     if (table.config.row_numbers) {
         try widths.append(alloc, util.digits(usize, table.nrows()));
     }
+
+    // other cols, calculate max width
     for (table.columns) |column| {
         const width = switch (rows) {
             .headers => doomicode.displayWidth(column.name),
@@ -327,6 +249,7 @@ fn measure(table: *const Table, rows: enum { headers, fields }) ![]usize {
         try widths.append(alloc, width);
     }
 
+    // min 2
     const min_col_width = 2;
     for (widths.items, 0..) |_, i| {
         widths.items[i] = @max(widths.items[i], min_col_width);
@@ -346,9 +269,9 @@ test "layout cases" {
         want: []const usize,
     }{
         .{ .config = .{ .width = .{ .chars = 100 } }, .input = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,bbbbbbbbbbbbbbbbbbbb,cccccccccc\nx,y,z\n", .want = &.{ 32, 20, 10 } },
-        .{ .config = .{ .width = .{ .chars = 50 } }, .input = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,bbbbbbbbbbbbbbbbbbbb,cccccccccc\nx,y,z\n", .want = &.{ 16, 12, 10 } },
+        .{ .config = .{ .width = .{ .chars = 50 } }, .input = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,bbbbbbbbbbbbbbbbbbbb,cccccccccc\nx,y,z\n", .want = &.{ 14, 14, 10 } },
         .{ .config = .{ .width = .{ .chars = 39 } }, .input = "1234567,123456789,12345678901\nx,y,z\n", .want = &.{ 7, 9, 11 } },
-        .{ .config = .{ .width = .{ .chars = 100 } }, .input = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb,ccccccccccccc,dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd,eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\nx,x,x,x,x\n", .want = &.{ 15, 18, 13, 18, 18 } },
+        .{ .config = .{ .width = .{ .chars = 100 } }, .input = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb,ccccccccccccc,dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd,eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\nx,x,x,x,x\n", .want = &.{ 18, 17, 13, 17, 17 } },
         .{ .config = .{ .width = .max }, .input = "1234567,123456789,12345678901\nx,y,z\n", .want = &.{ 7, 9, 11 } },
         .{ .config = .{ .width = .min }, .input = "alpha,beta,gamma\nx,y,z\n", .want = &.{ 5, 4, 5 } },
         .{ .config = .{ .width = .{ .chars = 80 } }, .input = "", .want = &.{} },
@@ -490,7 +413,7 @@ fn expectMeasure(config: types.Config, input: []const u8, want: []const usize) !
 }
 
 fn availableForTest(term_width: usize, ncols: usize) usize {
-    return term_width -| (ncols * 3 + 1 + width_fudge);
+    return term_width -| (ncols * 3 + 1 + fudge);
 }
 
 // Return caller-owned widths after tearing down the temporary test table.
@@ -532,7 +455,7 @@ const bigMinFixture =
 const doomicode = @import("doomicode.zig");
 const std = @import("std");
 const Table = @import("table.zig").Table;
-const testing = std.testing;
 const test_support = @import("test_support.zig");
+const testing = std.testing;
 const types = @import("types.zig");
 const util = @import("util.zig");
