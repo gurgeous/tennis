@@ -96,7 +96,8 @@ const AutoLayout = struct {
 
     // If natural widths fit, skip truncation and preserve full values.
     fn run(self: *AutoLayout) ![]usize {
-        // populate cols.big. gotta do this early, other things depend on it
+        // Validate -b/-bb/-bbb before the natural-fit exit so invalid columns
+        // fail consistently, even when no truncation is needed.
         try self.buildBig();
 
         // early exit if we fit easily
@@ -158,6 +159,8 @@ const AutoLayout = struct {
     // Cap each column's autolayout range so one giant column cannot absorb the
     // entire width budget before narrower columns get useful space.
     fn buildCeil(self: *AutoLayout) void {
+        // Let a wide column grow, but cap it at 5x fair share so it cannot
+        // dominate the table.
         const ceil_bound = std.math.clamp(self.budget / self.cols.len, 2, 10) * 5;
         for (self.cols) |*col| {
             col.ceil = @min(col.natural, ceil_bound);
@@ -173,7 +176,7 @@ const AutoLayout = struct {
 
     //
     // Apply -bb/-bbb. Note that this happens after autolayout and can
-    // intentionally overlow term
+    // intentionally overflow term
     //
 
     fn bigger(self: *AutoLayout, widths: []usize) !void {
@@ -302,7 +305,6 @@ const AutoCol = struct {
 
 fn p90Width(alloc: std.mem.Allocator, column: @import("column.zig").Column) !usize {
     const n = column.table.nrows();
-    if (n == 0) return doomicode.displayWidth(column.name);
     const widths = try alloc.alloc(usize, n);
     defer alloc.free(widths);
     for (0..n) |ii| widths[ii] = doomicode.displayWidth(column.field(ii));
@@ -410,6 +412,22 @@ test "layout big2 expands to p90 width" {
 
     try testing.expect(widths[1] >= 20);
     try testing.expect(widths[1] < 30);
+}
+
+test "layout big columns account for row numbers" {
+    const regular = try layoutTest(.{ .width = .{ .chars = 80 }, .row_numbers = true }, bigFixture);
+    defer testing.allocator.free(regular);
+    const big = try layoutTest(.{ .width = .{ .chars = 80 }, .row_numbers = true, .big1 = "wide" }, bigFixture);
+    defer testing.allocator.free(big);
+    const big2 = try layoutTest(.{ .width = .{ .chars = 80 }, .row_numbers = true, .big2 = "wide" }, bigFixture);
+    defer testing.allocator.free(big2);
+    const big3 = try layoutTest(.{ .width = .{ .chars = 80 }, .row_numbers = true, .big3 = "wide" }, bigFixture);
+    defer testing.allocator.free(big3);
+
+    try testing.expect(big[2] >= regular[2]);
+    try testing.expect(big2[2] >= big[2]);
+    try testing.expect(big3[2] >= big2[2]);
+    try testing.expectEqual(@as(usize, 30), big3[2]);
 }
 
 test "layout rejects big against hidden columns" {

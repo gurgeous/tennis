@@ -130,6 +130,11 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 ### Changelog
 
+#### 0.7.0 (unreleased)
+
+- support for `-b -bb -bbb` to Biggify columns
+- `--pager / -p` works properly now, I think
+
 #### 0.6.0 (Jun '26)
 
 - improve layout for near-fit and bloated columns

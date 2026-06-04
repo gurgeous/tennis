@@ -234,7 +234,7 @@ fn pagerArgv(app: *App) ![]const []const u8 {
         if (argv.len > 0) return argv;
         util.deepFree(u8, app.alloc, argv);
     }
-    return try util.deepDupe(u8, app.alloc, &.{ "less", "--RAW-CONTROL-CHARS" });
+    return try util.deepDupe(u8, app.alloc, &.{ "less", "--LINE-NUMBERS --RAW-CONTROL-CHARS" });
 }
 
 fn renderToWriter(app: *App, table: *Table, writer: *std.Io.Writer) !void {
