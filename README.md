@@ -97,11 +97,15 @@ Tennis picks a color theme based on the color of your terminal. Color is on by d
 
 ### Big, Bigger, Biggest
 
-Terminal width is pulled from your terminal, or defaults to 80 if we can't figure it out. Use `--width` to override the table width, like `--width 1000` or even `--width max`. See [layout.zig](https://github.com/gurgeous/tennis/blob/main/src/layout.zig) if you want the hairy details on autolayout.
+Terminal width is pulled from your terminal, or defaults to 80 if we can't figure it out. Use `--width` to override the table width, like `--width 1000` or even `--width max`.
 
 Use `-b` (big), `-bb` (bigger) and `-bbb` (biggest) to enlarge a specific column. With `-b`, the table will still fit into the terminal width, while `-bb` & `-bbb` usually cause the table to overflow.
 
 It's common to use `--pager` / `-p` to turn on a pager. This is perfect for tables with many rows, or tables that overflow terminal width due to `--width` or `-bb` or `-bbb`.
+
+Note how tennis works really hard to fit tables into the given width. See [layout.zig](https://github.com/gurgeous/tennis/blob/main/src/layout.zig) if you want the hairy details on autolayout.
+
+<img src="./layout.png" width="60%">
 
 ### Data, Selection, Order
 
