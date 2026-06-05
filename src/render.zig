@@ -523,7 +523,7 @@ test "render content cases" {
 }
 
 test "render zebra uses alternating row background" {
-    const out = try renderTest("a,b\nc,d\ne,f\n", .{ .zebra = true, .theme = .dark });
+    const out = try renderTest("a,b\nc,d\ne,f\n", .{ .color = .on, .zebra = true, .theme = .dark });
     defer testing.allocator.free(out);
     const zebra = "\x1b[38;5;231;48;5;235m";
     try testing.expect(std.mem.containsAtLeast(u8, out, 1, zebra));

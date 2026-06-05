@@ -78,7 +78,7 @@ test-bats *ARGS:
   just banner "✓ test-bats ✓"
 
 test-watch:
-  watchexec --clear=clear --stop-timeout=0 just test
+  NO_COLOR=1 watchexec --clear=clear --stop-timeout=0 just test
 
 valgrind: build
   valgrind --quiet --leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all --error-exitcode=1 \

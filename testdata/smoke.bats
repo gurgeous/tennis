@@ -514,6 +514,16 @@ assert_output_matches() {
   [ "$dark" != "$light" ]
 }
 
+@test "honors NO_COLOR unless color is explicit" {
+  run env NO_COLOR=1 "$TENNIS_BIN" --width 80 "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *$'\e['* ]]
+
+  run env NO_COLOR=1 "$TENNIS_BIN" --color=on --width 80 "$REPO_ROOT/testdata/test.csv"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *$'\e['* ]]
+}
+
 @test "renders a title" {
   run "$TENNIS_BIN" --color=off --width 120 --title foo "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 0 ]
