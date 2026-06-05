@@ -303,7 +303,7 @@ test "parse option config case" {
     try testing.expectEqualStrings("input", out.big1);
     try testing.expectEqualStrings("output", out.big2);
     try testing.expectEqualStrings("warnings", out.big3);
-    try testing.expectEqual(types.Color.off, out.color);
+    try testing.expectEqual(types.Color.off, out.color.?);
     try testing.expectEqualStrings("city,tags", out.deselect);
     try testing.expectEqual(@as(usize, 4), out.digits);
     try testing.expectEqualStrings("ali", out.filter);

@@ -11,7 +11,7 @@ pub const Style = struct {
     title: []const u8 = "", // title text color (colorful)
 
     // Pick a concrete style for the requested color and theme settings.
-    pub fn init(app: *App, color: types.Color, theme: types.Theme) Style {
+    pub fn init(app: *App, color: ?types.Color, theme: types.Theme) Style {
         if (!colorEnabled(app, color)) return none;
         return switch (theme) {
             .dark => dark,
@@ -80,17 +80,21 @@ fn fgbg(comptime fg_index: u8, comptime bg_index: u8) []const u8 {
 //
 
 // Report whether ANSI colors should be emitted.
-fn colorEnabled(app: *const App, color: types.Color) bool {
-    return switch (color) {
-        .on => true,
-        .off => false,
-        .auto => blk: {
-            if (app.env.NO_COLOR) break :blk false;
-            if (app.env.FORCE_COLOR) break :blk true;
-            if (!(std.Io.File.stdout().isTty(app.io) catch false)) break :blk false;
-            break :blk true;
-        },
-    };
+fn colorEnabled(app: *const App, color: ?types.Color) bool {
+    // --color=on|off wins
+    if (color == .on) return true;
+    if (color == .off) return false;
+
+    // then env
+    if (app.env.FORCE_COLOR) return true;
+    if (app.env.NO_COLOR) return false;
+
+    // tty check for --color=auto
+    if (color == .auto and !util.isTty(app.io, std.Io.File.stdout())) {
+        return false;
+    }
+
+    return true;
 }
 
 //
@@ -124,6 +128,30 @@ test "colorEnabled handles explicit modes" {
     try testing.expect(!colorEnabled(app, .off));
 }
 
+test "colorEnabled default honors env" {
+    const app = try App.testInit(testing.allocator);
+    defer app.destroy();
+
+    app.env.NO_COLOR = false;
+    app.env.FORCE_COLOR = false;
+    try testing.expect(colorEnabled(app, null));
+
+    app.env.NO_COLOR = true;
+    try testing.expect(!colorEnabled(app, null));
+
+    app.env.FORCE_COLOR = true;
+    try testing.expect(colorEnabled(app, null));
+}
+
+test "colorEnabled explicit on overrides no color" {
+    const app = try App.testInit(testing.allocator);
+    defer app.destroy();
+
+    app.env.NO_COLOR = true;
+    app.env.FORCE_COLOR = false;
+    try testing.expect(colorEnabled(app, .on));
+}
+
 test "colorEnabled auto returns a boolean" {
     const app = try App.testInit(testing.allocator);
     defer app.destroy();
@@ -137,3 +165,4 @@ const std = @import("std");
 const testing = std.testing;
 const termbg = @import("termbg.zig");
 const types = @import("types.zig");
+const util = @import("util.zig");
