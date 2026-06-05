@@ -126,6 +126,9 @@ test "colorEnabled handles explicit modes" {
     defer app.destroy();
     try testing.expect(colorEnabled(app, .on));
     try testing.expect(!colorEnabled(app, .off));
+
+    app.env.FORCE_COLOR = true;
+    try testing.expect(!colorEnabled(app, .off));
 }
 
 test "colorEnabled default honors env" {
@@ -152,11 +155,16 @@ test "colorEnabled explicit on overrides no color" {
     try testing.expect(colorEnabled(app, .on));
 }
 
-test "colorEnabled auto returns a boolean" {
+test "colorEnabled auto honors env before tty" {
     const app = try App.testInit(testing.allocator);
     defer app.destroy();
-    _ = colorEnabled(app, .auto);
-    try testing.expect(colorEnabled(app, .auto) == true or colorEnabled(app, .auto) == false);
+
+    app.env.NO_COLOR = true;
+    app.env.FORCE_COLOR = false;
+    try testing.expect(!colorEnabled(app, .auto));
+
+    app.env.FORCE_COLOR = true;
+    try testing.expect(colorEnabled(app, .auto));
 }
 
 const App = @import("app.zig").App;
