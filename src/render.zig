@@ -481,7 +481,7 @@ test "render with title and row numbers" {
     test_table.table.config.row_numbers = true;
     test_table.table.config.title = try test_table.table.app.alloc.dupe(u8, "foo");
     const l = try Layout.init(test_table.table);
-    defer l.deinit(test_table.table.app.alloc);
+    defer l.deinit();
     var render: Render = .init(test_table.table, &writer, l);
     defer render.deinit();
     try render.render();
@@ -537,7 +537,7 @@ fn renderTest(input: []const u8, config: types.Config) ![]u8 {
     defer test_table.deinit();
     try applyRenderConfig(test_table.table, config);
     const l = try Layout.init(test_table.table);
-    defer l.deinit(test_table.table.app.alloc);
+    defer l.deinit();
     var buf: [4096]u8 = undefined;
     var writer = std.Io.Writer.fixed(&buf);
     var render: Render = .init(test_table.table, &writer, l);

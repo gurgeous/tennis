@@ -64,7 +64,7 @@ pub const Table = struct {
     pub fn renderTable(self: *Self, writer: *std.Io.Writer) !void {
         var timer = std.Io.Timestamp.now(self.app.io, .awake);
         const layout = try Layout.init(self);
-        defer layout.deinit(self.app.alloc);
+        defer layout.deinit();
         self.app.benchmark(" render.layout", util.timerRead(self.app.io, timer));
 
         var renderer: Render = .init(self, writer, layout);

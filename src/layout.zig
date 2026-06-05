@@ -11,22 +11,24 @@
 //
 
 pub const Layout = struct {
+    alloc: std.mem.Allocator,
     widths: []const usize,
 
     pub fn init(table: *Table) !Layout {
+        const alloc = table.app.alloc;
         // early exits to avoid AutoLayout
-        if (table.isEmpty()) return .{ .widths = try table.app.alloc.alloc(usize, 0) };
-        if (table.config.width == .min) return .{ .widths = try measure(table, .headers) };
-        if (table.config.width == .max) return .{ .widths = try measure(table, .fields) };
+        if (table.isEmpty()) return .{ .alloc = alloc, .widths = try alloc.alloc(usize, 0) };
+        if (table.config.width == .min) return .{ .alloc = alloc, .widths = try measure(table, .headers) };
+        if (table.config.width == .max) return .{ .alloc = alloc, .widths = try measure(table, .fields) };
 
         // the main event!
         var auto = try AutoLayout.init(table);
         defer auto.deinit();
-        return .{ .widths = try auto.autolayout() };
+        return .{ .alloc = alloc, .widths = try auto.autolayout() };
     }
 
-    pub fn deinit(self: Layout, alloc: std.mem.Allocator) void {
-        alloc.free(self.widths);
+    pub fn deinit(self: Layout) void {
+        self.alloc.free(self.widths);
     }
 
     // Data width is only printable field content, not borders or padding.
@@ -53,7 +55,10 @@ fn calcChromeWidth(ncols: usize) usize {
 // internal AutoLayout calculation
 //
 
+// Leave a couple of columns of slack so a table measured at terminal width does
+// not wrap in terminals that disagree slightly about border or emoji width.
 const fudge = 2;
+const min_col_width = 2;
 
 const AutoLayout = struct {
     alloc: std.mem.Allocator,
@@ -110,6 +115,8 @@ const AutoLayout = struct {
         var budget = self.table.termWidth() -| (calcChromeWidth(self.cols.len) + fudge);
 
         // 1. Big1: -b columns reserve half the budget.
+        // partition must stay stable so `work` remains sorted by natural width
+        // for the narrow phase below.
         const parts = util.partition(LayoutCol, self.cols, struct {
             fn pred(col: LayoutCol) bool {
                 return col.big == 1;
@@ -144,7 +151,7 @@ const AutoLayout = struct {
     // 1. Big1: -b cols get half our budget.
     fn reserveBig1(_: *AutoLayout, cols: []LayoutCol, budget_in: usize) usize {
         var budget = budget_in;
-        const per = (budget_in / 2) / cols.len;
+        const per = @max(min_col_width, (budget_in / 2) / cols.len);
         for (cols) |*col| {
             col.nice = @min(col.natural, per);
             budget -|= col.nice;
@@ -249,8 +256,6 @@ fn measure(table: *const Table, rows: enum { headers, fields }) ![]usize {
         try widths.append(alloc, width);
     }
 
-    // min 2
-    const min_col_width = 2;
     for (widths.items, 0..) |_, i| {
         widths.items[i] = @max(widths.items[i], min_col_width);
     }
@@ -285,8 +290,19 @@ test "layout handles tiny terminals without underflow" {
     defer tt.deinit();
     const table = tt.table;
     const l = try Layout.init(table);
-    defer l.deinit(testing.allocator);
+    defer l.deinit();
     try testing.expectEqual(@as(usize, 8), l.widths.len);
+    for (l.widths) |width| try testing.expect(width > 0);
+}
+
+test "layout keeps big columns positive in tiny terminals" {
+    var tt = try test_support.initTable(testing.allocator, .{ .width = .{ .chars = 10 }, .big1 = "a,b,c,d" }, "a,b,c,d\n1,2,3,4\n");
+    defer tt.deinit();
+    const l = try Layout.init(tt.table);
+    defer l.deinit();
+
+    try testing.expectEqual(@as(usize, 4), l.widths.len);
+    for (l.widths) |width| try testing.expect(width >= min_col_width);
 }
 
 test "layout makes columns big monotonically" {
@@ -399,7 +415,7 @@ fn expectLayout(config: types.Config, input: []const u8, want: []const usize) !v
     defer tt.deinit();
     const table = tt.table;
     const got = try Layout.init(table);
-    defer got.deinit(testing.allocator);
+    defer got.deinit();
     try testing.expectEqualSlices(usize, want, got.widths);
 }
 
@@ -421,7 +437,7 @@ fn layoutTest(config: types.Config, input: []const u8) ![]usize {
     var tt = try test_support.initTable(testing.allocator, config, input);
     defer tt.deinit();
     const got = try Layout.init(tt.table);
-    defer got.deinit(testing.allocator);
+    defer got.deinit();
     return try testing.allocator.dupe(usize, got.widths);
 }
 
