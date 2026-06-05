@@ -7,6 +7,7 @@
 - Branch names: `^[a-z_]+$`
 - COMMIT: include all current changes by default
 - PR bodies: 1-2 bullets max, use --body-file, no backticks
+- PR merge: do not wait for CI unless asked
 - PR: include `Fixes #N` when applicable
 - CHANGELOG: match style, reference issues, credit issue authors
 
