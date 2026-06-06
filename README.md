@@ -144,6 +144,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 - support for `-b -bb -bbb` to Biggify columns
 - `--pager / -p` fixed
 - fix NO_COLOR=1
+- support wide east asian chars #55 (@tijptjik)
 
 #### 0.6.0 (Jun '26)
 
