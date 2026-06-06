@@ -147,6 +147,7 @@ const Codepoint = struct { bytes: []const u8, cp: u21 };
 // Return the width of a single non-grouped codepoint.
 fn singleWidth(cp: u21) usize {
     if (isZeroWidth(cp)) return 0;
+    if (isWideEastAsian(cp)) return 2;
     return 1;
 }
 
@@ -203,6 +204,23 @@ fn isWideEmoji(cp: u21) bool {
         (cp >= 0x1F300 and cp <= 0x1FAFF);
 }
 
+// Return true for East Asian wide/fullwidth codepoints.
+// See: https://www.cl.cam.ac.uk/~mgk25/ucs/wcwidth.c
+fn isWideEastAsian(cp: u21) bool {
+    return (cp >= 0x1100 and cp <= 0x115F) or // Hangul Jamo init. consonants
+        cp == 0x2329 or
+        cp == 0x232A or
+        (cp >= 0x2E80 and cp <= 0xA4CF and cp != 0x303F) or // CJK, Yi, etc.
+        (cp >= 0xAC00 and cp <= 0xD7A3) or // Hangul Syllables
+        (cp >= 0xF900 and cp <= 0xFAFF) or // CJK Compatibility Ideographs
+        (cp >= 0xFE10 and cp <= 0xFE19) or // Vertical forms
+        (cp >= 0xFE30 and cp <= 0xFE6F) or // CJK Compatibility Forms
+        (cp >= 0xFF00 and cp <= 0xFF60) or // Fullwidth Forms
+        (cp >= 0xFFE0 and cp <= 0xFFE6) or
+        (cp >= 0x20000 and cp <= 0x2FFFD) or
+        (cp >= 0x30000 and cp <= 0x3FFFD);
+}
+
 // Fallback to byte-oriented truncation for invalid UTF-8 input.
 fn truncateBytes(writer: *std.Io.Writer, text: []const u8, stop: usize) !void {
     try writer.writeAll(text[0 .. stop - 1]);
@@ -232,6 +250,10 @@ test "displayWidth" {
         .{ .text = "go 🇺🇸", .exp = 5 },
         .{ .text = "🇺🇸🇨", .exp = 4 },
         .{ .text = "family 👨‍👩‍👧‍👦", .exp = 9 },
+        .{ .text = "香港", .exp = 4 },
+        .{ .text = "中西區", .exp = 6 },
+        .{ .text = "必列者士街", .exp = 10 },
+        .{ .text = "HK香港", .exp = 6 },
         .{ .text = &[_]u8{ 0xff, 0x61 }, .exp = 2 },
     };
 
@@ -271,6 +293,8 @@ test "truncate" {
         .{ .text = "go 🇺🇸 now", .stop = 6, .exp = "go 🇺🇸…" },
         .{ .text = "go 🇺🇸🇨 now", .stop = 6, .exp = "go 🇺🇸…" },
         .{ .text = "family 👨‍👩‍👧‍👦 test", .stop = 10, .exp = "family 👨‍👩‍👧‍👦…" },
+        .{ .text = "HK香港", .stop = 5, .exp = "HK香…" },
+        .{ .text = "HK香港", .stop = 6, .exp = "HK香港" },
         .{ .text = &[_]u8{ 0xff, 0x61, 0x62, 0x63 }, .stop = 3, .exp = &[_]u8{ 0xff, 0x61, 0xe2, 0x80, 0xa6 } },
     };
 
