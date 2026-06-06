@@ -466,6 +466,19 @@ assert_output_matches() {
   [[ "$output" == *"│ flag      │ go 🇺🇸 now"* ]]
 }
 
+@test "renders cjk csv" {
+  run "$TENNIS_BIN" --color=off --width 40 "$REPO_ROOT/testdata/cjk.csv"
+  [ "$status" -eq 0 ]
+  assert_output_matches "╭────┬────────────────────┬──────────╮
+│ id │ name               │ note     │
+├────┼────────────────────┼──────────┤
+│  1 │ 香港               │ city     │
+│  2 │ 中西區             │ district │
+│  3 │ 必列者士街         │ street   │
+│  4 │ 英皇書院同學會小學 │ school   │
+╰────┴────────────────────┴──────────╯"
+}
+
 @test "renders formatted floats and ints" {
   run "$TENNIS_BIN" --color=off --width 120 -n "$REPO_ROOT/testdata/test.csv"
   [ "$status" -eq 0 ]
