@@ -145,6 +145,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 - `--pager / -p` fixed
 - fix NO_COLOR=1
 - support wide east asian chars #55 (@tijptjik)
+- keep id, year and zip columns as strings
 
 #### 0.6.0 (Jun '26)
 

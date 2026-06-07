@@ -105,7 +105,7 @@ pub const Column = struct {
         }
 
         if (floats) return .float;
-        if (ints) return .int;
+        if (ints) return if (isNotNumeric(self.name)) .string else .int;
         if (percents) return .percent;
         return .string;
     }
@@ -148,6 +148,18 @@ pub const Column = struct {
 
 // Display-oriented type inferred for a column.
 pub const ColumnType = enum { int, float, percent, string };
+
+fn isNotNumeric(name: []const u8) bool {
+    var parts = std.mem.tokenizeAny(u8, name, "_ -");
+    while (parts.next()) |part| {
+        if (std.ascii.eqlIgnoreCase(part, "id")) return true;
+        if (std.ascii.eqlIgnoreCase(part, "zip")) return true;
+        if (std.ascii.eqlIgnoreCase(part, "zipcode")) return true;
+        if (std.ascii.eqlIgnoreCase(part, "year")) return true;
+        if (std.ascii.eqlIgnoreCase(part, "yr")) return true;
+    }
+    return false;
+}
 
 //
 // testing
@@ -196,6 +208,8 @@ test "column formatting and inference cases" {
         .{ .name = "infer float", .input = "a,b,c\n1,12.5,foo\n22,3.0,barbaz\n", .index = 1, .want_type = .float, .want_width = 6, .want_fields = &.{ "12.500", "3.000" } },
         .{ .name = "infer percent", .input = "a,b\n12%,\n-3.5%,\n,\n", .index = 0, .want_type = .percent, .want_width = 5, .want_fields = &.{ "12%", "-3.5%", "" } },
         .{ .name = "infer string", .input = "a,b,c\n1,12.5,foo\n22,3.0,barbaz\n", .index = 2, .want_type = .string, .want_width = 6, .want_fields = &.{ "foo", "barbaz" } },
+        .{ .name = "infer year as string", .input = "year\n2024\n2025\n", .index = 0, .want_type = .string, .want_width = 4, .want_fields = &.{ "2024", "2025" } },
+        .{ .name = "infer zip as string", .input = "home_zip\n02139\n10001\n", .index = 0, .want_type = .string, .want_width = 8, .want_fields = &.{ "02139", "10001" } },
     };
 
     for (cases) |tc| {
@@ -243,6 +257,32 @@ test "column inference ignores blanks and scans all rows" {
 
     try testing.expectEqual(ColumnType.string, table.column(0).type);
     try testing.expectEqual(ColumnType.string, table.column(1).type);
+}
+
+test "isNotNumeric" {
+    const cases = [_]struct {
+        name: []const u8,
+        want: bool,
+    }{
+        .{ .name = "id", .want = true },
+        .{ .name = "user_id", .want = true },
+        .{ .name = "user id", .want = true },
+        .{ .name = "user-id", .want = true },
+        .{ .name = "zip", .want = true },
+        .{ .name = "zipcode", .want = true },
+        .{ .name = "year", .want = true },
+        .{ .name = "yr", .want = true },
+        .{ .name = "ZIPCODE", .want = true },
+        .{ .name = "grid", .want = false },
+        .{ .name = "zipper", .want = false },
+        .{ .name = "yearly", .want = false },
+        .{ .name = "buyer", .want = false },
+        .{ .name = "zipcodes", .want = false },
+    };
+
+    for (cases) |tc| {
+        try testing.expectEqual(tc.want, isNotNumeric(tc.name));
+    }
 }
 
 const doomicode = @import("doomicode.zig");
