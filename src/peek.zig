@@ -284,7 +284,7 @@ test "buildStatsTable reports basic visible stats" {
 }
 
 test "buildStatsTable tolerates oversized ints in peek stats" {
-    var tt = try test_support.initTable(testing.allocator, .{}, "id\n99999999999999999999\n");
+    var tt = try test_support.initTable(testing.allocator, .{}, "count\n99999999999999999999\n");
     defer tt.deinit();
     const table = tt.table;
 
@@ -293,7 +293,7 @@ test "buildStatsTable tolerates oversized ints in peek stats" {
     const stats = try buildStatsTable(testing.allocator, table, &config);
     defer stats.deinit();
 
-    try testing.expectEqualStrings("id", stats.row(0)[0]);
+    try testing.expectEqualStrings("count", stats.row(0)[0]);
     try testing.expectEqualStrings("int", stats.row(0)[1]);
     try testing.expectEqualStrings("—", stats.row(0)[4]);
     try testing.expectEqualStrings("—", stats.row(0)[5]);
