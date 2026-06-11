@@ -77,8 +77,8 @@ fn main0(app: *App, process_args: std.process.Args) !?failure.Failure {
         return null;
     }
 
-    const isTty = util.isTty(app.io, std.Io.File.stdin());
-    if (config.filename == null and isTty) {
+    const stdin_is_tty = util.isTty(app.io, std.Io.File.stdin());
+    if (config.filename == null and stdin_is_tty) {
         try failure.printBanner(app.stdout(), null);
         return null;
     }
@@ -130,7 +130,7 @@ fn main0(app: *App, process_args: std.process.Args) !?failure.Failure {
     //
 
     timer = std.Io.Timestamp.now(app.io, .awake);
-    const render_err = if (table.config.pager and isTty)
+    const render_err = if (table.config.pager)
         renderToPager(app, table)
     else
         renderToWriter(app, table, app.stdout());
