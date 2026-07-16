@@ -6,14 +6,12 @@ _tennis() {
     '--row-numbers[Turn on row numbers]' \
     '-t[Add a title to the table]:string:' \
     '--title[Add a title to the table]:string:' \
-    '--border[Table border style (rounded|thin|double|...)]:border:(ascii_rounded basic basic_compact compact compact_double dots double heavy light markdown none psql reinforced restructured rounded single thin with_love)' \
+    '--border[Table border style (rounded|thin|double|...)]:border:' \
     '-p[Send output through $PAGER or less]' \
     '--pager[Send output through $PAGER or less]' \
     '--peek[Show csv shape, sample, and handy stats]' \
+    '-z[Turn on zebra stripes]' \
     '--zebra[Turn on zebra stripes]' \
-    '-b[Make these columns Bigger]:headers:' \
-    '-bb[Make even BIGGER (p90)]:headers:' \
-    '-bbb[Make BIGGEST (full width)]:headers:' \
     '--deselect[De-select comma-separated headers]:headers:' \
     '--select[Select or reorder comma-separated headers]:headers:' \
     '--sort[Sort rows by comma-separated headers]:headers:' \
@@ -24,17 +22,24 @@ _tennis() {
     '--head[Show first N rows]:int:' \
     '--tail[Show last N rows]:int:' \
     '--filter[Only show rows that contain this text]:string:' \
-    '--color[Turn color off and on (on|off|auto)]:color:(auto off on)' \
-    '--delimiter[Set CSV delim (can be any char or "tab")]:char:(tab , \; \|)' \
+    '-b[Make these columns Bigger]:headers:' \
+    '-bb[Make even BIGGER (p90)]:headers:' \
+    '-bbb[Make BIGGEST (full width)]:headers:' \
+    '--width[Set table width, or try (min|max)]:width:(auto min max)' \
+    '--color[Turn color off and on (on|off|auto)]:color:' \
+    '-d[Set CSV delim (can be any char or "tab")]:char:(, \; \| tab)' \
+    '--delimiter[Set CSV delim (can be any char or "tab")]:char:(, \; \| tab)' \
     '--digits[Digits after decimal for float columns]:int:(1 2 3 4 5 6)' \
+    '--scale[Add red-to-green color scale]:headers:' \
+    '--rscale[Like --scale, but green-to-red]:headers:' \
     '--table[Select the db table (for sqlite)]:table:' \
-    '--theme[Select color theme (auto|dark|light)]:theme:(auto dark light)' \
+    '--theme[Select color theme (auto|dark|light)]:theme:' \
     '--vanilla[Disable numeric formatting]' \
-    '--width[Set table width, or try (min|max)]:width:(min max)' \
-    '--completion[Print shell completion (bash|zsh)]:shell:(bash zsh)' \
+    '-h[Get help]' \
     '--help[Get help]' \
+    '-v[Show version number and exit]' \
     '--version[Show version number and exit]' \
-    '*:file:_files -g "*.(csv|db|json|jsonl|ndjson|sqlite|sqlite3)(-.)" "*(-/)"'
+    '*:file:_files -g "*.(csv|tsv|db|json|jsonl|ndjson|sqlite|sqlite3)(-.)" "*(-/)"'
 }
 
 if [ "$funcstack[1]" = "_tennis" ]; then

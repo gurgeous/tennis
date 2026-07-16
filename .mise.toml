@@ -1,7 +1,7 @@
 [env]
-_.path = ["{{config_root}}/zig-out/bin", '{{config_root}}/bin']
+_.path = ["{{config_root}}/target/debug", '{{config_root}}/bin']
 
 [tools]
 bats = "latest"
 just = "latest"
-zig = "0.16.0"
+rust = "1.96.0"

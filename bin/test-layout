@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# Preview fixtures at common terminal widths.
+
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -8,12 +10,12 @@ just build
 
 widths=(80 100 120 150)
 files=(pigeon-racing.csv spinel.jsonl starwars.csv test.csv titanic.csv)
-tennis="${TENNIS:-./zig-out/bin/tennis}"
+tennis="${TENNIS:-./target/debug/tennis}"
 
 clear
 for width in "${widths[@]}"; do
   for file in "${files[@]}"; do
-    f=testdata/$file
+    f=tests/$file
     "$tennis" --width "$width" "$f" | head -7
     printf '\n'
   done

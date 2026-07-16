@@ -1,5 +1,2 @@
-.DS_Store
-.zig-cache
-tmp/
-zig-out/
-zig-pkg/
+/target/
+/tmp/

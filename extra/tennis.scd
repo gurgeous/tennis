@@ -17,7 +17,7 @@ Also supports stdin, json/jsonl, sqlite, etc.
 *tennis* is a small CLI for printing stylish CSV tables in your terminal.
 Rows will be truncated to fit and it'll automatically pick nice colors
 to match your terminal. Works with all *CSV* variants as well as
-*JSON/JSONL* and *SQLite* files. Written in zig.
+*JSON/JSONL* and *SQLite* files.
 
 # DEMO
 
@@ -35,6 +35,8 @@ $ tennis diamonds.csv
 │ 0.310 │ Good      │ J     │ SI2     │ 63.300 │    58 │   335 │
 ...
 ```
+
+
 
 # POPULAR OPTIONS
 
@@ -57,14 +59,7 @@ $ tennis diamonds.csv
 *--zebra*
 	Turn on zebra stripes.
 
-*-b* <headers>
-	Make these columns Bigger.
 
-*-bb* <headers>
-	Make even BIGGER (p90).
-
-*-bbb* <headers>
-	Make BIGGEST (full width).
 
 # SORTING & FILTERING
 
@@ -95,11 +90,35 @@ $ tennis diamonds.csv
 *--tail* <int>
 	Show the last _N_ data rows.
 
+
+
+# TABLE LAYOUT
+
+*-b* <headers>
+	Make these columns Bigger.
+
+*-bb* <headers>
+	Make even BIGGER (p90).
+
+*-bbb* <headers>
+	Make BIGGEST (full width).
+
+*--width* <width>
+
+	Set the table width. If you specify an integer, it will be used as the
+	max table width and tennis will truncate to fit if necessary. By default,
+	*tennis* uses the current terminal width or *80* if it can't be detected.
+
+	Also supports two special values - *min* to layout based on header
+	width, *max* to disable truncation entirely.
+
+
+
 # OTHER OPTIONS
 
 *--color* <color>
 	Control color output. Valid values: *on*, *off*, *auto*. The default is
-	*on*. Also honors *NO_COLOR* and *FORCE_COLOR*.
+	*on*. Also honors *NO_COLOR*.
 
 *--delimiter* <char>
 	Set the delimiter when reading input. Defaults to '*,*' naturally. It
@@ -111,6 +130,13 @@ $ tennis diamonds.csv
 	Set the number of digits after the decimal for float columns. Valid values
 	*1* through *6*, the default is *3*.
 
+*--scale* <headers>
+	Add a red-to-green color scale to these columns. This is similar to
+	"conditional formatting" in Google Sheets.
+
+*--rscale* <headers>
+	Just like --scale, but use green-to-red instead.
+
 *--theme* <theme>
 	Select the color theme. Valid values: *auto*, *dark*, *light*. The default
 	is *auto*.
@@ -118,14 +144,9 @@ $ tennis diamonds.csv
 *--vanilla*
 	Disable type inference and numeric formatting.
 
-*--width* <width>
 
-	Set the table width. If you specify an integer, it will be used as the
-	max table width and tennis will truncate to fit if necessary. By default,
-	*tennis* uses the current terminal width or *80* if it can't be detected.
 
-	Also supports two special values - *min* to layout based on header
-	width, *max* to disable truncation entirely.
+
 
 # BORDERS
 

@@ -1,63 +1,112 @@
 default:
   just --list
 
-build:
-  zig build -Doptimize=Debug
+archive target asset:
+  rustup target add {{target}}
+  just build --release --target {{target}}
+  just banner "archive {{target}} {{asset}}..."
+  bin/archive {{target}} {{asset}}
 
-build-release:
-  zig build -Doptimize=ReleaseSmall
+build *ARGS:
+  just banner "build {{ARGS}}..."
+  cargo build --quiet -p tennis-cli {{ARGS}}
 
-build-windows:
-  zig build -Dtarget=x86_64-windows-gnu
+build-release: (build "--release")
+  ls -lh target/release/tennis
+
+build-small: (build "--profile small")
+  ls -lh target/small/tennis
 
 clean:
-  rm -rf tmp zig-out zig-pkg .zig-cache
-  mkdir tmp
+  cargo clean
+  rm -rf tmp && mkdir tmp
 
-install: check build-release
-  cp zig-out/bin/tennis ~/.local/bin/tennis
+gen:
+  just banner "gen..."
+  just run --completion bash > extra/tennis.bash
+  just run --completion zsh > extra/_tennis
+  scdoc < extra/tennis.scd > extra/tennis.1
+  just banner "✓ gen ✓"
 
 run *ARGS:
-  zig build run -- {{ARGS}}
+  cargo run -p tennis-cli -- {{ARGS}}
+
+#
+# check/llm
+#
+
+[windows]
+check: build test (bats "--filter-tags" "!skipwin")
+  just banner "✓ check ✓"
+
+[unix]
+check: build lint test bats
+  just banner "✓ check ✓"
+
+llm:
+  LLM=1 just fmt check
+
+bats *ARGS:
+  just banner "bats..."
+  if [ -n "${LLM:-}" ]; then \
+    bats {{ARGS}} tests/smoke.bats > tmp/bats.out 2>&1 || { cat tmp/bats.out; exit 1; } ; \
+  else \
+    bats {{ARGS}} --print-output-on-failure tests/smoke.bats ; \
+  fi
+
+fmt:
+  just banner "fmt..."
+  cargo +nightly fmt --all
+
+install: build
+  cp target/debug/tennis ~/.local/bin/tennis
+  just banner "installed ~/.local/bin/tennis"
+
+lint:
+  just banner "lint..."
+  rustup --quiet component add --toolchain nightly rustfmt
+  rustup --quiet component add clippy
+  cargo +nightly fmt --all --check
+  cargo clippy --quiet --workspace --all-targets --all-features -- -D warnings
+
+test *ARGS:
+  just banner "test {{ARGS}}..."
+  cargo test --quiet --workspace --lib --bins {{ARGS}}
+
+test-verbose *ARGS:
+  TENNIS_VERBOSE=1 just test {{ARGS}} -- --nocapture
+
+#
+# lib
+#
+
+build-lib *ARGS:
+  just banner "build-lib {{ARGS}}..."
+  cargo build --quiet -p tennis {{ARGS}}
+
+test-lib *ARGS:
+  just banner "test-lib {{ARGS}}..."
+  cargo test --quiet -p tennis --lib {{ARGS}}
 
 #
 # dev
 #
 
-[unix]
-check: clean-weekly build lint test test-bats
-  just banner "✓ check ✓"
+coverage:
+  rm -rf tmp/coverage && mkdir -p tmp/coverage
+  mise x cargo:cargo-llvm-cov -- \
+    cargo llvm-cov --all-targets --all-features --workspace --html --output-dir tmp/coverage
+  just banner "✓ coverage -> tmp/coverage/html/index.html ✓"
 
-[windows]
-check: build-windows
-  just test-bats --filter-tags '!skipwin'
-  just banner "✓ check ✓"
+derive:
+  just banner "derive..."
+  cargo run --quiet -p tennis --example derive
 
-ci: check
-
-clean-weekly:
-  if [ -d tmp ] && [ "$(find tmp -type d -prune -mtime +7 | wc -l)" -gt 0 ]; then \
-    just clean ; \
-  fi
-
-fmt:
-  zig fmt src build.zig
-  just banner "✓ fmt ✓"
-
-kcov: clean
-  just banner "kcov..."
-  zig build -Doptimize=Debug kcov-tests
-  kcov --include-pattern=$PWD/src/ --exclude-line=errdefer tmp/kcov ./zig-out/bin/kcov-tests
-  just banner "see tmp/kcov"
-
-lint:
-  zig fmt --check src build.zig
-  bin/lint-args
-  bin/lint-imports
-  just banner "✓ lint ✓"
-
-llm: fmt
-  LLM=1 just check
+instrument: build-release
+  just banner "gen-bench..."
+  gen-bench 1000000 # 1M is good for instrumentation, which runs once
+  just banner "instrument..."
+  TENNIS_VERBOSE=1 FORCE_COLOR=1 ./target/release/tennis tmp/bench.csv > /dev/null
 
 man: gen
   man -l extra/tennis.1
@@ -65,69 +114,8 @@ man: gen
 readme:
   glow --pager README.md
 
-test:
-  if [ -n "${LLM:-}" ]; then zig build test --summary none ; else zig build test --summary all ; fi
-  just banner "✓ test ✓"
-
-test-bats *ARGS:
-  if [ -n "${LLM:-}" ]; then \
-    bats {{ARGS}} testdata/smoke.bats > /dev/null ; \
-  else \
-    bats {{ARGS}} --print-output-on-failure testdata/smoke.bats ; \
-  fi
-  just banner "✓ test-bats ✓"
-
 test-watch:
   NO_COLOR=1 watchexec --clear=clear --stop-timeout=0 just test
-
-valgrind: build
-  valgrind --quiet --leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all --error-exitcode=1 \
-    ./zig-out/bin/tennis  --color=on -n --title foo testdata/test.csv > /dev/null
-  just banner "✓ valgrind ✓"
-
-#
-# benchmark - We intentionally benchmark `ReleaseSmall` because bin size matters
-# more than peak throughput for this app.
-#
-
-benchmark: benchmark-csv benchmark-json
-
-benchmark-csv: build-release
-  just banner "benchmark-csv"
-  bin/gen-benchmark-csv > tmp/tennis-benchmark.csv
-  BENCHMARK=1 ./zig-out/bin/tennis --width 80 tmp/tennis-benchmark.csv > /dev/null
-
-benchmark-json: build-release
-  bin/gen-benchmark-json > tmp/tennis-benchmark.json
-  cat tmp/tennis-benchmark.json | sed '1d;$d;s/,$//' > tmp/tennis-benchmark.jsonl
-  just banner "benchmark-json"
-  BENCHMARK=1 ./zig-out/bin/tennis --width 80 tmp/tennis-benchmark.json > /dev/null
-  just banner "benchmark-jsonl"
-  BENCHMARK=1 ./zig-out/bin/tennis --width 80 tmp/tennis-benchmark.jsonl > /dev/null
-
-#
-# release and related items
-#
-
-gen:
-  just run --completion bash > extra/tennis.bash
-  just run --completion zsh > extra/_tennis
-  scdoc < extra/tennis.scd > extra/tennis.1
-  just banner "✓ gen ✓"
-
-release: check valgrind
-  bin/release
-  just banner "✓ release ✓"
-
-release-preview: check
-  goreleaser release --clean --snapshot
-  just banner "macOS tarball preview..."
-  tar -tvzf "$(find tmp/dist -maxdepth 1 -name 'tennis_*_darwin_arm64.tar.gz' | head -n 1)"
-
-[working-directory: 'tmp']
-screenshot: build
-  ../bin/screenshot
-  just banner "✓ screenshot - see tmp/vhs.png ✓"
 
 #
 # banner

@@ -1,0 +1,46 @@
+[workspace]
+members = ["cli", "tennis-derive"]
+resolver = "3"
+
+[package]
+name = "tennis"
+version = "0.7.0"
+edition = "2024"
+rust-version = "1.96"
+license = "MIT"
+categories = ["command-line-utilities", "text-processing"]
+description = "Stylish CSV tables in your terminal"
+exclude = ["assets/", "bin/", "cli/", "extra/", "tests/"]
+keywords = ["csv", "table", "terminal", "json", "sqlite", "cli"]
+repository = "https://github.com/gurgeous/tennis"
+
+[dependencies]
+anstyle = "1"
+anstream = "1"
+rand = "0.8"
+serde_json = "1"
+tennis-derive = { path = "tennis-derive" }
+terminal-colorsaurus = { version = "1", features = ["anstyle"] }
+terminal_size = "0.4"
+unicode-truncate = "2"
+unicode-width = "0.2"
+
+#
+# tests
+#
+
+[dev-dependencies]
+csv = "1"
+serde = { version = "1", features = ["derive"] }
+
+#
+# haven't decided which release is preferred yet
+#
+
+[profile.small]
+codegen-units = 1
+inherits = "release"
+lto = "fat"
+opt-level = "z"
+panic = "abort"
+strip = "symbols"

@@ -1,12 +1,12 @@
 [![test](https://github.com/gurgeous/tennis/actions/workflows/ci.yml/badge.svg)](https://github.com/gurgeous/tennis/actions/workflows/ci.yml)
 
-<img src="./logo.png" width="60%">
+<img src="./assets/logo.png" width="60%">
 
 # Tennis
 
-`tennis` is a small CLI for printing stylish CSV tables in your terminal. Rows will be truncated to fit, and it will automatically pick nice colors to match your terminal. Written in Zig. Demo:
+`tennis` is a small CLI for printing stylish CSV tables in your terminal. Rows will be truncated to fit, and it will automatically pick nice colors to match your terminal. Written in Rust. Demo:
 
-<img src="./screenshot.png" width="80%">
+<img src="./assets/screenshot.png" width="80%">
 
 ### Installation
 
@@ -23,9 +23,9 @@ Download a binary from https://github.com/gurgeous/tennis/releases. Copy it some
 #### Build from source
 
 ```sh
-# this will build zig-out/bin/tennis
+# this will build target/debug/tennis
 $ mise trust && mise install
-$ zig build
+$ cargo build -p tennis-cli     # or use `just build`
 ```
 
 ### Important Features
@@ -35,50 +35,50 @@ $ zig build
 - auto-format numbers
 - auto-detect CSV vs TSV (or semis, or pipes)
 - also works great with JSON/JSONL or SQLite
-- titles, row numbers, zebra stripes, border styles
+- titles, row numbers, zebra stripes, border styles, color scales
 - sorting, filtering, head/tail
 - `--peek` to get a quick summary
 
 ### Options
 
 ```
- Usage: tennis [options...] <file.csv>
-        also supports stdin, json/jsonl, sqlite, etc.
+Usage: tennis [OPTIONS] [FILE]
 
- Popular options:
-  -n, --row-numbers          Turn on row numbers
-  -t, --title <string>       Add a title to the table
-      --border <border>      Table border style (rounded|thin|double|...)
-  -p, --pager                Send output through $PAGER or less
-      --peek                 Show csv shape, sample, and handy stats
-      --zebra                Turn on zebra stripes
-  -b <headers>               Make these columns Bigger
-  -bb <headers>              Make even BIGGER (p90)
-  -bbb <headers>             Make BIGGEST (full width)
+Popular options:
+  -n, --row-numbers      Turn on row numbers
+  -t, --title <string>   Add a title to the table
+      --border <border>  Table border style (rounded|thin|double|...)
+  -p, --pager            Send output through $PAGER or less
+      --peek             Show csv shape, sample, and handy stats
+  -z, --zebra            Turn on zebra stripes
 
- Sort, filter, etc:
-      --deselect <headers>   De-select comma-separated headers
-      --select <headers>     Select or reorder comma-separated headers
-      --sort <headers>       Sort rows by comma-separated headers
-  -r, --reverse              Reverse rows (helpful for sorting)
-      --shuffle, --shuf      Shuffle rows into random order
-      --head <int>           Show first N rows
-      --tail <int>           Show last N rows
-      --filter <string>      Only show rows that contain this text
+Sort, filter, etc:
+      --deselect <headers>  De-select comma-separated headers
+      --select <headers>    Select or reorder comma-separated headers
+      --sort <headers>      Sort rows by comma-separated headers
+  -r, --reverse             Reverse rows (helpful for sorting)
+      --shuffle             Shuffle rows into random order
+      --head <int>          Show first N rows
+      --tail <int>          Show last N rows
+      --filter <string>     Only show rows that contain this text
 
- Other options:
-      --color <color>        Turn color off and on (on|off|auto)
-      --delimiter <char>     Set CSV delim (can be any char or "tab")
-      --digits <int>         Digits after decimal for float columns
-      --table <table>        Select the db table (for sqlite)
-      --theme <theme>        Select color theme (auto|dark|light)
-      --vanilla              Disable numeric formatting
-      --width <width>        Set table width, or try (min|max)
+Table layout:
+  -b <headers>         Make these columns Bigger
+  -bb <headers>        Make even BIGGER (p90)
+  -bbb <headers>       Make BIGGEST (full width)
+      --width <width>  Set table width, or try (min|max)
 
-      --completion <shell>   Print shell completion (bash|zsh)
-      --help                 Get help
-      --version              Show version number and exit
-
+Other options:
+      --color <color>     Turn color off and on (on|off|auto)
+  -d, --delimiter <char>  Set CSV delim (can be any char or "tab")
+      --digits <int>      Digits after decimal for float columns
+      --scale <headers>   Add red-to-green color scale
+      --rscale <headers>  Like --scale, but green-to-red
+      --table <table>     Select the db table (for sqlite)
+      --theme <theme>     Select color theme (auto|dark|light)
+      --vanilla           Disable numeric formatting
+  -h, --help              Get help
+  -v, --version           Show version number and exit
 ```
 
 Note that color defaults to `on`. Tennis likes to be colorful.
@@ -93,7 +93,7 @@ Tennis works fine with Unicode and emoji content. Calculating non-ASCII display 
 
 Tennis picks a color theme based on the color of your terminal. Color is on by default. It also honors `NO_COLOR=1`. Use `--border`, `--row-numbers`, `--title`, and `--zebra` for more bling. Tennis supports the same borders as `nushell`.
 
-<img src="./bling.png" width="60%">
+<img src="./assets/bling.png" width="60%">
 
 ### Big, Bigger, Biggest
 
@@ -103,9 +103,9 @@ Use `-b` (big), `-bb` (bigger) and `-bbb` (biggest) to enlarge a specific column
 
 It's common to use `--pager` / `-p` to turn on a pager. This is perfect for tables with many rows, or tables that overflow terminal width due to `--width` or `-bb` or `-bbb`.
 
-Note how tennis works really hard to fit tables into the given width. See [layout.zig](https://github.com/gurgeous/tennis/blob/main/src/layout.zig) if you want the hairy details on autolayout.
+Note how tennis works really hard to fit tables into the given width. See [layout.rs](./src/middleware/layout.rs) if you want the hairy details on autolayout.
 
-<img src="./layout.png" width="60%">
+<img src="./assets/resize.gif" width="80%">
 
 ### Data, Selection, Order
 
@@ -117,11 +117,7 @@ Numeric columns are detected and formatted/aligned. You can turn that off with `
 
 Sometimes you just want to get a quick look at a data file. Use `--peek` to get a sense of data shape, fill rate, and formats:
 
-<img src="./peek.png" width="40%">
-
-### An Aside: Term Background
-
-Tennis includes a `termbg.zig` module to detect the terminal background color so it can choose the correct theme (dark or light). Detection is complicated, and I'm calling it out here because I don't think anyone has implemented this in Zig yet.
+<img src="./assets/peek.png" width="40%">
 
 ### Similar Tools
 
@@ -140,12 +136,14 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 #### 0.7.0 (unreleased)
 
+- zig => rust
 - new and greatly improved autolayout
 - support for `-b -bb -bbb` to Biggify columns
 - `--pager / -p` fixed
 - fix NO_COLOR=1
 - support wide east asian chars #55 (@tijptjik)
-- keep id, year and zip columns as strings
+- keep common code columns like zip, phone, sku, and isbn as strings
+- added --scale and --rscale for color scales, like Google Sheets
 
 #### 0.6.0 (Jun '26)
 
@@ -154,7 +152,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 #### 0.5.0 (Apr '26)
 
-- zig 0.16 and centralize env handling. #45
+- centralize env handling. #45
 - switch to ANSI 256 for some older terminals #43 (@dwormuth)
 - style numeric columns. #35 (@jakob1379)
 - `--width min` to layout based on header width, or `--width max` to disable truncation
@@ -186,6 +184,5 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 ### Special Thanks
 
-- [termbg](https://github.com/dalance/termbg) and [termenv](https://github.com/muesli/termenv) for showing how to safely detect the terminal background color. These libraries are widely used for Rust/Go, but as far as I know nothing similar exists for Zig.
 - I copied the header color themes from [tabiew](https://github.com/shshemi/tabiew). Great project!
-- Border styles pinched from [nushell](https://www.nushell.sh) and [tabled](https://github.com/zhiburt/tabled) crate. Thanks guys!
+- Border styles from [nushell](https://www.nushell.sh) and [tabled](https://github.com/zhiburt/tabled) crate. Thanks guys!

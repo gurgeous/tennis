@@ -1,0 +1,22 @@
+[package]
+name = "tennis-cli"
+version = "0.7.0"
+edition = "2024"
+rust-version = "1.96"
+license = "MIT"
+publish = false
+repository = "https://github.com/gurgeous/tennis"
+
+[[bin]]
+name = "tennis"
+path = "src/main.rs"
+
+[dependencies]
+anstream = "1"
+clap = { version = "4", features = ["derive"] }
+csv = "1"
+natord = "1"
+shell-words = "1"
+simd-json = { version = "0.17", default-features = false, features = ["runtime-detection", "swar-number-parsing"] }
+tennis = { path = ".." }
+unicode-width = "0.2"

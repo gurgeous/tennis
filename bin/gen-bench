@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Generates tmp/bench.csv by repeating rows from tests/titanic.csv.
+set -euo pipefail
+
+rows="${1:-${ROWS:-20000}}"
+input="tests/titanic.csv"
+output="tmp/bench.csv"
+
+if ! [[ "$rows" =~ ^[0-9]+$ ]]; then
+  echo "ROWS must be a non-negative integer" >&2
+  exit 1
+fi
+
+mkdir -p tmp
+
+awk -v want="$rows" '
+  NR == 1 { header = $0; next }
+  { data[++count] = $0 }
+  END {
+    print header
+    if (count == 0) { exit }
+    for (i = 0; i < want; i++) {
+      print data[(i % count) + 1]
+    }
+  }
+' "$input" > "$output"
+
+wc -l "$output"

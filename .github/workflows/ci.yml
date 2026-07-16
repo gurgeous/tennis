@@ -2,12 +2,14 @@ name: ci
 
 on:
   pull_request:
+    paths-ignore: ["**/*.md"]
   push:
     branches: [main]
+    paths-ignore: ["**/*.md"]
   workflow_dispatch:
 
 concurrency:
-  group: ${{github.workflow}}-${{github.ref_name}}
+  group: ${{ github.workflow }}-${{ github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -16,8 +18,9 @@ jobs:
       matrix: { platform: [ubuntu-latest, macos-15, macos-latest, windows-latest] }
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: jdx/mise-action@v4
       - uses: bats-core/bats-action@4.0.0
-        if: runner.os == 'Windows' # mise can't this one on windows
-      - run: just ci
+        # mise can't install bats on win; lint installs its own Rust components on Unix.
+        if: runner.os == 'Windows'
+      - run: just check
