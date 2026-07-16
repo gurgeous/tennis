@@ -1,0 +1,36 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - { os: macos-latest, target: aarch64-apple-darwin, asset: darwin_arm64.tar.gz }
+          - { os: macos-15-intel, target: x86_64-apple-darwin, asset: darwin_amd64.tar.gz }
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, asset: linux_amd64.tar.gz }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, asset: windows_amd64.zip }
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v4
+
+      - name: build
+        run: just archive ${{ matrix.target }} ${{ matrix.asset }}
+
+      - name: verify
+        shell: bash
+        run: test -f tmp/tennis_*_${{ matrix.asset }}
+
+      - name: upload
+        uses: softprops/action-gh-release@v3
+        if: github.ref_type == 'tag'
+        with: { files: "tmp/tennis_*_${{ matrix.asset }}" }

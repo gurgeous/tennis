@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+
+# Updates local Homebrew tap formula.
+
+set -euo pipefail
+
+#
+# config
+#
+
+repo="gurgeous/tennis"
+tap="${TENNIS_HOMEBREW_TAP:-../homebrew-tap}"
+formula="${tap}/tennis.rb"
+version="$(cargo pkgid | sed 's/.*[@#]//')"
+tmp="tmp/homebrew-update"
+assets=("tennis_${version}_darwin_amd64.tar.gz" "tennis_${version}_darwin_arm64.tar.gz")
+
+#
+# helpers
+#
+
+banner() {
+  printf "\e[1;38;5;231;48;2;64;160;43m[%s] %-72s\e[0m\n" "$(date '+%H:%M:%S')" "$1"
+}
+warning() {
+  printf "\e[1;38;5;231;48;2;251;100;11m[%s] %-72s\e[0m\n" "$(date '+%H:%M:%S')" "$1"
+}
+fatal() {
+  printf "\e[1;38;5;231;48;2;210;15;57m[%s] %-72s\e[0m\n" "$(date '+%H:%M:%S')" "$1"
+  exit 1
+}
+escape_regex() {
+  printf '%s' "$1" | sed -e 's/[][\/.^$*+?{}()|]/\\&/g'
+}
+replace() {
+  local label="$1"
+  local pattern="$2"
+  local replacement="$3"
+
+  rg -q "$pattern" "$formula" || fatal "missing formula pattern: $label"
+  sed -i -E "s|$pattern|$replacement|g" "$formula"
+}
+replace_sha() {
+  local asset="$1"
+  local hash="$2"
+  local anchor
+
+  anchor="$(escape_regex "$asset")"
+  rg -q "$anchor" "$formula" || fatal "missing formula asset: $asset"
+  awk -v asset="$asset" '
+    index($0, asset) { getline; if ($0 ~ /sha256 "[a-f0-9]+"/) found = 1 }
+    END { exit found ? 0 : 1 }
+  ' "$formula" || fatal "missing sha256 after: $asset"
+  sed -i -E "/$anchor/{n;s/sha256 \"[a-f0-9]+\"/sha256 \"$hash\"/}" "$formula"
+}
+
+#
+# sanity
+#
+
+[ -d "$tap/.git" ] || fatal "missing tap repo: $tap"
+[ -f "$formula" ] || fatal "missing formula: $formula"
+command -v gh >/dev/null || fatal "missing gh"
+
+#
+# fetch and validate release archives
+#
+
+banner "fetch release v${version}..."
+rm -rf "$tmp" && mkdir -p "$tmp"
+
+for asset in "${assets[@]}"; do
+  archive="${tmp}/${asset}"
+
+  banner "fetch ${asset}..."
+  gh release download "v${version}" --repo "$repo" --pattern "$asset" --dir "$tmp" --clobber
+
+  banner "validate ${asset}..."
+  tar tzf "$archive" >"${archive}.files"
+  rg -q "/tennis$" "${archive}.files" || fatal "archive missing tennis binary: $asset"
+  rg -q "/extra/tennis\\.1$" "${archive}.files" || fatal "archive missing man page: $asset"
+  rg -q "/extra/tennis\\.bash$" "${archive}.files" || fatal "archive missing bash completion: $asset"
+  rg -q "/extra/_tennis$" "${archive}.files" || fatal "archive missing zsh completion: $asset"
+done
+
+#
+# update formula
+#
+
+banner "update formula..."
+replace "version" 'version "[0-9.]+"' "version \"${version}\""
+replace "release url" '/releases/download/v[0-9.]+/' "/releases/download/v${version}/"
+replace "darwin amd64 asset" 'tennis_[0-9.]+_darwin_amd64\.tar\.gz' "tennis_${version}_darwin_amd64.tar.gz"
+replace "darwin arm64 asset" 'tennis_[0-9.]+_darwin_arm64\.tar\.gz' "tennis_${version}_darwin_arm64.tar.gz"
+for asset in "${assets[@]}"; do
+  hash="$(sha256sum "${tmp}/${asset}" | cut -d' ' -f1)"
+  replace_sha "$asset" "$hash"
+done
+
+#
+# next steps
+#
+
+warning "tap updated but not committed"
+echo
+echo "Next steps:"
+echo "  cd $tap"
+echo "  git diff"
+echo "  git commit -am ${version}"
+echo "  git push"

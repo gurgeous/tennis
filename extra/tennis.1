@@ -5,7 +5,7 @@
 .nh
 .ad l
 .\" Begin generated content:
-.TH "tennis" "1" "2026-06-03"
+.TH "tennis" "1" "2026-07-16"
 .P
 .SH NAME
 .P
@@ -24,7 +24,7 @@ Also supports stdin, json/jsonl, sqlite, etc.\&
 \fBtennis\fR is a small CLI for printing stylish CSV tables in your terminal.\&
 Rows will be truncated to fit and it'\&ll automatically pick nice colors
 to match your terminal.\& Works with all \fBCSV\fR variants as well as
-\fBJSON/JSONL\fR and \fBSQLite\fR files.\& Written in zig.\&
+\fBJSON/JSONL\fR and \fBSQLite\fR files.\&
 .P
 .SH DEMO
 .P
@@ -44,6 +44,8 @@ $ tennis diamonds\&.csv
 \&.\&.\&.
 .fi
 .RE
+.P
+.P
 .P
 .SH POPULAR OPTIONS
 .P
@@ -77,20 +79,7 @@ Add a title above the table.\&
 .RS 4
 Turn on zebra stripes.\&
 .P
-.RE
-\fB-b\fR <headers>
-.RS 4
-Make these columns Bigger.\&
 .P
-.RE
-\fB-bb\fR <headers>
-.RS 4
-Make even BIGGER (p90).\&
-.P
-.RE
-\fB-bbb\fR <headers>
-.RS 4
-Make BIGGEST (full width).\&
 .P
 .RE
 .SH SORTING & FILTERING
@@ -139,13 +128,45 @@ Select a specific table from a sqlite file.\&
 .RS 4
 Show the last \fIN\fR data rows.\&
 .P
+.P
+.P
+.RE
+.SH TABLE LAYOUT
+.P
+\fB-b\fR <headers>
+.RS 4
+Make these columns Bigger.\&
+.P
+.RE
+\fB-bb\fR <headers>
+.RS 4
+Make even BIGGER (p90).\&
+.P
+.RE
+\fB-bbb\fR <headers>
+.RS 4
+Make BIGGEST (full width).\&
+.P
+.RE
+\fB--width\fR <width>
+.P
+.RS 4
+Set the table width.\& If you specify an integer, it will be used as the
+max table width and tennis will truncate to fit if necessary.\& By default,
+\fBtennis\fR uses the current terminal width or \fB80\fR if it can'\&t be detected.\&
+.P
+Also supports two special values - \fBmin\fR to layout based on header
+width, \fBmax\fR to disable truncation entirely.\&
+.P
+.P
+.P
 .RE
 .SH OTHER OPTIONS
 .P
 \fB--color\fR <color>
 .RS 4
 Control color output.\& Valid values: \fBon\fR, \fBoff\fR, \fBauto\fR.\& The default is
-\fBon\fR.\& Also honors \fBNO_COLOR\fR and \fBFORCE_COLOR\fR.\&
+\fBon\fR.\& Also honors \fBNO_COLOR\fR.\&
 .P
 .RE
 \fB--delimiter\fR <char>
@@ -162,6 +183,17 @@ Set the number of digits after the decimal for float columns.\& Valid values
 \fB1\fR through \fB6\fR, the default is \fB3\fR.\&
 .P
 .RE
+\fB--scale\fR <headers>
+.RS 4
+Add a red-to-green color scale to these columns.\& This is similar to
+"conditional formatting" in Google Sheets.\&
+.P
+.RE
+\fB--rscale\fR <headers>
+.RS 4
+Just like --scale, but use green-to-red instead.\&
+.P
+.RE
 \fB--theme\fR <theme>
 .RS 4
 Select the color theme.\& Valid values: \fBauto\fR, \fBdark\fR, \fBlight\fR.\& The default
@@ -172,16 +204,9 @@ is \fBauto\fR.\&
 .RS 4
 Disable type inference and numeric formatting.\&
 .P
-.RE
-\fB--width\fR <width>
 .P
-.RS 4
-Set the table width.\& If you specify an integer, it will be used as the
-max table width and tennis will truncate to fit if necessary.\& By default,
-\fBtennis\fR uses the current terminal width or \fB80\fR if it can'\&t be detected.\&
 .P
-Also supports two special values - \fBmin\fR to layout based on header
-width, \fBmax\fR to disable truncation entirely.\&
+.P
 .P
 .RE
 .SH BORDERS

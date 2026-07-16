@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+
+# Builds release archive. Called by `just archive`, which is called by release.yml.
+
+set -euo pipefail
+
+#
+# helpers
+#
+
+banner() {
+  printf "\e[1;38;5;231;48;2;64;160;43m[%s] %-72s\e[0m\n" "$(date '+%H:%M:%S')" "$1"
+}
+warning() {
+  printf "\e[1;38;5;231;48;2;251;100;11m[%s] %-72s\e[0m\n" "$(date '+%H:%M:%S')" "$1"
+}
+fatal() {
+  printf "\e[1;38;5;231;48;2;210;15;57m[%s] %-72s\e[0m\n" "$(date '+%H:%M:%S')" "$1"
+  exit 1
+}
+
+#
+# parse args
+#
+
+if [ "$#" -ne 2 ]; then
+  echo "example: just archive x86_64-unknown-linux-gnu linux_amd64.tar.gz"
+  fatal "bad args"
+fi
+target="$1"
+asset="$2"
+
+#
+# resolve version, build final archive name
+#
+
+if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+  version="${GITHUB_REF_NAME#v}"
+else
+  version="$(cargo pkgid | sed 's/.*[@#]//')"
+fi
+archive="tennis_${version}_${asset}"
+
+case "$archive" in
+*.tar.gz) basename="${archive%.tar.gz}" ;;
+*.zip) basename="${archive%.zip}" ;;
+*) fatal "bad archive ${archive}" ;;
+esac
+
+#
+# where bin?
+#
+
+bin="tennis"
+case "$target" in
+*windows*) bin="tennis.exe" ;;
+esac
+bin="target/${target}/release/${bin}"
+[[ -f "$bin" ]] || fatal "missing ${bin}"
+
+#
+# assemble $staging
+#
+
+staging="tmp/${basename}"
+rm -rf "$staging" "tmp/${archive}"
+mkdir -p "$staging"
+cp "$bin" "$staging/"
+cp -R extra LICENSE README.md "$staging/"
+
+#
+# create archive
+#
+
+case "$archive" in
+*.zip) (cd tmp && 7z a "$archive" "$basename") ;;
+*.tar.gz) tar czf "tmp/$archive" -C tmp "$basename" ;;
+esac
+
+banner "built tmp/${archive}"
