@@ -134,7 +134,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 ### Changelog
 
-#### 0.7.0 (unreleased)
+#### 0.7.0 (Jul '26)
 
 - zig => rust
 - new and greatly improved autolayout
