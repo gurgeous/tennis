@@ -15,7 +15,7 @@ concurrency:
 jobs:
   test:
     strategy:
-      matrix: { platform: [ubuntu-latest, macos-15, macos-latest, windows-latest] }
+      matrix: { platform: [ubuntu-22.04, macos-15, macos-latest, windows-latest] }
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v7
