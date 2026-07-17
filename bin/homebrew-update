@@ -1,110 +1,148 @@
-#!/usr/bin/env bash
+#!/usr/bin/env ruby
 
-# Updates local Homebrew tap formula.
+# Updates the local Homebrew tap formula.
 
-set -euo pipefail
+require "fileutils"
+require "rbconfig"
+require_relative "run_kit"
 
-#
-# config
-#
+class HomebrewUpdate
+  include RunKit
 
-repo="gurgeous/tennis"
-tap="${TENNIS_HOMEBREW_TAP:-../homebrew-tap}"
-formula="${tap}/tennis.rb"
-version="$(cargo pkgid | sed 's/.*[@#]//')"
-tmp="tmp/homebrew-update"
-assets=("tennis_${version}_darwin_amd64.tar.gz" "tennis_${version}_darwin_arm64.tar.gz")
+  OWNER = "gurgeous"
+  PROJECT = "tennis"
+  TAP_REPO = "homebrew-tap"
+  GITHUB_REPO = "#{OWNER}/#{PROJECT}"
 
-#
-# helpers
-#
+  SRC = Pathname("bin/tap.rb")
+  DST = Pathname("../#{TAP_REPO}/#{PROJECT}.rb")
+  TMP = Pathname("tmp/homebrew-update")
+  PLATFORMS = %w[darwin_amd64 darwin_arm64 linux_amd64]
+  EXT = {
+    "darwin_amd64" => "tar.gz",
+    "darwin_arm64" => "tar.gz",
+    "linux_amd64" => "tar.gz",
+    "windows_amd64" => "zip",
+  }
 
-banner() {
-  printf "\e[1;38;5;231;48;2;64;160;43m[%s] %-72s\e[0m\n" "$(date '+%H:%M:%S')" "$1"
-}
-warning() {
-  printf "\e[1;38;5;231;48;2;251;100;11m[%s] %-72s\e[0m\n" "$(date '+%H:%M:%S')" "$1"
-}
-fatal() {
-  printf "\e[1;38;5;231;48;2;210;15;57m[%s] %-72s\e[0m\n" "$(date '+%H:%M:%S')" "$1"
-  exit 1
-}
-escape_regex() {
-  printf '%s' "$1" | sed -e 's/[][\/.^$*+?{}()|]/\\&/g'
-}
-replace() {
-  local label="$1"
-  local pattern="$2"
-  local replacement="$3"
+  # main entry point
+  def main
+    # sanity check
+    validate_paths!
+    validate_formula!(file_read(DST))
+    validate_release!(version)
 
-  rg -q "$pattern" "$formula" || fatal "missing formula pattern: $label"
-  sed -i -E "s|$pattern|$replacement|g" "$formula"
-}
-replace_sha() {
-  local asset="$1"
-  local hash="$2"
-  local anchor
+    # update
+    checksums = download_archives(version)
+    render_formula(version, checksums)
 
-  anchor="$(escape_regex "$asset")"
-  rg -q "$anchor" "$formula" || fatal "missing formula asset: $asset"
-  awk -v asset="$asset" '
-    index($0, asset) { getline; if ($0 ~ /sha256 "[a-f0-9]+"/) found = 1 }
-    END { exit found ? 0 : 1 }
-  ' "$formula" || fatal "missing sha256 after: $asset"
-  sed -i -E "/$anchor/{n;s/sha256 \"[a-f0-9]+\"/sha256 \"$hash\"/}" "$formula"
-}
+    # hints
+    warning("tap updated but not committed")
+    puts "Next steps:"
+    puts "  cd ../#{TAP_REPO}"
+    puts "  git diff"
+    puts "  git add #{PROJECT}.rb && git commit -m 'release v#{version}' && git push"
+  end
 
-#
-# sanity
-#
+  #
+  # validation
+  #
 
-[ -d "$tap/.git" ] || fatal "missing tap repo: $tap"
-[ -f "$formula" ] || fatal "missing formula: $formula"
-command -v gh >/dev/null || fatal "missing gh"
+  def validate_paths!
+    fatal("missing formula template: #{SRC}") if !SRC.exist?
+    fatal("missing formula: #{DST}") if !DST.exist?
+    fatal("missing gh") if !installed?("gh")
+  end
 
-#
-# fetch and validate release archives
-#
+  def validate_formula!(formula)
+    # validate platforms
+    exp = PLATFORMS.map { "#{_1}.tar.gz" }.sort
+    project = Regexp.escape(PROJECT)
+    actual = formula.scan(/#{project}_.+?_((?:darwin|linux)_[a-z0-9]+\.tar\.gz)/).flatten.sort
+    fatal("formula platforms: expected #{exp}, got #{actual}") if actual != exp
 
-banner "fetch release v${version}..."
-rm -rf "$tmp" && mkdir -p "$tmp"
+    # look for versions
+    versions = formula.scan(/^\s*version "([^"]+)"/).flatten
+    versions.concat(formula.scan(%r{/releases/download/v([^/]+)/}).flatten)
+    versions.concat(formula.scan(%r{#{project}_([^"/]+?)_(?:darwin|linux)_[a-z0-9]+\.tar\.gz}).flatten)
+    fatal("formula has no version") if versions.empty?
+    fatal("formula has mixed versions: #{versions}") if !versions.uniq.one?
+  end
 
-for asset in "${assets[@]}"; do
-  archive="${tmp}/${asset}"
+  # Require GitHub artifacts to match the complete release matrix exactly.
+  def validate_release!(version)
+    release = JSON.parse(shell!("gh", "release", "view", "v#{version}", "--repo", GITHUB_REPO, "--json", "assets"))
+    actual = release.fetch("assets").map { _1.fetch("name") }.sort
+    exp = EXT.keys.map { asset(version, _1) }.sort
+    fatal("release assets: exp #{exp}, got #{actual}") if actual != exp
+  end
 
-  banner "fetch ${asset}..."
-  gh release download "v${version}" --repo "$repo" --pattern "$asset" --dir "$tmp" --clobber
+  # Ensure each release archive contains the executable.
+  def validate_archive!(archive)
+    files = shell!("tar", "tzf", archive).lines.map(&:strip)
+    fatal("archive missing #{PROJECT}: #{archive.basename}") if files.none? { _1.end_with?("/#{PROJECT}") }
+  end
 
-  banner "validate ${asset}..."
-  tar tzf "$archive" >"${archive}.files"
-  rg -q "/tennis$" "${archive}.files" || fatal "archive missing tennis binary: $asset"
-  rg -q "/extra/tennis\\.1$" "${archive}.files" || fatal "archive missing man page: $asset"
-  rg -q "/extra/tennis\\.bash$" "${archive}.files" || fatal "archive missing bash completion: $asset"
-  rg -q "/extra/_tennis$" "${archive}.files" || fatal "archive missing zsh completion: $asset"
-done
 
-#
-# update formula
-#
+  #
+  # Fetch/checksum archives
+  #
 
-banner "update formula..."
-replace "version" 'version "[0-9.]+"' "version \"${version}\""
-replace "release url" '/releases/download/v[0-9.]+/' "/releases/download/v${version}/"
-replace "darwin amd64 asset" 'tennis_[0-9.]+_darwin_amd64\.tar\.gz' "tennis_${version}_darwin_amd64.tar.gz"
-replace "darwin arm64 asset" 'tennis_[0-9.]+_darwin_arm64\.tar\.gz' "tennis_${version}_darwin_arm64.tar.gz"
-for asset in "${assets[@]}"; do
-  hash="$(sha256sum "${tmp}/${asset}" | cut -d' ' -f1)"
-  replace_sha "$asset" "$hash"
-done
+  def download_archives(version)
+    FileUtils.rm_rf(TMP)
+    TMP.mkpath
 
-#
-# next steps
-#
+    PLATFORMS.to_h do |platform|
+      asset = asset(version, platform)
+      banner("fetch #{asset}...")
 
-warning "tap updated but not committed"
-echo
-echo "Next steps:"
-echo "  cd $tap"
-echo "  git diff"
-echo "  git commit -am ${version}"
-echo "  git push"
+      archive = TMP.join(asset)
+      shell!("gh", "release", "download", "v#{version}", "--repo", GITHUB_REPO, "--pattern", asset, "--dir", TMP, "--clobber")
+      validate_archive!(archive)
+      [platform, Digest::SHA256.file(archive).hexdigest]
+    end
+  end
+
+  #
+  # Render and validate the whole formula before atomically replacing the tap copy.
+  #
+
+  def render_formula(version, checksums)
+    vars = { repo: GITHUB_REPO, version: }
+    checksums.each { |platform, checksum| vars["#{platform}_sha256".to_sym] = checksum }
+    formula = render(file_read(SRC), vars)
+    validate_formula!(formula)
+
+    exp = PLATFORMS.map { url(version, _1) }.sort
+    actual = formula.scan(/^\s*url "([^"]+)"/).flatten.sort
+    fatal("generated formula has unexpected URLs") if actual != exp
+
+    tmp = TMP.join("tap.rb")
+    file_write(tmp, formula)
+    syntax, status = shell(RbConfig.ruby, "-c", tmp)
+    fatal("generated formula is invalid: #{syntax}") if status != 0
+
+    banner "writing #{DST}..."
+    file_write(DST, formula)
+  end
+
+  # Expand our small Mustache subset while detecting template/configuration drift.
+  def render(template, vars)
+    keys = template.scan(/\{\{([a-z0-9_]+)\}\}/).flatten.uniq
+    provided = vars.keys.map(&:to_s)
+    fatal("unknown template variables: #{keys - provided}") if !(keys - provided).empty?
+    fatal("unused template variables: #{provided - keys}") if !(provided - keys).empty?
+
+    template.gsub(/\{\{(\w+)\}\}/) { vars.fetch(Regexp.last_match(1).to_sym).to_s }.tap do
+      fatal("unresolved template var") if _1.match?(/\{\{.*?\}\}/)
+    end
+  end
+
+  # one-liners
+  def version = @version ||= shell!("cargo", "pkgid", "-p", PROJECT).split(/[@#]/).last
+  def asset(version, platform) = "#{PROJECT}_#{version}_#{platform}.#{EXT.fetch(platform)}"
+  def url(version, platform) = "https://github.com/#{GITHUB_REPO}/releases/download/v#{version}/#{asset(version, platform)}"
+end
+
+Dir.chdir(Pathname(__dir__).parent.expand_path)
+HomebrewUpdate.new.main
