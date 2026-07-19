@@ -134,6 +134,10 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 ### Changelog
 
+#### 0.7.1 (Jul '26)
+
+- build for older ubuntu 22 (#62)
+
 #### 0.7.0 (Jul '26)
 
 - zig => rust
