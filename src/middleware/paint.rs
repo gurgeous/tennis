@@ -55,8 +55,8 @@ fn paint_rows(ctx: &mut Context<'_>) {
     return;
   }
 
-  ctx.paint.rows =
-    (0..ctx.nrows()).map(|r| if r.is_multiple_of(2) { ctx.theme.zebra.clone() } else { String::new() }).collect();
+  let zebra = ctx.theme.zebra.clone() + &ctx.theme.zebra_bg;
+  ctx.paint.rows = (0..ctx.nrows()).map(|r| if r.is_multiple_of(2) { zebra.clone() } else { String::new() }).collect();
 }
 
 //
@@ -148,7 +148,11 @@ mod tests {
     R: IntoCells,
   {
     let rows = rows.into_iter().map(IntoCells::into_cells).collect();
-    Table::builder().load_grid(Grid::new(headers.into_cells(), rows).expect("valid grid")).build().expect("valid table")
+    Table::builder()
+      .load_grid(Grid::new(headers.into_cells(), rows).expect("valid grid"))
+      .color(ColorMode::Off)
+      .build()
+      .expect("valid table")
   }
 
   fn painted(mut table: Table, f: impl FnOnce(&mut Resolved)) -> PaintState {

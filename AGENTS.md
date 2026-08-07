@@ -30,7 +30,6 @@
 - Use Rust doc comments idiomatically: `//!` for module docs and `///` for public API docs.
 - Do not map our own errors except at real layer boundaries; add context at the source.
 - Silently ignore non-actionable stdout/pager write failures.
-- Keep crate-sensitive behavior behind local modules: `natord`, `unicode-width`, `termbg`.
 
 ## Tests
 

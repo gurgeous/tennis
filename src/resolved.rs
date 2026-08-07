@@ -2,6 +2,8 @@
 
 use std::io;
 
+use anstyle::RgbColor;
+
 use crate::{
   ColorScale,
   builder::{
@@ -26,6 +28,7 @@ pub(crate) struct Resolved {
   pub(crate) footer: Option<String>,
   pub(crate) hyperlinks: bool,
   pub(crate) row_numbers: bool,
+  pub(crate) termbg: Option<RgbColor>,
   pub(crate) theme: ResolvedTheme,
   pub(crate) title: Option<String>,
   pub(crate) titleize: bool,
@@ -37,6 +40,7 @@ pub(crate) struct Resolved {
 impl Resolved {
   pub(crate) fn new(options: Options) -> Self {
     let color = resolve_color(options.color);
+    let (theme, termbg) = resolve_theme(color, options.theme);
     let mut this = Self {
       bigs: options.bigs,
       border: options.border.unwrap_or(Border::Rounded),
@@ -46,7 +50,8 @@ impl Resolved {
       footer: options.footer,
       hyperlinks: options.hyperlinks.unwrap_or(true),
       row_numbers: options.row_numbers.unwrap_or(false),
-      theme: resolve_theme(color, options.theme),
+      termbg,
+      theme,
       title: options.title,
       titleize: options.titleize.unwrap_or(false),
       vanilla: options.vanilla.unwrap_or(false),
@@ -137,22 +142,22 @@ fn color_choice_with_env(color: Option<ColorMode>, force_color: bool, no_color: 
   }
 }
 
-fn resolve_theme(color: ColorMode, theme: Option<ThemeMode>) -> ResolvedTheme {
+fn resolve_theme(color: ColorMode, theme: Option<ThemeMode>) -> (ResolvedTheme, Option<RgbColor>) {
   // Never run terminal theme detection when color is off; it can hang under
   // process managers and does not matter when ANSI will be stripped.
   let requested = theme.unwrap_or(ThemeMode::Auto);
   let resolved = match (color, requested) {
-    (ColorMode::Off, _) => ResolvedTheme::Dark,
+    (ColorMode::Off, _) => (ResolvedTheme::Dark, None),
     (ColorMode::On, ThemeMode::Auto) => terminal_theme(),
-    (ColorMode::On, ThemeMode::Dark) => ResolvedTheme::Dark,
-    (ColorMode::On, ThemeMode::Light) => ResolvedTheme::Light,
+    (ColorMode::On, ThemeMode::Dark) => (ResolvedTheme::Dark, None),
+    (ColorMode::On, ThemeMode::Light) => (ResolvedTheme::Light, None),
     (ColorMode::Auto, _) => unreachable!("color was resolved above"),
   };
   crate::verbose::log(format_args!("Resolved.resolve_theme color={color:?} requested={requested:?} => {resolved:?}"));
   resolved
 }
 
-fn terminal_theme() -> ResolvedTheme {
+fn terminal_theme() -> (ResolvedTheme, Option<RgbColor>) {
   #[cfg(not(test))]
   {
     use std::time::Duration;
@@ -160,18 +165,25 @@ fn terminal_theme() -> ResolvedTheme {
     let mut options = terminal_colorsaurus::QueryOptions::default();
     options.timeout = Duration::from_millis(200);
     crate::verbose::log(format_args!("Resolved.colorsaurus() start"));
-    let result = terminal_colorsaurus::theme_mode(options);
-    crate::verbose::log(format_args!("Resolved.colorsaurus() => {result:?}",));
+    let result = terminal_colorsaurus::color_palette(options);
+    crate::verbose::log(format_args!("Resolved.colorsaurus() => {result:?}"));
     match result {
-      Ok(terminal_colorsaurus::ThemeMode::Light) => ResolvedTheme::Light,
-      Ok(terminal_colorsaurus::ThemeMode::Dark) | Err(_) => ResolvedTheme::Dark,
+      Ok(palette) => {
+        let theme = match palette.theme_mode() {
+          terminal_colorsaurus::ThemeMode::Dark => ResolvedTheme::Dark,
+          terminal_colorsaurus::ThemeMode::Light => ResolvedTheme::Light,
+        };
+        (theme, Some(palette.background.into()))
+      }
+      Err(_) => (ResolvedTheme::Dark, None),
     }
   }
 
   #[cfg(test)]
   {
     THEME_PROBE_COUNT.with(|count| count.set(count.get() + 1));
-    ResolvedTheme::Dark
+    // Simulate successful dark-background detection without probing the terminal.
+    (ResolvedTheme::Dark, Some(RgbColor(0, 0, 0)))
   }
 }
 
@@ -212,13 +224,17 @@ mod tests {
   #[test]
   fn test_resolved_theme_dark() {
     let options = Options { color: Some(ColorMode::On), theme: Some(ThemeMode::Dark), ..Options::default() };
-    assert_eq!(ResolvedTheme::Dark, Resolved::new(options).theme);
+    let resolved = Resolved::new(options);
+    assert_eq!(ResolvedTheme::Dark, resolved.theme);
+    assert_eq!(None, resolved.termbg);
   }
 
   #[test]
   fn test_resolved_theme_light() {
     let options = Options { color: Some(ColorMode::On), theme: Some(ThemeMode::Light), ..Options::default() };
-    assert_eq!(ResolvedTheme::Light, Resolved::new(options).theme);
+    let resolved = Resolved::new(options);
+    assert_eq!(ResolvedTheme::Light, resolved.theme);
+    assert_eq!(None, resolved.termbg);
   }
 
   #[test]
@@ -229,6 +245,7 @@ mod tests {
 
     assert_eq!(ColorMode::Off, resolved.color);
     assert_eq!(ResolvedTheme::Dark, resolved.theme);
+    assert_eq!(None, resolved.termbg);
     assert_eq!(0, theme_probe_count());
   }
 
@@ -240,6 +257,8 @@ mod tests {
 
     assert_eq!(ColorMode::On, resolved.color);
     assert_eq!(ResolvedTheme::Dark, resolved.theme);
+    assert!(!resolved.zebra);
+    assert_eq!(Some(RgbColor(0, 0, 0)), resolved.termbg);
     assert_eq!(1, theme_probe_count());
   }
 
