@@ -158,7 +158,7 @@ fn terminal_theme() -> ResolvedTheme {
     use std::time::Duration;
 
     let mut options = terminal_colorsaurus::QueryOptions::default();
-    options.timeout = Duration::from_millis(100);
+    options.timeout = Duration::from_millis(200);
     crate::verbose::log(format_args!("Resolved.colorsaurus() start"));
     let result = terminal_colorsaurus::theme_mode(options);
     crate::verbose::log(format_args!("Resolved.colorsaurus() => {result:?}",));
