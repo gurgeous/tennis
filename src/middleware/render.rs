@@ -161,16 +161,16 @@ impl<'w, 'ctx> Render<'w, 'ctx> {
     // Empty cells render as placeholders and use chrome paint.
     let empty = text.is_empty();
     let display_text = if empty { PLACEHOLDER } else { text.as_str() };
-    let custom =
-      self.ctx.paint.cells.get(&(row, col)).or_else(|| self.ctx.paint.columns.get(col).filter(|c| !c.is_empty()));
     let code = if empty {
       self.ctx.theme.chrome.as_str()
-    } else if let Some(custom) = custom {
+    } else if let Some(custom) =
+      self.ctx.paint.cells.get(&(row, col)).or_else(|| self.ctx.paint.columns.get(col).filter(|c| !c.is_empty()))
+    {
       custom
     } else if self.row_style.is_empty() {
       self.ctx.theme.cell.as_str()
     } else {
-      self.row_style.as_str()
+      ""
     };
     let link =
       if self.ctx.options.hyperlinks && !empty { self.ctx.links.get(&(row, col)).map(String::as_str) } else { None };
@@ -820,7 +820,6 @@ mod tests {
     assert!(!row.contains(RESET));
     assert!(row.starts_with("\x1b[38;5;231m\x1b[48;5;235m\x1b[38;5;243m|\x1b[38;5;231m\x1b[48;5;235m "), "{row:?}");
     assert!(row.contains(PLACEHOLDER));
-    assert!(row.contains("\x1b[38;5;243m"), "{row:?}");
     assert!(!row.contains("\x1b[38;5;254m"), "{row:?}");
   }
 
