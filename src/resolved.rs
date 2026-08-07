@@ -182,6 +182,7 @@ fn terminal_theme() -> (ResolvedTheme, Option<RgbColor>) {
   #[cfg(test)]
   {
     THEME_PROBE_COUNT.with(|count| count.set(count.get() + 1));
+    // Simulate successful dark-background detection without probing the terminal.
     (ResolvedTheme::Dark, Some(RgbColor(0, 0, 0)))
   }
 }

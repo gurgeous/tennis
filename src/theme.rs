@@ -84,10 +84,7 @@ fn lerp(from: u8, toward: u8, amount: f64) -> u8 {
 // calculate zebra_bg from term background, use fallback if we don't know the term bg
 fn zebra_bg(termbg: Option<RgbColor>, toward: RgbColor, amount: f64, fallback: u8) -> String {
   let color = match termbg {
-    Some(termbg) => {
-      let RgbColor(r, g, b) = blend_rgb(termbg, toward, amount);
-      AnsiColor::Rgb(RgbColor(r, g, b))
-    }
+    Some(termbg) => AnsiColor::Rgb(blend_rgb(termbg, toward, amount)),
     None => AnsiColor::Ansi256(Ansi256Color(fallback)),
   };
   bg(color)
