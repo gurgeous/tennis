@@ -148,7 +148,11 @@ mod tests {
     R: IntoCells,
   {
     let rows = rows.into_iter().map(IntoCells::into_cells).collect();
-    Table::builder().load_grid(Grid::new(headers.into_cells(), rows).expect("valid grid")).build().expect("valid table")
+    Table::builder()
+      .load_grid(Grid::new(headers.into_cells(), rows).expect("valid grid"))
+      .color(ColorMode::Off)
+      .build()
+      .expect("valid table")
   }
 
   fn painted(mut table: Table, f: impl FnOnce(&mut Resolved)) -> PaintState {
