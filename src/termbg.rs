@@ -24,9 +24,9 @@ pub(crate) struct Detected {
 pub(crate) fn detect() -> Option<Detected> {
   let mut options = terminal_colorsaurus::QueryOptions::default();
   options.timeout = Duration::from_millis(200);
-  crate::verbose::log(format_args!("Resolved.colorsaurus() start"));
+  crate::verbose::log(format_args!("termbg.detect() start"));
   let result = terminal_colorsaurus::color_palette(options);
-  crate::verbose::log(format_args!("Resolved.colorsaurus() => {result:?}"));
+  crate::verbose::log(format_args!("termbg.detect() => {result:?}"));
   let palette = result.ok()?;
   let mode = match palette.theme_mode() {
     terminal_colorsaurus::ThemeMode::Dark => Mode::Dark,
