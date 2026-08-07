@@ -824,6 +824,36 @@ mod tests {
   }
 
   #[test]
+  fn test_render_zebra_uses_detected_background() {
+    let out = configured(table(["name"], [["alice"], ["bob"]]), |options| {
+      options.color = ColorMode::On;
+      options.terminal_bg = Some(crate::termbg::Rgb(48, 52, 70));
+      options.theme = ResolvedTheme::Dark;
+      options.zebra = true;
+      options.width = ResolvedWidth::Fixed(80);
+    })
+    .into_text();
+    let row = out.lines().find(|line| line.contains("alice")).unwrap();
+
+    assert!(row.contains("\x1b[38;5;231m\x1b[48;2;69;72;89m"), "{row:?}");
+  }
+
+  #[test]
+  fn test_render_zebra_keeps_column_paint() {
+    let out = configured(table(["name", "score"], [["alice", "1234"], ["bob", "5678"]]), |options| {
+      options.border = Border::Basic;
+      options.color = ColorMode::On;
+      options.theme = ResolvedTheme::Dark;
+      options.zebra = true;
+      options.width = ResolvedWidth::Fixed(80);
+    })
+    .into_text();
+    let row = out.lines().find(|line| line.contains("alice")).unwrap();
+
+    assert!(row.contains("\x1b[38;5;209m1,234\x1b[38;5;231m\x1b[48;5;235m"), "{row:?}");
+  }
+
+  #[test]
   fn test_render_zebra_restores_row_style_after_color_scale() {
     let out = configured(table(["name", "score"], [["alice", "1234"], ["bob", "5678"]]), |options| {
       options.border = Border::Basic;

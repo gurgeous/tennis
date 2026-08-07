@@ -55,8 +55,8 @@ fn paint_rows(ctx: &mut Context<'_>) {
     return;
   }
 
-  ctx.paint.rows =
-    (0..ctx.nrows()).map(|r| if r.is_multiple_of(2) { ctx.theme.zebra.clone() } else { String::new() }).collect();
+  let zebra = ctx.theme.zebra.clone() + &ctx.theme.zebra_bg;
+  ctx.paint.rows = (0..ctx.nrows()).map(|r| if r.is_multiple_of(2) { zebra.clone() } else { String::new() }).collect();
 }
 
 //
