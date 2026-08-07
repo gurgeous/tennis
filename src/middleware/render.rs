@@ -827,7 +827,7 @@ mod tests {
   fn test_render_zebra_uses_detected_background() {
     let out = configured(table(["name"], [["alice"], ["bob"]]), |options| {
       options.color = ColorMode::On;
-      options.terminal_bg = Some(crate::termbg::Rgb(48, 52, 70));
+      options.termbg = Some(anstyle::RgbColor(48, 52, 70));
       options.theme = ResolvedTheme::Dark;
       options.zebra = true;
       options.width = ResolvedWidth::Fixed(80);

@@ -15,7 +15,6 @@ mod middleware;
 pub mod number;
 mod resolved;
 mod table;
-mod termbg;
 mod theme;
 mod util;
 #[doc(hidden)]
