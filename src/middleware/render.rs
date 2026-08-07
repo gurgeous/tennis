@@ -146,10 +146,10 @@ impl<'w, 'ctx> Render<'w, 'ctx> {
   fn body_start(&mut self, index: usize) {
     if let Some(style) = self.ctx.paint.rows.get(index).filter(|style| !style.is_empty()) {
       self.row_style.push_str(style);
+      self.buf.push_str(&self.row_style);
     } else {
-      self.row_style.push_str(RESET);
+      self.buf.push_str(RESET);
     }
-    self.buf.push_str(&self.row_style);
   }
 
   fn body_cell(&mut self, row: usize, col: usize) {
@@ -161,16 +161,16 @@ impl<'w, 'ctx> Render<'w, 'ctx> {
     // Empty cells render as placeholders and use chrome paint.
     let empty = text.is_empty();
     let display_text = if empty { PLACEHOLDER } else { text.as_str() };
+    let custom =
+      self.ctx.paint.cells.get(&(row, col)).or_else(|| self.ctx.paint.columns.get(col).filter(|c| !c.is_empty()));
     let code = if empty {
       self.ctx.theme.chrome.as_str()
+    } else if let Some(custom) = custom {
+      custom
+    } else if self.row_style.is_empty() {
+      self.ctx.theme.cell.as_str()
     } else {
-      self
-        .ctx
-        .paint
-        .cells
-        .get(&(row, col))
-        .or_else(|| self.ctx.paint.columns.get(col).filter(|c| !c.is_empty()))
-        .map_or(self.ctx.theme.cell.as_str(), String::as_str)
+      self.row_style.as_str()
     };
     let link =
       if self.ctx.options.hyperlinks && !empty { self.ctx.links.get(&(row, col)).map(String::as_str) } else { None };
@@ -178,7 +178,7 @@ impl<'w, 'ctx> Render<'w, 'ctx> {
     let paint = CellPaint { code, row_style: &self.row_style, bold: false };
     fill_cell(&mut self.buf, display_text, width, align, &paint, link);
     self.buf.push(' ');
-    self.end_cell(col, !self.row_style.is_empty());
+    self.end_cell(col, true);
   }
 
   //
@@ -807,7 +807,7 @@ mod tests {
 
   #[test]
   fn test_render_zebra() {
-    let out = configured(table(["name", "score"], [["alice", "1234"], ["bob", "5678"]]), |options| {
+    let out = configured(table(["name", "score"], [["alice", ""], ["bob", "5678"]]), |options| {
       options.border = Border::Basic;
       options.color = ColorMode::On;
       options.theme = ResolvedTheme::Dark;
@@ -818,7 +818,10 @@ mod tests {
     let row = out.lines().find(|line| line.contains("alice")).unwrap();
     let row = row.strip_suffix(RESET).unwrap_or(row);
     assert!(!row.contains(RESET));
-    assert!(row.contains("\x1b[48;5;235m"));
+    assert!(row.starts_with("\x1b[38;5;231m\x1b[48;5;235m\x1b[38;5;243m|\x1b[38;5;231m\x1b[48;5;235m "), "{row:?}");
+    assert!(row.contains(PLACEHOLDER));
+    assert!(row.contains("\x1b[38;5;243m"), "{row:?}");
+    assert!(!row.contains("\x1b[38;5;254m"), "{row:?}");
   }
 
   #[test]
