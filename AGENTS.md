@@ -39,6 +39,7 @@
 
 - Use `just` tasks. Do not run `cargo fmt` directly; `just llm` uses nightly rustfmt.
 - After each code change, run `just llm`.
+- Use 10 benchmark runs by default. More requires a specific reason.
 - Keep tests deterministic. Force `--width 80` where layout matters.
 - Never probe terminal theme/background in tests; always skip it when color is off.
 - Do not force flags in every parity test; cover defaults explicitly.

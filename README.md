@@ -137,8 +137,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 #### 0.8.0 (unreleased)
 
 - improve zebra, blend with terminal bg #64 (@RVC2020)
-- parse cells into typed numeric values
-- improve CSV parsing and large-table output
+- parse typed cells
 
 #### 0.7.1 (Jul '26)
 
