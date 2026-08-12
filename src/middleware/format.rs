@@ -3,7 +3,7 @@
 //! header width and is always at least two chars wide. We never layout a col
 //! less than two wide.
 
-use crate::{column::ColumnType, context::Context, middleware::layout::MIN_COL, number, util};
+use crate::{column::ColumnType, context::Context, middleware::layout::MIN_COL, util};
 
 pub(crate) fn run(ctx: &mut Context<'_>) {
   let digits = ctx.options.digits;
@@ -17,7 +17,7 @@ pub(crate) fn run(ctx: &mut Context<'_>) {
     for c in 0..ctx.ncols() {
       // format cell, did anything change?
       if let Some(formatted) = format_cell(ctx, r, c, digits) {
-        ctx.grid.rows[r][c] = formatted;
+        ctx.grid.rows[r][c].set_text(formatted);
       }
 
       // bump column.natural if necessary
@@ -34,18 +34,16 @@ pub(crate) fn run(ctx: &mut Context<'_>) {
 
 // format one cell, or None if no changes are required
 fn format_cell(ctx: &mut Context<'_>, r: usize, c: usize, digits: usize) -> Option<String> {
-  let f = &ctx.grid.rows[r][c];
-  if f.is_empty() {
+  let cell = &ctx.grid.rows[r][c];
+  if cell.is_empty() {
     return None;
   }
   match ctx.columns[c].ty {
-    ColumnType::Float => Some(number::format_float(f, digits)),
-    ColumnType::Int if f.len() <= 3 && !f.starts_with('-') => None,
-    ColumnType::Int => Some(number::format_int(f)),
+    ColumnType::Float | ColumnType::Int => cell.value().copied().map(|value| value.format(digits)),
     ColumnType::Percent => None,
     ColumnType::String => {
       // Ordinary strings return None; links save the URL before the cell becomes its label.
-      let (anchor, href) = util::markdown_link(f)?;
+      let (anchor, href) = util::markdown_link(cell)?;
       ctx.links.insert((r, c), href.to_owned());
       Some(util::squish(anchor).into_owned())
     }
@@ -71,7 +69,7 @@ mod tests {
     Table::builder().load_grid(Grid::new(headers.into_cells(), rows).expect("valid grid")).build().expect("valid table")
   }
 
-  fn formatted(mut table: Table, f: impl FnOnce(&mut Resolved)) -> (Vec<Vec<String>>, Links) {
+  fn formatted(mut table: Table, f: impl FnOnce(&mut Resolved)) -> (Vec<Vec<crate::Cell>>, Links) {
     f(&mut table.options);
     table.options.color = crate::ColorMode::Off;
     let mut out = Vec::new();
@@ -85,6 +83,7 @@ mod tests {
   fn test_format_numbers_and_empty_cells() {
     let (rows, _) = formatted(table(["a", "b"], [["1234", ""]]), |_| {});
     assert_eq!("1,234", rows[0][0]);
+    assert_eq!(Some(&crate::Value::Int(1234)), rows[0][0].value());
     assert_eq!("", rows[0][1]);
   }
 

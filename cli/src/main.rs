@@ -2,8 +2,8 @@ mod args;
 mod completion;
 mod error;
 mod input;
-mod natsort;
 pub(crate) mod peek;
+mod sort;
 pub(crate) mod util;
 
 use std::{
@@ -133,11 +133,11 @@ impl Main {
 
     // --sort
     if !self.args.sort.is_empty() {
-      let sort = natsort::sort_keys(&grid, &self.args.sort).map_err(|error| match error {
+      let sort = sort::sort_keys(&grid, &self.args.sort).map_err(|error| match error {
         tennis::Error::MissingColumn { column, headers, .. } => Error::BadSort(column, headers),
         error => error.into(),
       })?;
-      grid = grid.sort_by(|a, b| natsort::compare_rows(a, b, &sort, self.args.reverse));
+      grid = grid.sort_by(|a, b| sort::compare_rows(a, b, &sort, self.args.reverse));
     }
 
     // --shuffle
@@ -203,8 +203,8 @@ impl Main {
       return Ok(());
     }
 
-    let mut stdout = io::stdout().lock();
-    let _ = table.write_to(&mut stdout);
+    let mut stdout = io::BufWriter::new(io::stdout().lock());
+    let _ = table.write_to(&mut stdout as &mut dyn Write);
     Ok(())
   }
 

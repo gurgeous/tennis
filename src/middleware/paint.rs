@@ -64,11 +64,9 @@ fn paint_rows(ctx: &mut Context<'_>) {
 //
 
 fn paint_numeric_scale(ctx: &mut Context<'_>, c: usize, scale: ColorScale) {
-  // collect (r, value). this requires parsing back into floats, but this is not
-  // we don't care
   let mut values = Vec::new();
   for r in 0..ctx.nrows() {
-    let Some(x) = parse_numeric(&ctx.grid.rows[r][c], ctx.columns[c].ty) else {
+    let Some(x) = ctx.grid.rows[r][c].value().copied().map(|value| value.as_f64()) else {
       continue;
     };
     values.push((r, x));
@@ -117,18 +115,6 @@ fn paint_string_scale(ctx: &mut Context<'_>, c: usize, scale: ColorScale) {
     let t = rank / max_rank;
     cells.insert((r, c), scale.paint(t));
   }
-}
-
-fn parse_numeric(text: &str, ty: ColumnType) -> Option<f64> {
-  if text.is_empty() {
-    return None;
-  }
-  let text = match ty {
-    ColumnType::Percent => text.strip_suffix('%')?,
-    ColumnType::Int | ColumnType::Float => text,
-    ColumnType::String => return None,
-  };
-  text.replace(',', "").parse::<f64>().ok()
 }
 
 #[cfg(test)]

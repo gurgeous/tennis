@@ -60,7 +60,7 @@ impl Column {
   }
 
   fn compute_ty(&mut self, ctx: &Context<'_>) {
-    self.ty = ctx.grid.column_type(self.index, ctx.options.vanilla);
+    self.ty = if ctx.options.vanilla { ColumnType::String } else { ctx.grid.column_type(self.index) };
   }
 
   pub(crate) fn align(&self) -> Align {

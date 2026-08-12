@@ -1,9 +1,6 @@
 use std::collections::HashSet;
 
-use tennis::{
-  ColumnType, Grid,
-  number::{format_float, format_int},
-};
+use tennis::{Cell, ColumnType, Grid};
 use unicode_width::UnicodeWidthStr;
 
 use crate::{args::Args, error::Result, util};
@@ -36,8 +33,7 @@ fn render_sample(input: &Grid, args: &Args) -> Result<String> {
   let footer =
     (input.rows().len() > n).then(|| format!("… {} …", util::pluralize("more row", input.rows().len() - n, true)));
 
-  let taken = input.rows().iter().take(n).cloned().collect();
-  let grid = Grid::new(input.headers().to_vec(), taken).expect("peek sample rows match source headers");
+  let grid = input.clone().head(n);
   let mut builder =
     tennis::Table::builder().load_grid(grid).row_numbers(args.row_numbers).vanilla(args.vanilla).zebra(args.zebra);
 
@@ -121,7 +117,7 @@ fn stats_rows(input: &Grid, args: &Args) -> Vec<Vec<String>> {
   ]];
 
   for (index, header) in input.headers().iter().enumerate() {
-    let kind = input.column_type(index, args.vanilla);
+    let kind = if args.vanilla { ColumnType::String } else { input.column_type(index) };
     let stats = column_stats(input.rows(), index, kind, args);
     out.push(vec![header.clone(), kind.to_string(), stats.fill, stats.uniq, stats.min, stats.max]);
   }
@@ -140,7 +136,7 @@ struct Stats {
   max: String,
 }
 
-fn column_stats(rows: &[Vec<String>], index: usize, kind: ColumnType, args: &Args) -> Stats {
+fn column_stats(rows: &[Vec<Cell>], index: usize, kind: ColumnType, args: &Args) -> Stats {
   let fields: Vec<&str> = rows
     .iter()
     .filter_map(|row| {
@@ -153,9 +149,7 @@ fn column_stats(rows: &[Vec<String>], index: usize, kind: ColumnType, args: &Arg
   let fill = fill_pct(fields.len(), rows.len());
   let digits = args.digits.map_or(DEFAULT_DIGITS, |digits| digits as usize);
   let (min, max) = match kind {
-    ColumnType::Int => int_minmax(&fields, args),
-    ColumnType::Float => float_minmax(&fields, digits),
-    ColumnType::Percent => percent_minmax(&fields, digits),
+    ColumnType::Int | ColumnType::Float | ColumnType::Percent => numeric_minmax(rows, index, digits),
     ColumnType::String => len_minmax(&fields),
   };
 
@@ -166,34 +160,12 @@ fn fill_pct(nonempty: usize, nrows: usize) -> usize {
   nonempty.saturating_mul(100).checked_div(nrows).unwrap_or(0)
 }
 
-fn int_minmax(fields: &[&str], args: &Args) -> (String, String) {
-  let Some((min, max)) = util::minmax(fields.iter().filter_map(|f| f.parse::<i128>().ok())) else {
+fn numeric_minmax(rows: &[Vec<Cell>], index: usize, digits: usize) -> (String, String) {
+  let values = rows.iter().filter_map(|row| row[index].value().copied());
+  let Some((min, max)) = util::minmax_by(values, |a, b| a.cmp_same_type(*b)) else {
     return placeholders();
   };
-  if args.vanilla {
-    (min.to_string(), max.to_string())
-  } else {
-    (format_int(&min.to_string()), format_int(&max.to_string()))
-  }
-}
-
-fn float_minmax(fields: &[&str], digits: usize) -> (String, String) {
-  let values = fields.iter().filter_map(|f| f.parse::<f64>().ok().map(|v| (v, *f)));
-  let Some(((_, min), (_, max))) = util::minmax_by(values, |a, b| a.0.total_cmp(&b.0)) else {
-    return placeholders();
-  };
-  (format_float(min, digits), format_float(max, digits))
-}
-
-fn percent_minmax(fields: &[&str], digits: usize) -> (String, String) {
-  let values = fields.iter().filter_map(|f| {
-    let raw = f.strip_suffix('%')?;
-    raw.parse::<f64>().ok().map(|v| (v, raw))
-  });
-  let Some(((_, min), (_, max))) = util::minmax_by(values, |a, b| a.0.total_cmp(&b.0)) else {
-    return placeholders();
-  };
-  (format!("{}%", format_float(min, digits)), format!("{}%", format_float(max, digits)))
+  (min.format(digits), max.format(digits))
 }
 
 fn len_minmax(fields: &[&str]) -> (String, String) {
@@ -259,12 +231,12 @@ mod tests {
   }
 
   #[test]
-  fn test_stats_rows_oversized_ints() {
+  fn test_stats_rows_oversized_ints_are_floats() {
     let args = Args::default();
     let input = make_input(&[vec!["count"], vec!["99999999999999999999"]]);
     let rows = stats_rows(&input, &args);
     assert_eq!(
-      ["count", "int", "100%", "1", "99,999,999,999,999,999,999", "99,999,999,999,999,999,999"],
+      ["count", "float", "100%", "1", "100,000,000,000,000,000,000.000", "100,000,000,000,000,000,000.000"],
       rows[1].as_slice()
     );
   }
