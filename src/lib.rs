@@ -12,6 +12,7 @@ mod context;
 mod grid;
 mod infer;
 mod middleware;
+mod num_locale;
 mod resolved;
 mod table;
 mod theme;

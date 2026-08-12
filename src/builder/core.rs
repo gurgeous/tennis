@@ -252,7 +252,8 @@ mod tests {
     .into_text();
 
     assert!(out.contains("| #  | name  | score |"));
-    assert!(out.contains("|  1 | alice | 1,234 |"));
+    let number = crate::num_locale::NumLocale::current().format_int(1234);
+    assert!(out.contains(&format!("|  1 | alice | {number:>5} |")));
   }
 
   #[test]

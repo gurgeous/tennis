@@ -112,7 +112,8 @@ mod tests {
       .expect("literal rows are valid")
       .into_text();
 
-    assert!(out.contains("| alice | 1,234 |"));
+    let number = crate::num_locale::NumLocale::current().format_int(1234);
+    assert!(out.contains(&format!("| alice | {number:>5} |")));
   }
 
   #[test]

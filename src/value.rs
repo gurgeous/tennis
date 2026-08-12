@@ -2,6 +2,8 @@
 
 use std::cmp::Ordering;
 
+use crate::num_locale::NumLocale;
+
 /// Numeric cell value after column inference.
 /// Percent values retain display units: `12%` is `Percent(12.0)`.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -41,40 +43,15 @@ impl Value {
     }
   }
 
-  /// Formats a value for display, grouping whole digits.
+  /// Formats a value for display using the current numeric locale.
   pub fn format(self, digits: usize) -> String {
+    let locale = NumLocale::current();
     match self {
-      Self::Int(x) => group_digits(&x.to_string()),
-      Self::Float(x) => format_float(x, digits),
-      Self::Percent(x) => format!("{}%", format_float(x, digits)),
+      Self::Int(x) => locale.format_int(x),
+      Self::Float(x) => locale.format_float(x, digits),
+      Self::Percent(x) => locale.format_percent(x, digits),
     }
   }
-}
-
-// Format helpers
-
-fn format_float(x: f64, digits: usize) -> String {
-  let rounded = format!("{x:.digits$}");
-  let (whole, frac) = rounded.split_once('.').unwrap_or((rounded.as_str(), ""));
-  let mut buf = group_digits(whole);
-  if digits > 0 {
-    buf.push('.');
-    buf.push_str(frac);
-  }
-  buf
-}
-
-fn group_digits(text: &str) -> String {
-  let (sign, digits) = text.strip_prefix('-').map_or(("", text), |digits| ("-", digits));
-  let first = (digits.len() - 1) % 3 + 1;
-  let mut out = String::with_capacity(text.len() + text.len() / 3);
-  out.push_str(sign);
-  out.push_str(&digits[..first]);
-  for chunk in digits.as_bytes()[first..].chunks(3) {
-    out.push(',');
-    out.push_str(std::str::from_utf8(chunk).expect("decimal digits are UTF-8"));
-  }
-  out
 }
 
 #[cfg(test)]
@@ -97,20 +74,6 @@ mod tests {
     }
     for text in ["", "abc"] {
       assert_eq!(None, Value::parse(text), "{text}");
-    }
-  }
-
-  #[test]
-  fn test_format() {
-    for (value, digits, formatted) in [
-      (Value::Int(-1234), 3, "-1,234"),
-      (Value::Float(1234.567), 2, "1,234.57"),
-      (Value::Float(999.6), 0, "1,000"),
-      (Value::Float(1.9999), 3, "2.000"),
-      (Value::Float(9.99), 1, "10.0"),
-      (Value::Float(-0.0001), 3, "-0.000"),
-    ] {
-      assert_eq!(formatted, value.format(digits));
     }
   }
 

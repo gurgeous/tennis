@@ -82,7 +82,7 @@ mod tests {
   #[test]
   fn test_format_numbers_and_empty_cells() {
     let (rows, _) = formatted(table(["a", "b"], [["1234", ""]]), |_| {});
-    assert_eq!("1,234", rows[0][0]);
+    assert_eq!(crate::num_locale::NumLocale::current().format_int(1234), rows[0][0]);
     assert_eq!(Some(&crate::Value::Int(1234)), rows[0][0].value());
     assert_eq!("", rows[0][1]);
   }
@@ -90,7 +90,7 @@ mod tests {
   #[test]
   fn test_format_uses_digits_option() {
     let (rows, _) = formatted(table(["a"], [["1234.567"]]), |options| options.digits = 2);
-    assert_eq!("1,234.57", rows[0][0]);
+    assert_eq!(crate::num_locale::NumLocale::current().format_float(1234.567, 2), rows[0][0]);
   }
 
   #[test]

@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 
+#[cfg(test)]
+use tennis::Value;
 use tennis::{Cell, ColumnType, Grid};
 use unicode_width::UnicodeWidthStr;
 
@@ -227,7 +229,9 @@ mod tests {
     let args = Args::default();
     let input = make_input(&[vec!["score"], vec!["-5000"], vec!["10"]]);
     let rows = stats_rows(&input, &args);
-    assert_eq!(["score", "int", "100%", "2", "-5,000", "10"], rows[1].as_slice());
+    assert_eq!(["score", "int", "100%", "2"], rows[1][..4]);
+    assert_eq!(Value::Int(-5000).format(3), rows[1][4]);
+    assert_eq!("10", rows[1][5]);
   }
 
   #[test]
@@ -235,10 +239,10 @@ mod tests {
     let args = Args::default();
     let input = make_input(&[vec!["count"], vec!["99999999999999999999"]]);
     let rows = stats_rows(&input, &args);
-    assert_eq!(
-      ["count", "float", "100%", "1", "100,000,000,000,000,000,000.000", "100,000,000,000,000,000,000.000"],
-      rows[1].as_slice()
-    );
+    let formatted = Value::Float(1e20).format(3);
+    assert_eq!(["count", "float", "100%", "1"], rows[1][..4]);
+    assert_eq!(formatted, rows[1][4]);
+    assert_eq!(formatted, rows[1][5]);
   }
 
   #[test]

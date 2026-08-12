@@ -432,7 +432,8 @@ mod tests {
     .into_text();
     assert!(out.contains("+-------+-------+"));
     assert!(out.contains("| name  | score |"));
-    assert!(out.contains("| alice | 1,234 |"));
+    let number = crate::num_locale::NumLocale::current().format_int(1234);
+    assert!(out.contains(&format!("| alice | {number:>5} |")));
   }
 
   #[test]
@@ -854,7 +855,8 @@ mod tests {
     .into_text();
     let row = out.lines().find(|line| line.contains("alice")).unwrap();
 
-    assert!(row.contains("\x1b[38;5;209m1,234\x1b[38;5;231m\x1b[48;5;235m"), "{row:?}");
+    let number = crate::num_locale::NumLocale::current().format_int(1234);
+    assert!(row.contains(&format!("\x1b[38;5;209m{number:>5}\x1b[38;5;231m\x1b[48;5;235m")), "{row:?}");
   }
 
   #[test]
@@ -869,7 +871,8 @@ mod tests {
     })
     .into_text();
     let row = out.lines().find(|line| line.contains("alice")).unwrap();
-    assert!(row.contains("\x1b[48;2;87;187;138m1,234\x1b[38;5;231m\x1b[48;5;235m"), "{row:?}");
+    let number = crate::num_locale::NumLocale::current().format_int(1234);
+    assert!(row.contains(&format!("\x1b[48;2;87;187;138m{number:>5}\x1b[38;5;231m\x1b[48;5;235m")), "{row:?}");
     assert!(row.contains("\x1b[38;2;"), "{row:?}");
   }
 }

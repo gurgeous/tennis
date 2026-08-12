@@ -82,6 +82,13 @@ run_tty() {
 }
 
 # bats test_tags=skipwin
+@test "numeric locale" {
+  run bash -lc "printf 'n\n1234.5\n' | LC_ALL=de_DE.UTF-8 '$BIN' --color=off --width 80"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"1.234,500"* ]]
+}
+
+# bats test_tags=skipwin
 @test "tty width" {
   run_tty "stty rows 24 cols 37; printf 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,bbbbbbbbbbbbbbbbbbbb,cccccccccc\nx,y,z\n' | '$BIN' --color=off"
   [ "$status" -eq 0 ]
@@ -121,7 +128,8 @@ run_tty() {
 
 @test "delims" {
   # file
-  run_ok --color=off --width 80 "$ROOT/tests/semicolon.csv"
+  run "$BIN" --color=off --width 80 "$ROOT/tests/semicolon.csv"
+  [ "$status" -eq 0 ]
   [[ "$output" == *"alice"* ]]
   [[ "$output" == *"1,234"* ]]
   [[ "$output" == *"denver"* ]]
@@ -162,7 +170,8 @@ run_tty() {
   [[ "$output" == *"{\"ok\":true}"* ]]
 
   # ndjson
-  run_ok --color=off --width 80 --head 2 "$ROOT/tests/test.ndjson"
+  run "$BIN" --color=off --width 80 --head 2 "$ROOT/tests/test.ndjson"
+  [ "$status" -eq 0 ]
   [[ "$output" == *"alice"* ]]
   [[ "$output" == *"1,234"* ]]
   [[ "$output" == *"bob"* ]]
