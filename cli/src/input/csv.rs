@@ -1,4 +1,4 @@
-use tennis::Grid;
+use tennis::{Cell, Grid};
 
 use crate::error::{Error, Result};
 
@@ -10,20 +10,20 @@ use crate::error::{Error, Result};
 pub fn load(bytes: &[u8], delimiter: u8) -> Result<Grid> {
   // read csv
   let mut reader = csv::ReaderBuilder::new().has_headers(false).delimiter(delimiter).from_reader(bytes);
-  let mut rows: Vec<Vec<String>> = Vec::new();
-  for row in reader.byte_records() {
-    let row = row.map_err(csv_error)?;
-    rows.push(row.iter().map(|f| String::from_utf8_lossy(f).into_owned()).collect());
-  }
-
-  // empty?
-  if rows.is_empty() {
+  let mut records = reader.byte_records();
+  let Some(headers) = records.next() else {
     return Ok(Grid::new(Vec::new(), Vec::new()).expect("empty grid is rectangular"));
+  };
+  let headers = csv::StringRecord::from_byte_record_lossy(headers.map_err(csv_error)?);
+  let headers = headers.iter().map(str::to_owned).collect();
+
+  let mut rows = Vec::new();
+  for row in records {
+    let row = csv::StringRecord::from_byte_record_lossy(row.map_err(csv_error)?);
+    rows.push(row.iter().map(Cell::from).collect());
   }
 
-  // => grid
-  let headers = rows.remove(0);
-  Ok(Grid::new(headers, rows).expect("csv reader rejects jagged rows"))
+  Ok(Grid::from_cells(headers, rows).expect("csv reader rejects jagged rows"))
 }
 
 fn csv_error(error: csv::Error) -> Error {

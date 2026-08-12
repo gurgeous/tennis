@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use crate::number;
+use crate::{Cell, Value};
 
 /// What kind of column is this?
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -73,12 +73,8 @@ const TEXT_HEADERS: &[&str] = &[
 // infer
 //
 
-pub(crate) fn infer_column_type<'a>(
-  header: &str,
-  cells: impl IntoIterator<Item = &'a str>,
-  vanilla: bool,
-) -> ColumnType {
-  if vanilla || header_forces_text(header) {
+pub(crate) fn infer_column_type<'a>(header: &str, cells: impl IntoIterator<Item = &'a Cell>) -> ColumnType {
+  if header_forces_text(header) {
     return ColumnType::String;
   }
 
@@ -86,18 +82,12 @@ pub(crate) fn infer_column_type<'a>(
   let mut ints = false;
   let mut percents = false;
 
-  for value in cells {
-    if value.is_empty() {
-      continue;
-    }
-    if number::is_int(value) {
-      ints = true;
-    } else if number::is_float(value) {
-      floats = true;
-    } else if number::is_percent(value) {
-      percents = true;
-    } else {
-      return ColumnType::String;
+  for cell in cells.into_iter().filter(|cell| !cell.is_empty()) {
+    match cell.value() {
+      Some(Value::Int(_)) => ints = true,
+      Some(Value::Float(_)) => floats = true,
+      Some(Value::Percent(_)) => percents = true,
+      None => return ColumnType::String,
     }
   }
 
@@ -123,7 +113,8 @@ mod tests {
   use super::*;
 
   fn infer(header: &str, values: &[&str]) -> ColumnType {
-    infer_column_type(header, values.iter().copied(), false)
+    let cells = values.iter().map(|value| Cell::from(*value)).collect::<Vec<_>>();
+    infer_column_type(header, &cells)
   }
 
   #[test]
@@ -138,11 +129,6 @@ mod tests {
     ] {
       assert_eq!(want, infer(header, values), "{header}");
     }
-  }
-
-  #[test]
-  fn test_vanilla_forces_string() {
-    assert_eq!(ColumnType::String, infer_column_type("score", ["1234"], true));
   }
 
   #[test]
@@ -163,13 +149,15 @@ mod tests {
   fn test_infer_type_checks_whole_column() {
     let mut cells = vec!["1234"; 200];
     cells[50] = "later-text";
-    assert_eq!(ColumnType::String, infer_column_type("score", cells, false));
+    let cells = cells.into_iter().map(Cell::from).collect::<Vec<_>>();
+    assert_eq!(ColumnType::String, infer_column_type("score", &cells));
   }
 
   #[test]
   fn test_infer_type_late_float_promotes_int_to_float() {
     let mut cells = vec!["28"; 200];
     cells[50] = "28.5";
-    assert_eq!(ColumnType::Float, infer_column_type("age", cells, false));
+    let cells = cells.into_iter().map(Cell::from).collect::<Vec<_>>();
+    assert_eq!(ColumnType::Float, infer_column_type("age", &cells));
   }
 }

@@ -98,6 +98,12 @@ coverage:
     cargo llvm-cov --all-targets --all-features --workspace --html --output-dir tmp/coverage
   just banner "✓ coverage -> tmp/coverage/html/index.html ✓"
 
+callgrind *ARGS: (build "--release --config profile.release.debug=1")
+  bin/gen-bench 50000
+  valgrind --tool=callgrind --callgrind-out-file=tmp/callgrind.out \
+    target/release/tennis --color=on --width 120 {{ARGS}} tmp/bench.csv > /dev/null
+  callgrind_annotate --auto=no --threshold=75 tmp/callgrind.out
+
 derive:
   just banner "derive..."
   cargo run --quiet -p tennis --example derive
@@ -106,7 +112,7 @@ instrument: build-release
   just banner "gen-bench..."
   gen-bench 1000000 # 1M is good for instrumentation, which runs once
   just banner "instrument..."
-  TENNIS_VERBOSE=1 FORCE_COLOR=1 ./target/release/tennis tmp/bench.csv > /dev/null
+  TENNIS_VERBOSE=1 ./target/release/tennis --color=on tmp/bench.csv > /dev/null
 
 man: gen
   man -l extra/tennis.1

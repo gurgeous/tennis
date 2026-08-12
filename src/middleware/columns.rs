@@ -9,7 +9,7 @@ pub(crate) fn run(ctx: &mut Context<'_>) {
   if ctx.options.row_numbers {
     columns.insert(0, Column::row_number());
     for (ii, row) in ctx.grid.rows.iter_mut().enumerate() {
-      row.insert(0, (ii + 1).to_string());
+      row.insert(0, (ii + 1).to_string().into());
     }
   }
 
@@ -34,7 +34,7 @@ mod tests {
     Table::builder().load_grid(Grid::new(headers.into_cells(), rows).expect("valid grid")).build().expect("valid table")
   }
 
-  fn columns(mut table: Table, f: impl FnOnce(&mut Resolved)) -> (Vec<Column>, Vec<Vec<String>>) {
+  fn columns(mut table: Table, f: impl FnOnce(&mut Resolved)) -> (Vec<Column>, Vec<Vec<crate::Cell>>) {
     f(&mut table.options);
     table.options.color = crate::ColorMode::Off;
     let mut out = Vec::new();

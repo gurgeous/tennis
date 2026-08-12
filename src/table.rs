@@ -15,7 +15,7 @@ use crate::{
   resolved::Resolved,
 };
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Table {
   pub(crate) grid: Grid,
   pub(crate) options: Resolved,
@@ -37,7 +37,7 @@ impl Table {
   }
 
   #[cfg(test)]
-  pub(crate) fn rows(&self) -> &[Vec<String>] {
+  pub(crate) fn rows(&self) -> &[Vec<crate::Cell>] {
     self.grid.rows()
   }
 

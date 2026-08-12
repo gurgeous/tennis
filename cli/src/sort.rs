@@ -1,9 +1,9 @@
 use std::cmp::Ordering;
 
-use tennis::{ColumnType, Grid};
+use tennis::{Cell, ColumnType, Grid};
 
 //
-// Natural sort
+// Natural comparison
 //
 // See: https://github.com/sourcefrog/natsort
 //
@@ -25,7 +25,7 @@ pub struct SortKey {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum SortKind {
   Natural,
-  Numeric(ColumnType),
+  Numeric,
 }
 
 // Plan sort columns once so numeric-vs-text behavior cannot vary by row pair.
@@ -34,9 +34,9 @@ pub fn sort_keys(grid: &Grid, names: &[String]) -> tennis::Result<Vec<SortKey>> 
     .iter()
     .map(|name| {
       let index = grid.position(name)?;
-      let kind = match grid.column_type(index, false) {
+      let kind = match grid.column_type(index) {
         ColumnType::String => SortKind::Natural,
-        ty => SortKind::Numeric(ty),
+        ColumnType::Int | ColumnType::Float | ColumnType::Percent => SortKind::Numeric,
       };
       Ok(SortKey { index, kind })
     })
@@ -44,7 +44,7 @@ pub fn sort_keys(grid: &Grid, names: &[String]) -> tennis::Result<Vec<SortKey>> 
 }
 
 // Compare rows by planned keys, using later keys only when earlier ones tie.
-pub fn compare_rows(a: &[String], b: &[String], keys: &[SortKey], reverse: bool) -> Ordering {
+pub fn compare_rows(a: &[Cell], b: &[Cell], keys: &[SortKey], reverse: bool) -> Ordering {
   for key in keys {
     let ordering = compare_cells(&a[key.index], &b[key.index], key.kind, reverse);
     if ordering != Ordering::Equal {
@@ -55,7 +55,7 @@ pub fn compare_rows(a: &[String], b: &[String], keys: &[SortKey], reverse: bool)
 }
 
 // Keep blanks at the bottom for both ascending and descending sorts.
-fn compare_cells(a: &str, b: &str, kind: SortKind, reverse: bool) -> Ordering {
+fn compare_cells(a: &Cell, b: &Cell, kind: SortKind, reverse: bool) -> Ordering {
   match (a.is_empty(), b.is_empty()) {
     (true, true) => return Ordering::Equal,
     (true, false) => return Ordering::Greater,
@@ -65,21 +65,11 @@ fn compare_cells(a: &str, b: &str, kind: SortKind, reverse: bool) -> Ordering {
 
   let ordering = match kind {
     SortKind::Natural => natcmp(a, b),
-    SortKind::Numeric(ty) => numeric_cmp(a, b, ty),
+    SortKind::Numeric => {
+      a.value().zip(b.value()).map(|(a, b)| a.cmp_same_type(*b)).expect("numeric columns contain numeric values")
+    }
   };
   if reverse { ordering.reverse() } else { ordering }
-}
-
-// Numeric columns use f64 ordering; column inference keeps mixed text out.
-fn numeric_cmp(a: &str, b: &str, ty: ColumnType) -> Ordering {
-  let a = parse_sort_number(a, ty).expect("sort inference guarantees numeric cells");
-  let b = parse_sort_number(b, ty).expect("sort inference guarantees numeric cells");
-  a.total_cmp(&b)
-}
-
-fn parse_sort_number(input: &str, ty: ColumnType) -> Option<f64> {
-  let input = if ty == ColumnType::Percent { input.strip_suffix('%')? } else { input };
-  input.parse().ok()
 }
 
 #[cfg(test)]
@@ -147,26 +137,23 @@ mod tests {
 
   #[test]
   fn test_compare_cells_keeps_blanks_at_bottom() {
-    let kind = SortKind::Numeric(ColumnType::Int);
-    assert_eq!(Ordering::Greater, compare_cells("", "2", kind, false));
-    assert_eq!(Ordering::Greater, compare_cells("", "2", kind, true));
-    assert_eq!(Ordering::Less, compare_cells("1", "2", kind, false));
-    assert_eq!(Ordering::Greater, compare_cells("1", "2", kind, true));
+    let kind = SortKind::Numeric;
+    assert_eq!(Ordering::Greater, compare_cells(&Cell::from(""), &Cell::from("2"), kind, false));
+    assert_eq!(Ordering::Greater, compare_cells(&Cell::from(""), &Cell::from("2"), kind, true));
+    assert_eq!(Ordering::Less, compare_cells(&Cell::from("1"), &Cell::from("2"), kind, false));
+    assert_eq!(Ordering::Greater, compare_cells(&Cell::from("1"), &Cell::from("2"), kind, true));
   }
 
   #[test]
-  fn test_parse_sort_number() {
-    assert_eq!(Some(-10.0), parse_sort_number("-10", ColumnType::Int));
-    assert_eq!(Some(0.21), parse_sort_number("0.21", ColumnType::Float));
-    assert_eq!(Some(-3.5), parse_sort_number("-3.5%", ColumnType::Percent));
-    assert_eq!(None, parse_sort_number("-3.5%", ColumnType::Float));
+  fn test_compare_cells_percent() {
+    assert_eq!(Ordering::Less, compare_cells(&Cell::from("-3.5%"), &Cell::from("12%"), SortKind::Numeric, false));
   }
 
   #[test]
   fn test_compare_rows_continues_after_matching_blank_keys() {
     let keys = [SortKey { index: 0, kind: SortKind::Natural }, SortKey { index: 1, kind: SortKind::Natural }];
-    let a = vec!["".to_owned(), "a".to_owned()];
-    let b = vec!["".to_owned(), "b".to_owned()];
+    let a = vec![Cell::from(""), Cell::from("a")];
+    let b = vec![Cell::from(""), Cell::from("b")];
     assert_eq!(Ordering::Less, compare_rows(&a, &b, &keys, false));
   }
 }

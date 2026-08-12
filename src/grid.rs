@@ -5,44 +5,70 @@ use std::{borrow::Cow, cmp::Ordering};
 use rand::seq::SliceRandom;
 
 use crate::{
+  Cell,
   builder::{Error, Result},
   infer::{self, ColumnType},
   util,
 };
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Grid {
   pub(crate) headers: Vec<String>,
-  pub(crate) rows: Vec<Vec<String>>,
+  pub(crate) rows: Vec<Vec<Cell>>,
+  pub(crate) types: Vec<ColumnType>,
 }
 
 impl Grid {
   /// Builds a rectangular grid, trimming ASCII whitespace and collapsing
   /// internal whitespace runs in every header and cell.
-  pub fn new(mut headers: Vec<String>, mut rows: Vec<Vec<String>>) -> Result<Self> {
+  pub fn new(headers: Vec<String>, rows: Vec<Vec<String>>) -> Result<Self> {
+    let rows = rows.into_iter().map(|row| row.into_iter().map(Cell::from).collect()).collect();
+    Self::from_cells(headers, rows)
+  }
+
+  /// Builds a rectangular grid from cells.
+  pub fn from_cells(mut headers: Vec<String>, mut rows: Vec<Vec<Cell>>) -> Result<Self> {
     if let Some(row) = rows.iter().find(|row| row.len() != headers.len()) {
       return Err(Error::Jagged { expected: headers.len(), actual: row.len() });
     }
 
-    for cell in headers.iter_mut().chain(rows.iter_mut().flatten()) {
-      if let Cow::Owned(clean) = util::squish(cell) {
-        *cell = clean;
+    for header in &mut headers {
+      if let Cow::Owned(clean) = util::squish(header) {
+        *header = clean;
+      }
+    }
+    for cell in rows.iter_mut().flatten() {
+      cell.squish();
+    }
+
+    let types = (0..headers.len())
+      .map(|index| infer::infer_column_type(&headers[index], rows.iter().map(|row| &row[index])))
+      .collect::<Vec<_>>();
+
+    for (index, ty) in types.iter().enumerate() {
+      for row in &mut rows {
+        match ty {
+          ColumnType::String => row[index].convert_to_text(),
+          ColumnType::Float => row[index].convert_to_float(),
+          ColumnType::Int | ColumnType::Percent => {}
+        }
       }
     }
 
-    Ok(Self::from_parts(headers, rows))
+    Ok(Self::from_parts(headers, rows, types))
   }
 
-  fn from_parts(headers: Vec<String>, rows: Vec<Vec<String>>) -> Self {
+  fn from_parts(headers: Vec<String>, rows: Vec<Vec<Cell>>, types: Vec<ColumnType>) -> Self {
     debug_assert!(rows.iter().all(|row| row.len() == headers.len()));
-    Self { headers, rows }
+    debug_assert_eq!(headers.len(), types.len());
+    Self { headers, rows, types }
   }
 
   pub fn headers(&self) -> &[String] {
     &self.headers
   }
 
-  pub fn rows(&self) -> &[Vec<String>] {
+  pub fn rows(&self) -> &[Vec<Cell>] {
     &self.rows
   }
 
@@ -50,15 +76,13 @@ impl Grid {
     self.rows.is_empty()
   }
 
-  /// Infers the display type for one column.
+  /// Returns the frozen display type for one column.
   ///
   /// # Panics
   ///
   /// Panics if `index` is outside the grid's columns.
-  pub fn column_type(&self, index: usize, vanilla: bool) -> ColumnType {
-    let header = &self.headers[index];
-    let cells = self.rows.iter().map(|row| row[index].as_str());
-    infer::infer_column_type(header, cells, vanilla)
+  pub fn column_type(&self, index: usize) -> ColumnType {
+    self.types[index]
   }
 
   pub fn position(&self, name: &str) -> Result<usize> {
@@ -81,7 +105,9 @@ impl Grid {
   pub fn select(self, names: &[String]) -> Result<Self> {
     let positions = self.positions(names)?;
     let project = |source: &[String]| positions.iter().map(|&i| source[i].clone()).collect();
-    Ok(Self::from_parts(project(&self.headers), self.rows.iter().map(|r| project(r)).collect()))
+    let project_cells = |source: &[Cell]| positions.iter().map(|&i| source[i].clone()).collect();
+    let types = positions.iter().map(|&index| self.types[index]).collect();
+    Ok(Self::from_parts(project(&self.headers), self.rows.iter().map(|row| project_cells(row)).collect(), types))
   }
 
   /// Remove the columns with the given names.
@@ -101,13 +127,13 @@ impl Grid {
   //
 
   /// Keep only rows for which `predicate` returns true.
-  pub fn filter(mut self, mut pred: impl FnMut(&[String]) -> bool) -> Self {
+  pub fn filter(mut self, mut pred: impl FnMut(&[Cell]) -> bool) -> Self {
     self.rows.retain(|row| pred(row));
     self
   }
 
   /// Sort rows using the given comparator.
-  pub fn sort_by(mut self, mut cmp: impl FnMut(&[String], &[String]) -> Ordering) -> Self {
+  pub fn sort_by(mut self, mut cmp: impl FnMut(&[Cell], &[Cell]) -> Ordering) -> Self {
     self.rows.sort_by(|a, b| cmp(a, b));
     self
   }
@@ -185,8 +211,52 @@ mod tests {
   #[test]
   fn test_column_type() {
     let grid = Grid::new(vec!["score".to_owned()], vec![vec!["2".to_owned()], vec!["10.5".to_owned()]]).unwrap();
-    assert_eq!(ColumnType::Float, grid.column_type(0, false));
-    assert_eq!(ColumnType::String, grid.column_type(0, true));
+    assert_eq!(ColumnType::Float, grid.column_type(0));
+    assert_eq!(Some(&crate::Value::Float(2.0)), grid.rows()[0][0].value());
+    assert_eq!(Some(&crate::Value::Float(10.5)), grid.rows()[1][0].value());
+  }
+
+  #[test]
+  fn test_column_values() {
+    let grid = Grid::new(
+      ["int", "percent", "mixed", "zip", "empty", "huge"].map(str::to_owned).to_vec(),
+      vec![
+        ["2", "12%", "3", "02134", "", "99999999999999999999"].map(str::to_owned).to_vec(),
+        ["", "-3.5%", "text", "90210", "", "1"].map(str::to_owned).to_vec(),
+      ],
+    )
+    .unwrap();
+
+    assert_eq!(
+      [
+        ColumnType::Int,
+        ColumnType::Percent,
+        ColumnType::String,
+        ColumnType::String,
+        ColumnType::String,
+        ColumnType::Float
+      ],
+      grid.types.as_slice()
+    );
+    assert_eq!(Some(&crate::Value::Int(2)), grid.rows[0][0].value());
+    assert_eq!(None, grid.rows[1][0].value());
+    assert_eq!(Some(&crate::Value::Percent(12.0)), grid.rows[0][1].value());
+    assert_eq!(None, grid.rows[0][2].value());
+    assert_eq!(None, grid.rows[0][3].value());
+    assert!(matches!(grid.rows[0][5].value(), Some(crate::Value::Float(_))));
+    assert_eq!(Some(&crate::Value::Float(1.0)), grid.rows[1][5].value());
+  }
+
+  #[test]
+  fn test_column_types_are_frozen() {
+    let grid = Grid::new(vec!["score".to_owned()], vec![vec!["1".to_owned()], vec!["text".to_owned()]])
+      .unwrap()
+      .filter(|row| row[0] == "1");
+    assert_eq!(ColumnType::String, grid.column_type(0));
+    assert_eq!(None, grid.rows[0][0].value());
+
+    let empty = abc().head(0);
+    assert_eq!(ColumnType::Int, empty.column_type(1));
   }
 
   #[test]
@@ -219,6 +289,7 @@ mod tests {
   fn test_select() {
     let grid = abc().select(&["score".to_owned(), "name".to_owned()]).unwrap();
     assert_eq!(["score", "name"], grid.headers());
+    assert_eq!([ColumnType::Int, ColumnType::String], grid.types.as_slice());
     assert_eq!(["10", "bob"], grid.rows()[0].as_slice());
   }
 

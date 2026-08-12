@@ -24,7 +24,8 @@ pub(crate) fn run(ctx: &mut Context<'_>) {
         // this check saves a copy and dramatically speeds up the common case
         continue;
       }
-      row[c] = util::truncate(text, nice);
+      let truncated = util::truncate(text, nice);
+      row[c].set_text(truncated);
     }
   }
 }
@@ -48,7 +49,7 @@ mod tests {
     Table::builder().load_grid(Grid::new(headers.into_cells(), rows).expect("valid grid")).build().expect("valid table")
   }
 
-  fn truncated(mut table: Table, f: impl FnOnce(&mut Resolved)) -> (Vec<String>, Vec<Vec<String>>) {
+  fn truncated(mut table: Table, f: impl FnOnce(&mut Resolved)) -> (Vec<String>, Vec<Vec<crate::Cell>>) {
     f(&mut table.options);
     table.options.color = crate::ColorMode::Off;
     let mut out = Vec::new();

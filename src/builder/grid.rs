@@ -2,7 +2,7 @@
 
 use std::collections::BTreeSet;
 
-use serde_json::Value;
+use serde_json::Value as JsonValue;
 
 use crate::{
   builder::{Error, Result, into_json},
@@ -22,7 +22,7 @@ pub(crate) fn from_maps(maps: Vec<Vec<(String, String)>>) -> Result<Grid> {
   from_key_values(maps, lookup_string)
 }
 
-pub(crate) fn from_json(maps: Vec<Vec<(String, Value)>>) -> Result<Grid> {
+pub(crate) fn from_json(maps: Vec<Vec<(String, JsonValue)>>) -> Result<Grid> {
   from_key_values(maps, into_json::lookup)
 }
 
