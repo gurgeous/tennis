@@ -2,7 +2,10 @@
 
 use anstyle::{Ansi256Color, Color as AnsiColor, RgbColor};
 
-use crate::resolved::{Resolved, ResolvedTheme};
+use crate::{
+  ansi256::Ansi256,
+  resolved::{Resolved, ResolvedTheme},
+};
 
 pub(crate) const RESET: &str = "\x1b[0m";
 pub(crate) const BOLD: &str = "\x1b[1m";
@@ -39,31 +42,45 @@ impl Theme {
   /// dark theme
   fn dark(termbg: Option<RgbColor>) -> Self {
     Self {
-      chrome: fg(243),
-      cell: fg(254),
-      zebra: fg(231),
-      zebra_bg: zebra_bg(termbg, RgbColor(255, 255, 255), DARK_ZEBRA_BLEND, 235),
-      title: fg(75),
-      headers: vec![fg(204), fg(209), fg(221), fg(150), fg(116), fg(147)],
+      chrome: fg(Ansi256::Gray12),
+      cell: fg(Ansi256::Gray23),
+      zebra: fg(Ansi256::White),
+      zebra_bg: zebra_bg(termbg, RgbColor(255, 255, 255), DARK_ZEBRA_BLEND, Ansi256::Gray4),
+      title: fg(Ansi256::Bluejeans),
+      headers: vec![
+        fg(Ansi256::Strawberry),
+        fg(Ansi256::Coral),
+        fg(Ansi256::Lightgoldenrod),
+        fg(Ansi256::Wasabi),
+        fg(Ansi256::Skyblue),
+        fg(Ansi256::Melrose),
+      ],
     }
   }
 
   /// light theme
   fn light(termbg: Option<RgbColor>) -> Self {
     Self {
-      chrome: fg(243),
-      cell: fg(235),
-      zebra: fg(16),
-      zebra_bg: zebra_bg(termbg, RgbColor(0, 0, 0), LIGHT_ZEBRA_BLEND, 254),
-      title: fg(26),
-      headers: vec![fg(203), fg(173), fg(179), fg(107), fg(74), fg(104)],
+      chrome: fg(Ansi256::Gray12),
+      cell: fg(Ansi256::Gray4),
+      zebra: fg(Ansi256::Black),
+      zebra_bg: zebra_bg(termbg, RgbColor(0, 0, 0), LIGHT_ZEBRA_BLEND, Ansi256::Gray23),
+      title: fg(Ansi256::Royalblue),
+      headers: vec![
+        fg(Ansi256::Tomato),
+        fg(Ansi256::Coppertan),
+        fg(Ansi256::Equator),
+        fg(Ansi256::Asparagus),
+        fg(Ansi256::Flyway),
+        fg(Ansi256::Ube),
+      ],
     }
   }
 }
 
 // helper for getting fg escape codes
-fn fg(color: impl Into<AnsiColor>) -> String {
-  anstyle::Style::new().fg_color(Some(color.into())).render().to_string()
+fn fg(color: Ansi256) -> String {
+  anstyle::Style::new().fg_color(Some(Ansi256Color(color.index()).into())).render().to_string()
 }
 
 // helper for getting bg escape codes
@@ -82,10 +99,10 @@ fn lerp(from: u8, toward: u8, amount: f64) -> u8 {
 }
 
 // calculate zebra_bg from term background, use fallback if we don't know the term bg
-fn zebra_bg(termbg: Option<RgbColor>, toward: RgbColor, amount: f64, fallback: u8) -> String {
+fn zebra_bg(termbg: Option<RgbColor>, toward: RgbColor, amount: f64, fallback: Ansi256) -> String {
   let color = match termbg {
     Some(termbg) => AnsiColor::Rgb(blend_rgb(termbg, toward, amount)),
-    None => AnsiColor::Ansi256(Ansi256Color(fallback)),
+    None => AnsiColor::Ansi256(Ansi256Color(fallback.index())),
   };
   bg(color)
 }

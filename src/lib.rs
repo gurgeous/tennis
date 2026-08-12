@@ -2,6 +2,7 @@
 
 extern crate self as tennis;
 
+mod ansi256;
 mod border;
 mod builder;
 mod cell;
