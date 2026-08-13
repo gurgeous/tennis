@@ -365,7 +365,7 @@ mod tests {
 
   use super::*;
   use crate::{
-    Border, ColorScale, ColumnBig, Grid, ResolvedOptions, ResolvedTheme, ResolvedWidth,
+    Border, ColorMode, ColorScale, ColumnBig, Grid, ResolvedOptions, ResolvedTheme, ResolvedWidth,
     middleware::MIDDLEWARE,
     num_locale::NumLocale,
     render::{self, test_grid, test_options},
@@ -408,7 +408,7 @@ mod tests {
   fn test_render_streams_lines() {
     let grid = table(["name"], [["alice"]]);
     let mut options = test_options();
-    options.color = false;
+    options.color = ColorMode::Off;
     options.width = ResolvedWidth::Fixed(80);
     let mut writer = LineWriter::default();
     let mut ctx = Context::new(grid, options, &mut writer);
@@ -424,7 +424,7 @@ mod tests {
   fn test_render_basic() {
     let out = rendered(table(["name", "score"], [["alice", "1234"]]), |options| {
       options.border = Border::Basic;
-      options.color = false;
+      options.color = ColorMode::Off;
       options.width = ResolvedWidth::Fixed(80);
     });
     assert!(out.contains("+-------+-------+"));
@@ -437,7 +437,7 @@ mod tests {
   fn test_render_colored_rule_has_single_chrome_prefix() {
     let out = rendered(table(["a", "b"], [["1", "2"]]), |options| {
       options.border = Border::Basic;
-      options.color = true;
+      options.color = ColorMode::On;
       options.theme = ResolvedTheme::Dark;
       options.width = ResolvedWidth::Fixed(80);
     });
@@ -449,7 +449,7 @@ mod tests {
   #[test]
   fn test_render_placeholder_uses_chrome_paint() {
     let out = rendered(table(["name", "score"], [["alice", ""]]), |options| {
-      options.color = true;
+      options.color = ColorMode::On;
       options.theme = ResolvedTheme::Dark;
       options.width = ResolvedWidth::Fixed(80);
     });
@@ -460,7 +460,7 @@ mod tests {
   #[test]
   fn test_render_color_scale_uses_cell_paint() {
     let out = rendered(table(["service", "latency_ms"], [["api", "37"], ["worker", "950"]]), |options| {
-      options.color = true;
+      options.color = ColorMode::On;
       options.theme = ResolvedTheme::Dark;
       options.width = ResolvedWidth::Fixed(80);
       options.color_scales.push(("latency_ms".to_owned(), ColorScale::GreenRed));
@@ -472,7 +472,7 @@ mod tests {
   #[test]
   fn test_render_footer() {
     let out = rendered(table(["name"], [["alice"]]), |options| {
-      options.color = false;
+      options.color = ColorMode::Off;
       options.width = ResolvedWidth::Fixed(80);
       options.footer = Some("done".into());
     });
@@ -482,7 +482,7 @@ mod tests {
   #[test]
   fn test_render_markdown_link_uses_label_when_color_is_off() {
     let out = rendered(table(["site"], [["[search](https://google.com)"]]), |options| {
-      options.color = false;
+      options.color = ColorMode::Off;
       options.width = ResolvedWidth::Fixed(80);
     });
 
@@ -494,7 +494,7 @@ mod tests {
   #[test]
   fn test_render_markdown_link_as_osc8_when_color_is_on() {
     let out = rendered(table(["site"], [["[search](https://google.com)"]]), |options| {
-      options.color = true;
+      options.color = ColorMode::On;
       options.theme = ResolvedTheme::Dark;
       options.width = ResolvedWidth::Fixed(80);
     });
@@ -506,7 +506,7 @@ mod tests {
   #[test]
   fn test_render_markdown_link_truncates_visible_label() {
     let out = rendered(table(["site"], [["[verylonglabel](https://google.com)"]]), |options| {
-      options.color = true;
+      options.color = ColorMode::On;
       options.theme = ResolvedTheme::Dark;
       options.width = ResolvedWidth::Fixed(8);
     });
@@ -517,7 +517,7 @@ mod tests {
   #[test]
   fn test_render_malformed_markdown_link_stays_raw() {
     let out = rendered(table(["site"], [["[search](ftp://example.com)"]]), |options| {
-      options.color = true;
+      options.color = ColorMode::On;
       options.theme = ResolvedTheme::Dark;
       options.width = ResolvedWidth::Fixed(80);
     });
@@ -530,7 +530,7 @@ mod tests {
   fn test_render_title_light_border() {
     let out = rendered(table(["a", "b"], [["1", "2"]]), |options| {
       options.border = Border::Light;
-      options.color = false;
+      options.color = ColorMode::Off;
       options.title = Some("foo".into());
       options.width = ResolvedWidth::Fixed(80);
     });
@@ -541,7 +541,7 @@ mod tests {
   fn test_render_light_border_width_invariant() {
     let out = rendered(table(["a", "b"], [["1", "2"], ["3", "4"]]), |options| {
       options.border = Border::Light;
-      options.color = false;
+      options.color = ColorMode::Off;
       options.row_numbers = true;
       options.title = Some("foo".into());
       options.footer = Some("done".into());
@@ -571,7 +571,7 @@ mod tests {
   fn test_render_empty_color_resets_chrome() {
     let out = rendered(table(["name"], [] as [[&str; 1]; 0]), |options| {
       options.border = Border::Basic;
-      options.color = true;
+      options.color = ColorMode::On;
       options.theme = ResolvedTheme::Dark;
       options.width = ResolvedWidth::Fixed(80);
     });
@@ -582,7 +582,7 @@ mod tests {
   #[test]
   fn test_render_row_numbers() {
     let out = rendered(table(["name"], [["alice"]]), |options| {
-      options.color = false;
+      options.color = ColorMode::Off;
       options.row_numbers = true;
       options.width = ResolvedWidth::Fixed(80);
     });
@@ -594,7 +594,7 @@ mod tests {
   fn test_render_row_numbers_multiple_digits() {
     let rows = (0..14).map(|index| [format!("{index:.3}")]).collect::<Vec<_>>();
     let out = rendered(table(["carat"], rows), |options| {
-      options.color = false;
+      options.color = ColorMode::Off;
       options.row_numbers = true;
       options.width = ResolvedWidth::Fixed(80);
     });
@@ -607,7 +607,7 @@ mod tests {
   #[test]
   fn test_render_truncates() {
     let out = rendered(table(["name"], [["abcdef"]]), |options| {
-      options.color = false;
+      options.color = ColorMode::Off;
       options.width = ResolvedWidth::Fixed(8);
     });
     assert!(out.contains("…"));
@@ -616,7 +616,7 @@ mod tests {
   #[test]
   fn test_render_sanitizes_cell_controls() {
     let out = rendered(table(["name"], [["a\tb\nc"]]), |options| {
-      options.color = false;
+      options.color = ColorMode::Off;
       options.width = ResolvedWidth::Fixed(80);
     });
     assert!(out.contains("a b c"));
@@ -628,7 +628,7 @@ mod tests {
     let out = rendered(
       table(["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "bbbbbbbbbbbbbbbbbbbb", "cccccccccc"], [["x", "y", "z"]]),
       |options| {
-        options.color = false;
+        options.color = ColorMode::Off;
         options.width = ResolvedWidth::Fixed(37);
       },
     );
@@ -651,7 +651,7 @@ mod tests {
         ],
       ),
       |options| {
-        options.color = false;
+        options.color = ColorMode::Off;
         options.width = ResolvedWidth::Fixed(40);
       },
     );
@@ -676,7 +676,7 @@ mod tests {
         ],
       ),
       |options| {
-        options.color = false;
+        options.color = ColorMode::Off;
         options.width = ResolvedWidth::Fixed(80);
       },
     );
@@ -694,28 +694,28 @@ mod tests {
     let headers = ["carat", "cut", "color", "clarity", "depth", "table", "price", "x", "y", "z"];
 
     let default = rendered(table(headers, rows), |options| {
-      options.color = false;
+      options.color = ColorMode::Off;
       options.width = ResolvedWidth::Fixed(80);
     });
     assert!(default.contains("Ide…"), "{default}");
     assert!(!default.contains("Ideal"));
 
     let big = rendered(table(headers, rows), |options| {
-      options.color = false;
+      options.color = ColorMode::Off;
       options.width = ResolvedWidth::Fixed(80);
       options.bigs.push(("cut".to_owned(), ColumnBig::Big));
     });
     assert!(big.contains("Ideal"), "{big}");
 
     let bigger = rendered(table(headers, rows), |options| {
-      options.color = false;
+      options.color = ColorMode::Off;
       options.width = ResolvedWidth::Fixed(80);
       options.bigs.push(("cut".to_owned(), ColumnBig::Bigger));
     });
     assert!(bigger.contains("Ideal"), "{bigger}");
 
     let biggest = rendered(table(headers, rows), |options| {
-      options.color = false;
+      options.color = ColorMode::Off;
       options.width = ResolvedWidth::Fixed(80);
       options.bigs.push(("cut".to_owned(), ColumnBig::Biggest));
     });
@@ -745,7 +745,7 @@ mod tests {
         ],
       ),
       |options| {
-        options.color = true;
+        options.color = ColorMode::On;
         options.theme = ResolvedTheme::Dark;
         options.title = Some("foo".into());
         options.width = ResolvedWidth::Fixed(80);
@@ -771,7 +771,7 @@ mod tests {
   fn test_render_zebra() {
     let out = rendered(table(["name", "score"], [["alice", ""], ["bob", "5678"]]), |options| {
       options.border = Border::Basic;
-      options.color = true;
+      options.color = ColorMode::On;
       options.theme = ResolvedTheme::Dark;
       options.zebra = true;
       options.width = ResolvedWidth::Fixed(80);
@@ -787,7 +787,7 @@ mod tests {
   #[test]
   fn test_render_zebra_uses_detected_background() {
     let out = rendered(table(["name"], [["alice"], ["bob"]]), |options| {
-      options.color = true;
+      options.color = ColorMode::On;
       options.termbg = Some(anstyle::RgbColor(48, 52, 70));
       options.theme = ResolvedTheme::Dark;
       options.zebra = true;
@@ -802,7 +802,7 @@ mod tests {
   fn test_render_zebra_keeps_column_paint() {
     let out = rendered(table(["name", "score"], [["alice", "1234"], ["bob", "5678"]]), |options| {
       options.border = Border::Basic;
-      options.color = true;
+      options.color = ColorMode::On;
       options.theme = ResolvedTheme::Dark;
       options.zebra = true;
       options.width = ResolvedWidth::Fixed(80);
@@ -817,7 +817,7 @@ mod tests {
   fn test_render_zebra_restores_row_style_after_color_scale() {
     let out = rendered(table(["name", "score"], [["alice", "1234"], ["bob", "5678"]]), |options| {
       options.border = Border::Basic;
-      options.color = true;
+      options.color = ColorMode::On;
       options.theme = ResolvedTheme::Dark;
       options.zebra = true;
       options.width = ResolvedWidth::Fixed(80);

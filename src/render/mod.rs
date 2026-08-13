@@ -32,7 +32,11 @@ pub fn write<W: RawStream + AsLockedWrite + ?Sized>(
   writer: &mut W,
 ) -> io::Result<()> {
   // build context
-  let choice = if options.color { ColorChoice::Always } else { ColorChoice::Never };
+  let choice = match options.color {
+    options::ColorMode::On => ColorChoice::Always,
+    options::ColorMode::Off => ColorChoice::Never,
+    options::ColorMode::Auto => unreachable!("color was resolved before rendering"),
+  };
   let mut autostream = AutoStream::new(writer, choice);
   let mut ctx = Context::new(grid, options, &mut autostream);
 
@@ -67,7 +71,7 @@ where
 pub fn test_options() -> ResolvedOptions {
   options::RenderOptions {
     color: Some(options::ColorMode::Off),
-    theme: options::ThemeMode::Dark,
+    theme: Some(options::ThemeMode::Dark),
     width: options::WidthMode::Fixed(80),
     ..options::RenderOptions::default()
   }

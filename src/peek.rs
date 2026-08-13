@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use unicode_width::UnicodeWidthStr;
 
-use crate::{Cell, ColumnType, Grid, Result, args::Args, render, util};
+use crate::{Cell, ColumnBig, ColumnType, Grid, RenderOptions, Result, args::Args, render, util};
 #[cfg(test)]
 use crate::{Error, Value, WidthMode};
 
@@ -35,9 +35,22 @@ fn render_sample(input: &Grid, args: &Args) -> Result<String> {
     (input.rows().len() > n).then(|| format!("… {} …", util::pluralize("more row", input.rows().len() - n, true)));
 
   let grid = input.clone().head(n);
-  let mut options = args.data_render_options();
-  options.title = Some(title);
-  options.footer = footer;
+  let mut options = RenderOptions {
+    border: args.border.unwrap_or_default(),
+    color: args.color,
+    digits: args.digits.unwrap_or(3) as usize,
+    footer,
+    row_numbers: args.row_numbers,
+    theme: args.theme,
+    title: Some(title),
+    vanilla: args.vanilla,
+    width: args.width.unwrap_or_default(),
+    zebra: args.zebra,
+    ..RenderOptions::default()
+  };
+  options.bigs.extend(args.big1.iter().cloned().map(|column| (column, ColumnBig::Big)));
+  options.bigs.extend(args.big2.iter().cloned().map(|column| (column, ColumnBig::Bigger)));
+  options.bigs.extend(args.big3.iter().cloned().map(|column| (column, ColumnBig::Biggest)));
   options.validate(&grid)?;
   Ok(render::text(grid, options.resolve()))
 }
@@ -55,8 +68,16 @@ fn sample_title(input: &Grid, title: Option<&str>) -> String {
 fn render_stats(input: &Grid, args: &Args) -> Result<String> {
   let stats_rows = stats_rows(input, args);
   let grid = Grid::new(stats_rows[0].clone(), stats_rows[1..].to_vec()).expect("peek stats rows match stats headers");
-  let mut options = args.base_render_options();
-  options.title = Some("stats".to_owned());
+  let options = RenderOptions {
+    border: args.border.unwrap_or_default(),
+    color: args.color,
+    digits: args.digits.unwrap_or(3) as usize,
+    theme: args.theme,
+    title: Some("stats".to_owned()),
+    vanilla: args.vanilla,
+    width: args.width.unwrap_or_default(),
+    ..RenderOptions::default()
+  };
   Ok(render::text(grid, options.resolve()))
 }
 

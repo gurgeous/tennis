@@ -127,7 +127,8 @@ mod tests {
 
   #[test]
   fn test_theme_dark() {
-    let options = RenderOptions { color: Some(ColorMode::On), theme: ThemeMode::Dark, ..RenderOptions::default() };
+    let options =
+      RenderOptions { color: Some(ColorMode::On), theme: Some(ThemeMode::Dark), ..RenderOptions::default() };
 
     let theme = Theme::new(&options.resolve());
     assert!(theme.chrome.starts_with('\x1b'));
@@ -141,7 +142,8 @@ mod tests {
 
   #[test]
   fn test_theme_light() {
-    let options = RenderOptions { color: Some(ColorMode::On), theme: ThemeMode::Light, ..RenderOptions::default() };
+    let options =
+      RenderOptions { color: Some(ColorMode::On), theme: Some(ThemeMode::Light), ..RenderOptions::default() };
 
     let theme = Theme::new(&options.resolve());
     assert!(theme.chrome.starts_with('\x1b'));
@@ -155,7 +157,8 @@ mod tests {
 
   #[test]
   fn test_theme_resolves() {
-    let options = RenderOptions { color: Some(ColorMode::On), theme: ThemeMode::Auto, ..RenderOptions::default() };
+    let options =
+      RenderOptions { color: Some(ColorMode::On), theme: Some(ThemeMode::Auto), ..RenderOptions::default() };
 
     let theme = Theme::new(&options.resolve());
     assert!(theme.chrome.starts_with('\x1b'));
@@ -167,7 +170,7 @@ mod tests {
       (ThemeMode::Dark, RgbColor(48, 52, 70), "\x1b[48;2;69;72;89m"),
       (ThemeMode::Light, RgbColor(255, 255, 255), "\x1b[48;2;217;217;217m"),
     ] {
-      let options = RenderOptions { color: Some(ColorMode::On), theme: mode, ..RenderOptions::default() };
+      let options = RenderOptions { color: Some(ColorMode::On), theme: Some(mode), ..RenderOptions::default() };
       let mut resolved = options.resolve();
       resolved.termbg = Some(background);
 

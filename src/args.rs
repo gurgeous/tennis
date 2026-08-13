@@ -2,7 +2,7 @@ use std::{ffi::OsString, path::PathBuf};
 
 use clap::{Command, CommandFactory, Error, Parser, ValueEnum, builder::styling, value_parser};
 
-use crate::{Border, ColorMode, ColumnBig, RenderOptions, ThemeMode, WidthMode};
+use crate::{Border, ColorMode, ThemeMode, WidthMode};
 
 //
 // CLI arguments
@@ -301,31 +301,6 @@ pub struct Args {
   /// (internal) True when any argv was provided (not just the binary name).
   #[clap(skip)]
   pub argv_had_args: bool,
-}
-
-impl Args {
-  pub fn base_render_options(&self) -> RenderOptions {
-    RenderOptions {
-      border: self.border.unwrap_or_default(),
-      color: self.color,
-      digits: self.digits.unwrap_or(3) as usize,
-      theme: self.theme.unwrap_or_default(),
-      vanilla: self.vanilla,
-      width: self.width.unwrap_or_default(),
-      ..RenderOptions::default()
-    }
-  }
-
-  pub fn data_render_options(&self) -> RenderOptions {
-    let mut options = self.base_render_options();
-    options.title = self.title.clone();
-    options.row_numbers = self.row_numbers;
-    options.zebra = self.zebra;
-    options.bigs.extend(self.big1.iter().cloned().map(|column| (column, ColumnBig::Big)));
-    options.bigs.extend(self.big2.iter().cloned().map(|column| (column, ColumnBig::Bigger)));
-    options.bigs.extend(self.big3.iter().cloned().map(|column| (column, ColumnBig::Biggest)));
-    options
-  }
 }
 
 pub fn parse_from<I, T>(args: I) -> Result<Args, String>

@@ -115,7 +115,25 @@ impl Main {
     let input = if self.has_transforms() { verbose::time("transform", || self.transform(input))? } else { input };
 
     // (De)select first, then validate render options against the remaining headers.
-    let options = render_options(&input, &self.args)?;
+    let mut options = RenderOptions {
+      border: self.args.border.unwrap_or_default(),
+      color: self.args.color,
+      digits: self.args.digits.unwrap_or(3) as usize,
+      row_numbers: self.args.row_numbers,
+      theme: self.args.theme,
+      title: self.args.title.clone(),
+      vanilla: self.args.vanilla,
+      width: self.args.width.unwrap_or_default(),
+      zebra: self.args.zebra,
+      ..RenderOptions::default()
+    };
+    options.bigs.extend(self.args.big1.iter().cloned().map(|column| (column, ColumnBig::Big)));
+    options.bigs.extend(self.args.big2.iter().cloned().map(|column| (column, ColumnBig::Bigger)));
+    options.bigs.extend(self.args.big3.iter().cloned().map(|column| (column, ColumnBig::Biggest)));
+    options.color_scales.extend(self.args.scale.iter().cloned().map(|column| (column, ColorScale::RedGreen)));
+    options.color_scales.extend(self.args.rscale.iter().cloned().map(|column| (column, ColorScale::GreenRed)));
+    options.validate(&input)?;
+    let options = options.resolve();
 
     // output to stdout or pager
     verbose::time("write", || self.write(input, options))
@@ -281,18 +299,6 @@ fn env_pager() -> String {
     Ok(v) if !v.is_empty() => v,
     _ => "less -RS".to_string(),
   }
-}
-
-//
-// render options
-//
-
-fn render_options(grid: &Grid, args: &Args) -> Result<ResolvedOptions> {
-  let mut options = args.data_render_options();
-  options.color_scales.extend(args.scale.iter().cloned().map(|column| (column, ColorScale::RedGreen)));
-  options.color_scales.extend(args.rscale.iter().cloned().map(|column| (column, ColorScale::GreenRed)));
-  options.validate(grid)?;
-  Ok(options.resolve())
 }
 
 //
@@ -554,8 +560,15 @@ mod tests {
       ..Args::default()
     };
     let input = test_input(&["name", "score"], &[vec!["alice", "10"], vec!["bob", "20"]]);
-    let options = render_options(&input, &args).unwrap();
-    let out = render::text(input, options);
+    let mut options = RenderOptions {
+      color: args.color,
+      theme: args.theme,
+      width: args.width.unwrap_or_default(),
+      ..RenderOptions::default()
+    };
+    options.color_scales.extend(args.scale.iter().cloned().map(|column| (column, ColorScale::RedGreen)));
+    options.validate(&input).unwrap();
+    let out = render::text(input, options.resolve());
     assert!(out.contains("\x1b[48;2;"), "{out:?}");
   }
 
@@ -563,6 +576,8 @@ mod tests {
   fn test_render_options_rscale_bad_column() {
     let args = Args { rscale: vec!["bogus".to_owned()], ..Args::default() };
     let input = test_input(&["name", "score"], &[vec!["alice", "10"]]);
-    assert!(matches!(render_options(&input, &args), Err(Error::MissingColumn { .. })));
+    let mut options = RenderOptions::default();
+    options.color_scales.extend(args.rscale.iter().cloned().map(|column| (column, ColorScale::GreenRed)));
+    assert!(matches!(options.validate(&input), Err(Error::MissingColumn { .. })));
   }
 }
