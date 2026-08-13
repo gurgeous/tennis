@@ -9,7 +9,7 @@ use crate::{
   util,
 };
 
-pub(crate) fn run(ctx: &mut Context<'_>) {
+pub fn run(ctx: &mut Context<'_>) {
   let digits = ctx.options.digits;
 
   // `natural` includes the header and is always at least `MIN_COL_WIDTH` (two).

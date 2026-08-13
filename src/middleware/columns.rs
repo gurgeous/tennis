@@ -2,7 +2,7 @@
 
 use crate::render::{column::Column, context::Context};
 
-pub(crate) fn run(ctx: &mut Context<'_>) {
+pub fn run(ctx: &mut Context<'_>) {
   let mut columns: Vec<Column> = ctx.grid.headers.iter().enumerate().map(|(ii, _)| Column::new(ctx, ii)).collect();
 
   // prepend row numbers if required

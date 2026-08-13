@@ -10,23 +10,23 @@ use anstream::{
 use self::{context::Context, resolved::ResolvedOptions};
 use crate::{grid::Grid, middleware::MIDDLEWARE, verbose};
 
-pub(crate) mod ansi256;
-pub(crate) mod border;
-pub(crate) mod color_scale;
-pub(crate) mod column;
-pub(crate) mod context;
-pub(crate) mod options;
-pub(crate) mod output;
-pub(crate) mod resolved;
-pub(crate) mod theme;
+pub mod ansi256;
+pub mod border;
+pub mod color_scale;
+pub mod column;
+pub mod context;
+pub mod options;
+pub mod output;
+pub mod resolved;
+pub mod theme;
 
-pub(crate) fn text(grid: Grid, options: ResolvedOptions) -> String {
+pub fn text(grid: Grid, options: ResolvedOptions) -> String {
   let mut out = Vec::new();
   write(grid, options, &mut out).expect("render to Vec cannot fail");
   String::from_utf8(out).expect("renderer writes valid utf-8")
 }
 
-pub(crate) fn write<W: RawStream + AsLockedWrite + ?Sized>(
+pub fn write<W: RawStream + AsLockedWrite + ?Sized>(
   grid: Grid,
   options: ResolvedOptions,
   writer: &mut W,
@@ -50,7 +50,7 @@ pub(crate) fn write<W: RawStream + AsLockedWrite + ?Sized>(
 
 // Direct fixtures shared by render-pass tests.
 #[cfg(test)]
-pub(crate) fn test_grid<H, R, C>(headers: H, rows: R) -> Grid
+pub fn test_grid<H, R, C>(headers: H, rows: R) -> Grid
 where
   H: IntoIterator,
   H::Item: ToString,
@@ -64,7 +64,7 @@ where
 }
 
 #[cfg(test)]
-pub(crate) fn test_options() -> ResolvedOptions {
+pub fn test_options() -> ResolvedOptions {
   options::RenderOptions {
     color: Some(options::ColorMode::Off),
     theme: options::ThemeMode::Dark,

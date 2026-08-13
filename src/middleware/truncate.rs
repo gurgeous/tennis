@@ -2,7 +2,7 @@
 
 use crate::{render::context::Context, util};
 
-pub(crate) fn run(ctx: &mut Context<'_>) {
+pub fn run(ctx: &mut Context<'_>) {
   for (c, col) in ctx.columns.iter_mut().enumerate() {
     // `nice` is our final layout width
     let nice = col.nice;

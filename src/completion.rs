@@ -23,7 +23,7 @@ struct OptionSpec {
   desc: String,               // help text
 }
 
-pub(crate) fn script(shell: CompletionShell) -> String {
+pub fn script(shell: CompletionShell) -> String {
   let options = options();
   match shell {
     CompletionShell::Bash => write_bash(&options),

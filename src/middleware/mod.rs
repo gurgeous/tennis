@@ -2,22 +2,22 @@
 
 use crate::render::context::Context;
 
-pub(crate) mod columns;
-pub(crate) mod format;
-pub(crate) mod layout;
-pub(crate) mod paint;
-pub(crate) mod truncate;
+pub mod columns;
+pub mod format;
+pub mod layout;
+pub mod paint;
+pub mod truncate;
 
 //
 // our pipeline (note that render is handled separately
 //
 
-pub(crate) struct Middleware {
-  pub(crate) name: &'static str,
-  pub(crate) run: for<'w> fn(&mut Context<'w>),
+pub struct Middleware {
+  pub name: &'static str,
+  pub run: for<'w> fn(&mut Context<'w>),
 }
 
-pub(crate) const MIDDLEWARE: [Middleware; 5] = [
+pub const MIDDLEWARE: [Middleware; 5] = [
   Middleware { name: "columns", run: columns::run },
   Middleware { name: "format", run: format::run },
   Middleware { name: "layout", run: layout::run },

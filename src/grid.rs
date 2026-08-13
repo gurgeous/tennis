@@ -12,22 +12,22 @@ use crate::{
 };
 
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct Grid {
-  pub(crate) headers: Vec<String>,
-  pub(crate) rows: Vec<Vec<Cell>>,
-  pub(crate) types: Vec<ColumnType>,
+pub struct Grid {
+  pub headers: Vec<String>,
+  pub rows: Vec<Vec<Cell>>,
+  pub types: Vec<ColumnType>,
 }
 
 impl Grid {
   /// Builds a rectangular grid, trimming ASCII whitespace and collapsing
   /// internal whitespace runs in every header and cell.
-  pub(crate) fn new(headers: Vec<String>, rows: Vec<Vec<String>>) -> Result<Self> {
+  pub fn new(headers: Vec<String>, rows: Vec<Vec<String>>) -> Result<Self> {
     let rows = rows.into_iter().map(|row| row.into_iter().map(Cell::from).collect()).collect();
     Self::from_cells(headers, rows)
   }
 
   /// Builds a rectangular grid from cells.
-  pub(crate) fn from_cells(mut headers: Vec<String>, mut rows: Vec<Vec<Cell>>) -> Result<Self> {
+  pub fn from_cells(mut headers: Vec<String>, mut rows: Vec<Vec<Cell>>) -> Result<Self> {
     if let Some(row) = rows.iter().find(|row| row.len() != headers.len()) {
       return Err(Error::Jagged { expected: headers.len(), actual: row.len() });
     }
@@ -64,15 +64,15 @@ impl Grid {
     Self { headers, rows, types }
   }
 
-  pub(crate) fn headers(&self) -> &[String] {
+  pub fn headers(&self) -> &[String] {
     &self.headers
   }
 
-  pub(crate) fn rows(&self) -> &[Vec<Cell>] {
+  pub fn rows(&self) -> &[Vec<Cell>] {
     &self.rows
   }
 
-  pub(crate) fn is_empty(&self) -> bool {
+  pub fn is_empty(&self) -> bool {
     self.rows.is_empty()
   }
 
@@ -81,12 +81,12 @@ impl Grid {
   /// # Panics
   ///
   /// Panics if `index` is outside the grid's columns.
-  pub(crate) fn column_type(&self, index: usize) -> ColumnType {
+  pub fn column_type(&self, index: usize) -> ColumnType {
     self.types[index]
   }
 
   /// Convert a 1-based column index to its header, leaving names unchanged.
-  pub(crate) fn resolve_header<'a>(&'a self, reference: &'a str) -> &'a str {
+  pub fn resolve_header<'a>(&'a self, reference: &'a str) -> &'a str {
     reference
       .parse::<usize>()
       .ok()
@@ -95,7 +95,7 @@ impl Grid {
       .map_or(reference, String::as_str)
   }
 
-  pub(crate) fn position(&self, name: &str) -> Result<usize> {
+  pub fn position(&self, name: &str) -> Result<usize> {
     self.headers.iter().position(|str| str.eq_ignore_ascii_case(name)).ok_or_else(|| Error::MissingColumn {
       column: name.to_owned(),
       operation: None,
@@ -103,7 +103,7 @@ impl Grid {
     })
   }
 
-  pub(crate) fn positions(&self, names: &[String]) -> Result<Vec<usize>> {
+  pub fn positions(&self, names: &[String]) -> Result<Vec<usize>> {
     names.iter().map(|name| self.position(name)).collect()
   }
 
@@ -112,13 +112,13 @@ impl Grid {
   //
 
   /// Keep only the columns with the given names, in the given order.
-  pub(crate) fn select(self, names: &[String]) -> Result<Self> {
+  pub fn select(self, names: &[String]) -> Result<Self> {
     let positions = self.positions(names)?;
     Ok(self.project(&positions))
   }
 
   /// Remove the columns with the given names.
-  pub(crate) fn deselect(self, names: &[String]) -> Result<Self> {
+  pub fn deselect(self, names: &[String]) -> Result<Self> {
     let names = names
       .iter()
       .map(|name| self.position(name).map(|index| self.headers[index].as_str()))
@@ -144,37 +144,37 @@ impl Grid {
   //
 
   /// Keep only rows for which `predicate` returns true.
-  pub(crate) fn filter(mut self, mut pred: impl FnMut(&[Cell]) -> bool) -> Self {
+  pub fn filter(mut self, mut pred: impl FnMut(&[Cell]) -> bool) -> Self {
     self.rows.retain(|row| pred(row));
     self
   }
 
   /// Sort rows using the given comparator.
-  pub(crate) fn sort_by(mut self, mut cmp: impl FnMut(&[Cell], &[Cell]) -> Ordering) -> Self {
+  pub fn sort_by(mut self, mut cmp: impl FnMut(&[Cell], &[Cell]) -> Ordering) -> Self {
     self.rows.sort_by(|a, b| cmp(a, b));
     self
   }
 
   /// Randomize row order.
-  pub(crate) fn shuffle(mut self) -> Self {
+  pub fn shuffle(mut self) -> Self {
     self.rows.shuffle(&mut rand::thread_rng());
     self
   }
 
   /// Reverse row order.
-  pub(crate) fn reverse(mut self) -> Self {
+  pub fn reverse(mut self) -> Self {
     self.rows.reverse();
     self
   }
 
   /// Keep only the first `n` rows.
-  pub(crate) fn head(mut self, n: usize) -> Self {
+  pub fn head(mut self, n: usize) -> Self {
     self.rows.truncate(n);
     self
   }
 
   /// Keep only the last `n` rows.
-  pub(crate) fn tail(mut self, n: usize) -> Self {
+  pub fn tail(mut self, n: usize) -> Self {
     let n = n.min(self.rows.len());
     let start = self.rows.len() - n;
     self.rows = self.rows.split_off(start);

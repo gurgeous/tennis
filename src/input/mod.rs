@@ -1,5 +1,5 @@
-pub(crate) mod csv;
-pub(crate) mod detect;
-pub(crate) mod json;
-pub(crate) mod sniffer;
-pub(crate) mod sqlite;
+pub mod csv;
+pub mod detect;
+pub mod json;
+pub mod sniffer;
+pub mod sqlite;

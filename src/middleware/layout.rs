@@ -34,7 +34,7 @@ use crate::{
 // main entrypoint
 //
 
-pub(crate) fn run(ctx: &mut Context<'_>) {
+pub fn run(ctx: &mut Context<'_>) {
   match ctx.options.width {
     ResolvedWidth::Fixed(width) => autolayout(ctx, width),
     ResolvedWidth::Header => natural_headers(ctx),
@@ -43,7 +43,7 @@ pub(crate) fn run(ctx: &mut Context<'_>) {
 }
 
 // columns are always at least 2 chars wide
-pub(crate) const MIN_COL: usize = 2;
+pub const MIN_COL: usize = 2;
 
 fn autolayout(ctx: &mut Context<'_>, width: usize) {
   let mut cols = ctx.columns.clone();

@@ -10,7 +10,7 @@ use crate::{
   util,
 };
 
-pub(crate) fn run(ctx: &mut Context<'_>) {
+pub fn run(ctx: &mut Context<'_>) {
   ctx.paint.title = ctx.theme.title.clone();
   ctx.paint.headers = (0..ctx.ncols()).map(|c| ctx.theme.headers[c % ctx.theme.headers.len()].clone()).collect();
   ctx.paint.footer = ctx.theme.chrome.clone();

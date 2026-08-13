@@ -11,14 +11,14 @@ use std::{
 const SQLITE_MAGIC: &[u8] = b"SQLite format 3";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum InputFormat {
+pub enum InputFormat {
   Csv,
   Json,
   Sqlite,
 }
 
 /// what sort of file is this? Try the path, then fallback to sampling some bytes
-pub(crate) fn detect_format(filename: Option<&Path>, sample: &[u8]) -> InputFormat {
+pub fn detect_format(filename: Option<&Path>, sample: &[u8]) -> InputFormat {
   // take a look at extname
   if let Some(path) = filename {
     let ext = path.extension().and_then(|ext| ext.to_str()).map(|ext| ext.to_ascii_lowercase());
@@ -47,7 +47,7 @@ pub(crate) fn detect_format(filename: Option<&Path>, sample: &[u8]) -> InputForm
 }
 
 /// Is this a sqlite file? Check path and scan few bytes
-pub(crate) fn is_sqlite_path(path: &Path) -> io::Result<bool> {
+pub fn is_sqlite_path(path: &Path) -> io::Result<bool> {
   if detect_format(Some(path), &[]) == InputFormat::Sqlite {
     return Ok(true);
   }

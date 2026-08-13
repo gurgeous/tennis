@@ -13,7 +13,7 @@ use super::{
 use crate::util::PLACEHOLDER;
 
 // Middleware entry point.
-pub(crate) fn run(ctx: &mut Context<'_>) -> io::Result<()> {
+pub fn run(ctx: &mut Context<'_>) -> io::Result<()> {
   Render::new(ctx).run()
 }
 

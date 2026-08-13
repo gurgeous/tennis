@@ -8,7 +8,7 @@ use crate::render::options::{Border, ColorMode, ColumnBig, RenderOptions, ThemeM
 // CLI arguments
 //
 
-pub(crate) fn help() -> String {
+pub fn help() -> String {
   let mut command = Args::command()
     .styles(help_styles())
     .help_template("{usage-heading} {usage}\n\n{about-with-newline}\n{all-args}{after-help}")
@@ -165,7 +165,7 @@ const OTHER: &str = "Other options";
   disable_version_flag = true,
   about = "Stylish CSV tables in your terminal"
 )]
-pub(crate) struct Args {
+pub struct Args {
   /// Turn on row numbers
   #[arg(help_heading=POP, short='n', long)]
   pub row_numbers: bool,
@@ -304,7 +304,7 @@ pub(crate) struct Args {
 }
 
 impl Args {
-  pub(crate) fn base_render_options(&self) -> RenderOptions {
+  pub fn base_render_options(&self) -> RenderOptions {
     RenderOptions {
       border: self.border.unwrap_or_default(),
       color: self.color,
@@ -316,7 +316,7 @@ impl Args {
     }
   }
 
-  pub(crate) fn data_render_options(&self) -> RenderOptions {
+  pub fn data_render_options(&self) -> RenderOptions {
     let mut options = self.base_render_options();
     options.title = self.title.clone();
     options.row_numbers = self.row_numbers;
@@ -328,7 +328,7 @@ impl Args {
   }
 }
 
-pub(crate) fn parse_from<I, T>(args: I) -> Result<Args, String>
+pub fn parse_from<I, T>(args: I) -> Result<Args, String>
 where
   I: IntoIterator<Item = T>,
   T: Into<OsString>,
@@ -391,7 +391,7 @@ fn parse_delimiter(input: &str) -> Result<u8, String> {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 #[value(rename_all = "kebab-case")]
-pub(crate) enum CompletionShell {
+pub enum CompletionShell {
   Bash,
   Zsh,
 }

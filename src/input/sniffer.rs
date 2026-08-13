@@ -11,7 +11,7 @@
 const CANDIDATES: &[u8] = b",\t;|";
 
 /// look at the first few lines, what delim do we see?
-pub(crate) fn sniff(sample: &[u8]) -> Option<u8> {
+pub fn sniff(sample: &[u8]) -> Option<u8> {
   let lines = split_lines(sample);
 
   if lines.len() < 3 || lines.iter().any(|line| line.is_empty()) {

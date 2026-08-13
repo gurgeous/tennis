@@ -15,20 +15,20 @@ use crate::util::read_bool_env;
 //
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct ResolvedOptions {
-  pub(crate) bigs: Vec<(String, ColumnBig)>,
-  pub(crate) border: Border,
-  pub(crate) color: bool,
-  pub(crate) color_scales: Vec<(String, ColorScale)>,
-  pub(crate) digits: usize,
-  pub(crate) footer: Option<String>,
-  pub(crate) row_numbers: bool,
-  pub(crate) termbg: Option<RgbColor>,
-  pub(crate) theme: ResolvedTheme,
-  pub(crate) title: Option<String>,
-  pub(crate) vanilla: bool,
-  pub(crate) width: ResolvedWidth,
-  pub(crate) zebra: bool,
+pub struct ResolvedOptions {
+  pub bigs: Vec<(String, ColumnBig)>,
+  pub border: Border,
+  pub color: bool,
+  pub color_scales: Vec<(String, ColorScale)>,
+  pub digits: usize,
+  pub footer: Option<String>,
+  pub row_numbers: bool,
+  pub termbg: Option<RgbColor>,
+  pub theme: ResolvedTheme,
+  pub title: Option<String>,
+  pub vanilla: bool,
+  pub width: ResolvedWidth,
+  pub zebra: bool,
 }
 
 impl ResolvedOptions {
@@ -36,23 +36,23 @@ impl ResolvedOptions {
   // column option lookup
   //
 
-  pub(crate) fn column_big(&self, name: &str) -> ColumnBig {
+  pub fn column_big(&self, name: &str) -> ColumnBig {
     self.bigs.iter().rev().find(|(n, _)| matches_header(n, name)).map(|(_, big)| *big).unwrap_or(ColumnBig::Normal)
   }
 
-  pub(crate) fn color_scale(&self, name: &str) -> Option<ColorScale> {
+  pub fn color_scale(&self, name: &str) -> Option<ColorScale> {
     self.color_scales.iter().rev().find(|(n, _)| matches_header(n, name)).map(|(_, scale)| *scale)
   }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum ResolvedTheme {
+pub enum ResolvedTheme {
   Dark,
   Light,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum ResolvedWidth {
+pub enum ResolvedWidth {
   Fixed(usize),
   Header,
   Natural,

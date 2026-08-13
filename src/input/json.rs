@@ -19,7 +19,7 @@ use crate::{
 const MAX_COMPACT_DEPTH: usize = 1024;
 
 /// load json/jsonl to grid
-pub(crate) fn load(bytes: &[u8]) -> Result<Grid> {
+pub fn load(bytes: &[u8]) -> Result<Grid> {
   if bytes.is_empty() {
     return Ok(Grid::new(Vec::new(), Vec::new()).expect("empty grid is rectangular"));
   }

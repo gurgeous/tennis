@@ -7,23 +7,23 @@ use super::{
   resolved::{ResolvedOptions, ResolvedTheme},
 };
 
-pub(crate) const RESET: &str = "\x1b[0m";
-pub(crate) const BOLD: &str = "\x1b[1m";
+pub const RESET: &str = "\x1b[0m";
+pub const BOLD: &str = "\x1b[1m";
 
 const DARK_ZEBRA_BLEND: f64 = 0.10; // 10% lighter vs bg
 const LIGHT_ZEBRA_BLEND: f64 = 0.15; // 15% darker vs bg
 
 #[derive(Clone, Debug)]
-pub(crate) struct Theme {
-  pub(crate) cell: Ansi,         // cell fg
-  pub(crate) chrome: Ansi,       // borders, seps, placeholders, row num, footer
-  pub(crate) headers: Vec<Ansi>, // header colors
-  pub(crate) title: Ansi,        // title
-  pub(crate) zebra: Ansi,        // zebra fg
-  pub(crate) zebra_bg: Ansi,     // zebra bg
+pub struct Theme {
+  pub cell: Ansi,         // cell fg
+  pub chrome: Ansi,       // borders, seps, placeholders, row num, footer
+  pub headers: Vec<Ansi>, // header colors
+  pub title: Ansi,        // title
+  pub zebra: Ansi,        // zebra fg
+  pub zebra_bg: Ansi,     // zebra bg
 }
 
-pub(crate) type Ansi = String;
+pub type Ansi = String;
 
 impl Default for Theme {
   fn default() -> Self {
@@ -32,7 +32,7 @@ impl Default for Theme {
 }
 
 impl Theme {
-  pub(crate) fn new(options: &ResolvedOptions) -> Self {
+  pub fn new(options: &ResolvedOptions) -> Self {
     match options.theme {
       ResolvedTheme::Light => Self::light(options.termbg),
       ResolvedTheme::Dark => Self::dark(options.termbg),

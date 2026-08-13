@@ -9,7 +9,7 @@ use crate::{
 //
 
 /// Parse CSV bytes with the selected delimiter.
-pub(crate) fn load(bytes: &[u8], delimiter: u8) -> Result<Grid> {
+pub fn load(bytes: &[u8], delimiter: u8) -> Result<Grid> {
   // read csv
   let mut reader = csv::ReaderBuilder::new().has_headers(false).delimiter(delimiter).from_reader(bytes);
   let mut records = reader.byte_records();

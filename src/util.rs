@@ -5,10 +5,10 @@ use std::{borrow::Cow, cmp::Ordering, fmt::Write as _};
 use unicode_truncate::UnicodeTruncateStr;
 use unicode_width::UnicodeWidthStr;
 
-pub(crate) const PLACEHOLDER: &str = "—";
+pub const PLACEHOLDER: &str = "—";
 
 // Measures display width, avoiding Unicode table lookup for plain ASCII.
-pub(crate) fn display_width(text: &str) -> usize {
+pub fn display_width(text: &str) -> usize {
   if text.is_ascii() {
     return text.len();
   }
@@ -16,7 +16,7 @@ pub(crate) fn display_width(text: &str) -> usize {
 }
 
 // Parses a whole-cell markdown link into its visible label and URL.
-pub(crate) fn markdown_link(input: &str) -> Option<(&str, &str)> {
+pub fn markdown_link(input: &str) -> Option<(&str, &str)> {
   if !input.starts_with('[') || !input.ends_with(')') {
     return None;
   }
@@ -30,7 +30,7 @@ pub(crate) fn markdown_link(input: &str) -> Option<(&str, &str)> {
 }
 
 // ASCII-case-insensitive substring check.
-pub(crate) fn has_ascii_case(haystack: &str, needle: &str) -> bool {
+pub fn has_ascii_case(haystack: &str, needle: &str) -> bool {
   if needle.is_empty() {
     return true;
   }
@@ -43,7 +43,7 @@ pub(crate) fn has_ascii_case(haystack: &str, needle: &str) -> bool {
 }
 
 // Escape a string as a JSON string literal.
-pub(crate) fn json_escape(text: &str) -> String {
+pub fn json_escape(text: &str) -> String {
   let mut out = String::with_capacity(text.len() + 2);
   out.push('"');
   for ch in text.chars() {
@@ -64,7 +64,7 @@ pub(crate) fn json_escape(text: &str) -> String {
 }
 
 // Return min/max using a custom comparator.
-pub(crate) fn minmax_by<T>(values: impl IntoIterator<Item = T>, compare: impl Fn(&T, &T) -> Ordering) -> Option<(T, T)>
+pub fn minmax_by<T>(values: impl IntoIterator<Item = T>, compare: impl Fn(&T, &T) -> Ordering) -> Option<(T, T)>
 where
   T: Copy,
 {
@@ -78,13 +78,13 @@ where
 }
 
 // Match the old JS helper: pluralize with optional count prefix.
-pub(crate) fn pluralize(word: &str, count: usize, inclusive: bool) -> String {
+pub fn pluralize(word: &str, count: usize, inclusive: bool) -> String {
   let word = if count == 1 { word.to_owned() } else { format!("{word}s") };
   if inclusive { format!("{count} {word}") } else { word }
 }
 
 // Interpolates a percentile from sorted display widths.
-pub(crate) fn percentile(values: &mut [f64], pct: f64) -> f64 {
+pub fn percentile(values: &mut [f64], pct: f64) -> f64 {
   if values.is_empty() {
     return 0.0;
   }
@@ -101,12 +101,12 @@ pub(crate) fn percentile(values: &mut [f64], pct: f64) -> f64 {
 }
 
 /// Check if env var is true or 1
-pub(crate) fn read_bool_env(name: &str) -> bool {
+pub fn read_bool_env(name: &str) -> bool {
   std::env::var(name).map(|value| value.eq_ignore_ascii_case("true") || value == "1").unwrap_or(false)
 }
 
 /// Trims leading/trailing whitespace and collapses internal whitespace
-pub(crate) fn squish(s: &str) -> Cow<'_, str> {
+pub fn squish(s: &str) -> Cow<'_, str> {
   // fast path, most strings (99%) don't require squishing
   if is_squished(s) {
     return Cow::Borrowed(s);
@@ -146,7 +146,7 @@ fn is_squished(s: &str) -> bool {
 }
 
 // Truncates text w/ ellipsis, preserving Unicode grapheme boundaries.
-pub(crate) fn truncate(text: &str, stop: usize) -> String {
+pub fn truncate(text: &str, stop: usize) -> String {
   if stop == 0 {
     // edge case
     return String::new();

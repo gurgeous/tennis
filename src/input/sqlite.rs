@@ -15,7 +15,7 @@ use crate::{
 //
 
 /// Export the selected sqlite table as CSV, then reuse the CSV loader.
-pub(crate) fn load(path: &Path, selected_table: Option<&str>) -> Result<Grid> {
+pub fn load(path: &Path, selected_table: Option<&str>) -> Result<Grid> {
   let tables = list_tables(path)?;
   let table = choose_table(path, &tables, selected_table)?;
   let sql = format!("SELECT * FROM {};", quote_identifier(&table));
@@ -24,7 +24,7 @@ pub(crate) fn load(path: &Path, selected_table: Option<&str>) -> Result<Grid> {
 }
 
 /// List user tables, excluding sqlite internals.
-pub(crate) fn list_tables(path: &Path) -> Result<Vec<String>> {
+pub fn list_tables(path: &Path) -> Result<Vec<String>> {
   let sql = "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name;";
   let stdout = run(path, &["-batch", "-noheader"], sql)?;
   let text = String::from_utf8_lossy(&stdout);

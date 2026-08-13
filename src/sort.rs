@@ -8,7 +8,7 @@ use crate::{cell::Cell, error::Result, grid::Grid, infer::ColumnType};
 // See: https://github.com/sourcefrog/natsort
 //
 
-pub(crate) fn natcmp(a: &str, b: &str) -> Ordering {
+pub fn natcmp(a: &str, b: &str) -> Ordering {
   natord::compare_ignore_case(a, b)
 }
 
@@ -17,7 +17,7 @@ pub(crate) fn natcmp(a: &str, b: &str) -> Ordering {
 //
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) struct SortKey {
+pub struct SortKey {
   index: usize,
   kind: SortKind,
 }
@@ -29,7 +29,7 @@ enum SortKind {
 }
 
 // Plan sort columns once so numeric-vs-text behavior cannot vary by row pair.
-pub(crate) fn sort_keys(grid: &Grid, names: &[String]) -> Result<Vec<SortKey>> {
+pub fn sort_keys(grid: &Grid, names: &[String]) -> Result<Vec<SortKey>> {
   names
     .iter()
     .map(|name| {
@@ -44,7 +44,7 @@ pub(crate) fn sort_keys(grid: &Grid, names: &[String]) -> Result<Vec<SortKey>> {
 }
 
 // Compare rows by planned keys, using later keys only when earlier ones tie.
-pub(crate) fn compare_rows(a: &[Cell], b: &[Cell], keys: &[SortKey], reverse: bool) -> Ordering {
+pub fn compare_rows(a: &[Cell], b: &[Cell], keys: &[SortKey], reverse: bool) -> Ordering {
   for key in keys {
     let ordering = compare_cells(&a[key.index], &b[key.index], key.kind, reverse);
     if ordering != Ordering::Equal {

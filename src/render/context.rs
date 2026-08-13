@@ -10,39 +10,39 @@ use super::{
 };
 use crate::grid::Grid;
 
-pub(crate) type Links = HashMap<(usize, usize), String>;
+pub type Links = HashMap<(usize, usize), String>;
 
-pub(crate) struct Context<'w> {
+pub struct Context<'w> {
   // inputs
-  pub(crate) grid: Grid,
-  pub(crate) options: ResolvedOptions,
-  pub(crate) writer: &'w mut dyn Write,
+  pub grid: Grid,
+  pub options: ResolvedOptions,
+  pub writer: &'w mut dyn Write,
 
   // populated in ctor
-  pub(crate) border: BorderDraw, // border info
-  pub(crate) left: String,       // sep
-  pub(crate) mid: String,        // sep
-  pub(crate) right: String,      // sep
-  pub(crate) theme: Theme,       // theme
+  pub border: BorderDraw, // border info
+  pub left: String,       // sep
+  pub mid: String,        // sep
+  pub right: String,      // sep
+  pub theme: Theme,       // theme
 
   // populated along the way
-  pub(crate) columns: Vec<Column>, // our cols
-  pub(crate) links: Links,         // hyperlinks
-  pub(crate) paint: PaintState,    // style info
+  pub columns: Vec<Column>, // our cols
+  pub links: Links,         // hyperlinks
+  pub paint: PaintState,    // style info
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub(crate) struct PaintState {
-  pub(crate) title: Ansi,
-  pub(crate) footer: Ansi,
-  pub(crate) headers: Vec<Ansi>,
-  pub(crate) columns: Vec<Ansi>,
-  pub(crate) rows: Vec<Ansi>,
-  pub(crate) cells: HashMap<(usize, usize), Ansi>,
+pub struct PaintState {
+  pub title: Ansi,
+  pub footer: Ansi,
+  pub headers: Vec<Ansi>,
+  pub columns: Vec<Ansi>,
+  pub rows: Vec<Ansi>,
+  pub cells: HashMap<(usize, usize), Ansi>,
 }
 
 impl<'w> Context<'w> {
-  pub(crate) fn new<W: Write + 'w>(grid: Grid, options: ResolvedOptions, writer: &'w mut W) -> Self {
+  pub fn new<W: Write + 'w>(grid: Grid, options: ResolvedOptions, writer: &'w mut W) -> Self {
     // ordered
     let theme = Theme::new(&options);
     let border = border::get_border(options.border);
@@ -65,15 +65,15 @@ impl<'w> Context<'w> {
     }
   }
 
-  pub(crate) fn nrows(&self) -> usize {
+  pub fn nrows(&self) -> usize {
     self.grid.rows.len()
   }
 
-  pub(crate) fn ncols(&self) -> usize {
+  pub fn ncols(&self) -> usize {
     self.columns.len()
   }
 
-  pub(crate) fn is_empty(&self) -> bool {
+  pub fn is_empty(&self) -> bool {
     self.grid.is_empty()
   }
 }

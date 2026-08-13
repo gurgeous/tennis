@@ -4,11 +4,11 @@ use std::{fmt, fmt::Write as _, path::PathBuf};
 // Error formatting
 //
 
-pub(crate) const USAGE_HINT: &str = "tennis: try 'tennis --help' for more information\n";
+pub const USAGE_HINT: &str = "tennis: try 'tennis --help' for more information\n";
 
 // User-facing app errors.
 #[derive(Debug, Eq, PartialEq)]
-pub(crate) enum Error {
+pub enum Error {
   BadDeselect(String, Vec<String>),
   BadSelect(String, Vec<String>),
   BadSort(String, Vec<String>),
@@ -29,14 +29,14 @@ pub(crate) enum Error {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum ColumnOperation {
+pub enum ColumnOperation {
   Big,
   Bigger,
   Biggest,
   ColorScale,
 }
 
-pub(crate) type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 impl fmt::Display for Error {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -47,12 +47,12 @@ impl fmt::Display for Error {
 impl std::error::Error for Error {}
 
 // Plain top-level error without usage guidance.
-pub(crate) fn message(message: &str) -> String {
+pub fn message(message: &str) -> String {
   format!("tennis: {message}\n")
 }
 
 // Add the help hint only when the user supplied Tennis options incorrectly.
-pub(crate) fn usage(message: &str) -> String {
+pub fn usage(message: &str) -> String {
   format!("tennis: {message}\n{USAGE_HINT}")
 }
 

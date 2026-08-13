@@ -10,7 +10,7 @@ use anstyle::{Color as AnsiColor, RgbColor};
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 // Retain the full preset palette even though the CLI currently exposes two.
 #[allow(dead_code)]
-pub(crate) enum ColorScale {
+pub enum ColorScale {
   Green,
   Yellow,
   Red,
@@ -35,7 +35,7 @@ const RED: Rgb = parse_rgb("#e67c73");
 const BLUE: Rgb = parse_rgb("#6c9eeb");
 
 impl ColorScale {
-  pub(crate) fn paint(self, t: f64) -> String {
+  pub fn paint(self, t: f64) -> String {
     let bg = self.interpolate(t.clamp(0.0, 1.0));
     let fg = bg.contrast();
     anstyle::Style::new()

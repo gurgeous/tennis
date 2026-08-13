@@ -10,19 +10,19 @@ use crate::{
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct RenderOptions {
-  pub(crate) bigs: Vec<(String, ColumnBig)>,
-  pub(crate) border: Border,
-  pub(crate) color: Option<ColorMode>,
-  pub(crate) color_scales: Vec<(String, ColorScale)>,
-  pub(crate) digits: usize,
-  pub(crate) footer: Option<String>,
-  pub(crate) row_numbers: bool,
-  pub(crate) theme: ThemeMode,
-  pub(crate) title: Option<String>,
-  pub(crate) vanilla: bool,
-  pub(crate) width: WidthMode,
-  pub(crate) zebra: bool,
+pub struct RenderOptions {
+  pub bigs: Vec<(String, ColumnBig)>,
+  pub border: Border,
+  pub color: Option<ColorMode>,
+  pub color_scales: Vec<(String, ColorScale)>,
+  pub digits: usize,
+  pub footer: Option<String>,
+  pub row_numbers: bool,
+  pub theme: ThemeMode,
+  pub title: Option<String>,
+  pub vanilla: bool,
+  pub width: WidthMode,
+  pub zebra: bool,
 }
 
 impl Default for RenderOptions {
@@ -45,7 +45,7 @@ impl Default for RenderOptions {
 }
 
 impl RenderOptions {
-  pub(crate) fn validate(&self, grid: &Grid) -> Result<()> {
+  pub fn validate(&self, grid: &Grid) -> Result<()> {
     for (name, big) in &self.bigs {
       grid.position(name).map_err(|_| Error::MissingColumn {
         column: name.clone(),
@@ -63,7 +63,7 @@ impl RenderOptions {
     Ok(())
   }
 
-  pub(crate) fn resolve(self) -> ResolvedOptions {
+  pub fn resolve(self) -> ResolvedOptions {
     // Finalize terminal-sensitive settings before rendering. Render passes
     // assume concrete color/theme values and never start terminal probes.
     let color = resolve_color(self.color);
@@ -93,7 +93,7 @@ impl RenderOptions {
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
-pub(crate) enum ColumnBig {
+pub enum ColumnBig {
   #[default]
   Normal = 0,
   Big = 1,
@@ -102,7 +102,7 @@ pub(crate) enum ColumnBig {
 }
 
 impl ColumnBig {
-  pub(crate) fn operation(self) -> Option<ColumnOperation> {
+  pub fn operation(self) -> Option<ColumnOperation> {
     match self {
       Self::Normal => None,
       Self::Big => Some(ColumnOperation::Big),
@@ -114,7 +114,7 @@ impl ColumnBig {
 
 /// Table border styles.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub(crate) enum Border {
+pub enum Border {
   AsciiRounded,
   Basic,
   BasicCompact,
@@ -138,7 +138,7 @@ pub(crate) enum Border {
 
 /// Should Tennis use color?
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub(crate) enum ColorMode {
+pub enum ColorMode {
   #[default]
   Auto,
   On,
@@ -147,7 +147,7 @@ pub(crate) enum ColorMode {
 
 /// Dark versus light color theme.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub(crate) enum ThemeMode {
+pub enum ThemeMode {
   #[default]
   Auto,
   Dark,
@@ -156,7 +156,7 @@ pub(crate) enum ThemeMode {
 
 /// How Tennis chooses the table width.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub(crate) enum WidthMode {
+pub enum WidthMode {
   #[default]
   Auto,
   Fixed(usize),

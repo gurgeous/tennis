@@ -15,7 +15,7 @@ use crate::{render::options::WidthMode, value::Value};
 const SAMPLE_ROWS: usize = 5;
 const DEFAULT_DIGITS: usize = 3;
 
-pub(crate) fn render(input: &Grid, args: &Args) -> Result<String> {
+pub fn render(input: &Grid, args: &Args) -> Result<String> {
   let mut out = String::new();
   out.push_str(&render_sample(input, args)?);
   out.push('\n');

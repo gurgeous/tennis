@@ -1,30 +1,30 @@
 //! Display column metadata used by the render pipeline.
 
 use super::{color_scale::ColorScale, context::Context, options::ColumnBig};
-pub(crate) use crate::infer::ColumnType;
+pub use crate::infer::ColumnType;
 use crate::util;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum Align {
+pub enum Align {
   Left,
   Center,
   Right,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub(crate) struct Column {
-  pub(crate) big: ColumnBig,                  // big(er)(est)
-  pub(crate) color_scale: Option<ColorScale>, // color scale, if any
-  pub(crate) index: usize,                    // index in table
-  pub(crate) name: String,                    // final header name
-  pub(crate) natural: usize,                  // full width
-  pub(crate) nice: usize,                     // computed layout width
-  pub(crate) row_number: bool,                // synthetic row #
-  pub(crate) ty: ColumnType,                  // string/float/int/etc
+pub struct Column {
+  pub big: ColumnBig,                  // big(er)(est)
+  pub color_scale: Option<ColorScale>, // color scale, if any
+  pub index: usize,                    // index in table
+  pub name: String,                    // final header name
+  pub natural: usize,                  // full width
+  pub nice: usize,                     // computed layout width
+  pub row_number: bool,                // synthetic row #
+  pub ty: ColumnType,                  // string/float/int/etc
 }
 
 impl Column {
-  pub(crate) fn new(ctx: &Context<'_>, index: usize) -> Self {
+  pub fn new(ctx: &Context<'_>, index: usize) -> Self {
     let mut this = Self { index, ..Self::default() };
     this.compute_name(ctx);
     this.compute_big(ctx);
@@ -35,7 +35,7 @@ impl Column {
   }
 
   // make this a row_number col
-  pub(crate) fn row_number() -> Self {
+  pub fn row_number() -> Self {
     let name = "#".to_owned();
     let mut this = Self { name, ty: ColumnType::Int, row_number: true, ..Self::default() };
     this.compute_natural();
@@ -62,7 +62,7 @@ impl Column {
     self.ty = if ctx.options.vanilla { ColumnType::String } else { ctx.grid.column_type(self.index) };
   }
 
-  pub(crate) fn align(&self) -> Align {
+  pub fn align(&self) -> Align {
     if !matches!(self.ty, ColumnType::String) { Align::Right } else { Align::Left }
   }
 }
