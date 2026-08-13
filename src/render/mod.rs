@@ -8,14 +8,13 @@ use anstream::{
 };
 
 use self::{context::Context, resolved::ResolvedOptions};
-use crate::{grid::Grid, verbose};
+use crate::{grid::Grid, middleware::MIDDLEWARE, verbose};
 
 pub(crate) mod ansi256;
 pub(crate) mod border;
 pub(crate) mod color_scale;
 pub(crate) mod column;
 pub(crate) mod context;
-pub(crate) mod middleware;
 pub(crate) mod options;
 pub(crate) mod output;
 pub(crate) mod resolved;
@@ -40,7 +39,7 @@ pub(crate) fn write<W: RawStream + AsLockedWrite + ?Sized>(
   // Empty output is handled by the final renderer; the other passes assume
   // at least one row.
   if !ctx.is_empty() {
-    for middleware in middleware::MIDDLEWARE {
+    for middleware in MIDDLEWARE {
       verbose::time(middleware.name, || (middleware.run)(&mut ctx));
     }
   }

@@ -103,7 +103,7 @@ Use `-b` (big), `-bb` (bigger) and `-bbb` (biggest) to enlarge a specific column
 
 It's common to use `--pager` / `-p` to turn on a pager. This is perfect for tables with many rows, or tables that overflow terminal width due to `--width` or `-bb` or `-bbb`.
 
-Note how tennis works really hard to fit tables into the given width. See [layout.rs](./src/render/middleware/layout.rs) if you want the hairy details on autolayout.
+Note how tennis works really hard to fit tables into the given width. See [layout.rs](./src/middleware/layout.rs) if you want the hairy details on autolayout.
 
 <img src="./assets/resize.gif" width="80%">
 

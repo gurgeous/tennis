@@ -3,11 +3,11 @@
 //! header width and is always at least two chars wide. We never layout a col
 //! less than two wide.
 
-use super::{
-  super::{column::ColumnType, context::Context},
-  layout::MIN_COL,
+use super::layout::MIN_COL;
+use crate::{
+  render::{column::ColumnType, context::Context},
+  util,
 };
-use crate::util;
 
 pub(crate) fn run(ctx: &mut Context<'_>) {
   let digits = ctx.options.digits;
@@ -59,10 +59,10 @@ mod tests {
   use super::*;
   use crate::{
     cell::Cell,
+    middleware::columns,
     num_locale::NumLocale,
     render::{
       context::{Context, Links},
-      middleware::columns,
       resolved::ResolvedOptions,
       test_grid, test_options,
     },

@@ -5,6 +5,7 @@ mod error;
 mod grid;
 mod infer;
 mod input;
+mod middleware;
 mod num_locale;
 mod peek;
 mod render;

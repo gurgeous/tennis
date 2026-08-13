@@ -1,6 +1,6 @@
 //! Populates ctx.columns.
 
-use super::super::{column::Column, context::Context};
+use crate::render::{column::Column, context::Context};
 
 pub(crate) fn run(ctx: &mut Context<'_>) {
   let mut columns: Vec<Column> = ctx.grid.headers.iter().enumerate().map(|(ii, _)| Column::new(ctx, ii)).collect();

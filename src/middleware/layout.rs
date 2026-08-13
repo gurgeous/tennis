@@ -25,8 +25,10 @@
 //!   narrow     "Narrow" columns get to keep natural width.
 //!   wide       "Wide" columns split the leftover budget after narrow.
 
-use super::super::{column::Column, context::Context, options::ColumnBig, resolved::ResolvedWidth};
-use crate::util::{self, display_width};
+use crate::{
+  render::{column::Column, context::Context, options::ColumnBig, resolved::ResolvedWidth},
+  util::{self, display_width},
+};
 
 //
 // main entrypoint
@@ -157,10 +159,10 @@ mod tests {
   use super::*;
   use crate::{
     grid::Grid,
+    middleware::{columns, format},
     render::{
       border::get_border,
       context::Context,
-      middleware::{columns, format},
       options::Border,
       resolved::{ResolvedOptions, ResolvedWidth},
       test_grid, test_options,

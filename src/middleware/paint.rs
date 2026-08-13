@@ -5,8 +5,10 @@
 
 use std::collections::BTreeMap;
 
-use super::super::{color_scale::ColorScale, column::ColumnType, context::Context};
-use crate::util;
+use crate::{
+  render::{color_scale::ColorScale, column::ColumnType, context::Context},
+  util,
+};
 
 pub(crate) fn run(ctx: &mut Context<'_>) {
   ctx.paint.title = ctx.theme.title.clone();
@@ -123,9 +125,9 @@ mod tests {
   use super::*;
   use crate::{
     grid::Grid,
+    middleware::{columns, format, layout, truncate},
     render::{
       context::{Context, PaintState},
-      middleware::{columns, format, layout, truncate},
       resolved::{ResolvedOptions, ResolvedTheme, ResolvedWidth},
       test_grid, test_options,
     },

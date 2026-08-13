@@ -366,11 +366,11 @@ mod tests {
   use super::*;
   use crate::{
     grid::Grid,
+    middleware::MIDDLEWARE,
     num_locale::NumLocale,
     render::{
       self,
       color_scale::ColorScale,
-      middleware::MIDDLEWARE,
       options::{Border, ColumnBig},
       resolved::{ResolvedOptions, ResolvedTheme, ResolvedWidth},
       test_grid, test_options,
