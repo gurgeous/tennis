@@ -4,7 +4,7 @@
 
 ## Important
 
-- The library crate is unreleased; backward compatibility is not required.
+- Backward compatibility for internal APIs is not required.
 - Optimize for ordinary CLI data. Numeric extremes and exact rounding-boundary compatibility are out of scope unless requested.
 - `--peek` is not performance-sensitive; prefer simple code over optimizing it.
 - Do not create commits unless explicitly requested.

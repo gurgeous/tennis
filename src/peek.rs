@@ -1,0 +1,283 @@
+use std::collections::HashSet;
+
+use unicode_width::UnicodeWidthStr;
+
+use crate::{args::Args, cell::Cell, error::Result, grid::Grid, infer::ColumnType, render, util};
+#[cfg(test)]
+use crate::{render::options::WidthMode, value::Value};
+
+//
+// `tennis --peek`
+//
+// Share inference and number formatting with normal tables.
+//
+
+const SAMPLE_ROWS: usize = 5;
+const DEFAULT_DIGITS: usize = 3;
+
+pub(crate) fn render(input: &Grid, args: &Args) -> Result<String> {
+  let mut out = String::new();
+  out.push_str(&render_sample(input, args)?);
+  out.push('\n');
+  out.push_str(&render_stats(input, args)?);
+  Ok(out)
+}
+
+//
+// sample
+//
+
+fn render_sample(input: &Grid, args: &Args) -> Result<String> {
+  let title = sample_title(input, args.title.as_deref());
+
+  let n = SAMPLE_ROWS.min(input.rows().len());
+  let footer =
+    (input.rows().len() > n).then(|| format!("… {} …", util::pluralize("more row", input.rows().len() - n, true)));
+
+  let grid = input.clone().head(n);
+  let mut options = args.data_render_options();
+  options.title = Some(title);
+  options.footer = footer;
+  options.validate(&grid)?;
+  Ok(render::text(grid, options.resolve()))
+}
+
+fn sample_title(input: &Grid, title: Option<&str>) -> String {
+  let r = util::pluralize("row", input.rows().len(), true);
+  let c = util::pluralize("col", input.headers().len(), true);
+  title.map_or_else(|| format!("{r} × {c}"), |t| format!("{t} ({r} × {c})"))
+}
+
+//
+// stats
+//
+
+fn render_stats(input: &Grid, args: &Args) -> Result<String> {
+  let stats_rows = stats_rows(input, args);
+  let grid = Grid::new(stats_rows[0].clone(), stats_rows[1..].to_vec()).expect("peek stats rows match stats headers");
+  let mut options = args.base_render_options();
+  options.title = Some("stats".to_owned());
+  Ok(render::text(grid, options.resolve()))
+}
+
+fn stats_rows(input: &Grid, args: &Args) -> Vec<Vec<String>> {
+  let mut out = vec![vec![
+    "column".to_owned(),
+    "type".to_owned(),
+    "fill".to_owned(),
+    "uniq".to_owned(),
+    "min".to_owned(),
+    "max".to_owned(),
+  ]];
+
+  for (index, header) in input.headers().iter().enumerate() {
+    let kind = if args.vanilla { ColumnType::String } else { input.column_type(index) };
+    let stats = column_stats(input.rows(), index, kind, args);
+    out.push(vec![header.clone(), kind.to_string(), stats.fill, stats.uniq, stats.min, stats.max]);
+  }
+  out
+}
+
+//
+// Stats computation
+//
+
+#[derive(Debug, Eq, PartialEq)]
+struct Stats {
+  fill: String,
+  uniq: String,
+  min: String,
+  max: String,
+}
+
+fn column_stats(rows: &[Vec<Cell>], index: usize, kind: ColumnType, args: &Args) -> Stats {
+  let fields: Vec<&str> = rows
+    .iter()
+    .filter_map(|row| {
+      let value = row[index].as_str();
+      (!value.is_empty()).then_some(value)
+    })
+    .collect();
+  let seen: HashSet<&str> = fields.iter().copied().collect();
+
+  let fill = fill_pct(fields.len(), rows.len());
+  let digits = args.digits.map_or(DEFAULT_DIGITS, |digits| digits as usize);
+  let (min, max) = match kind {
+    ColumnType::Int | ColumnType::Float | ColumnType::Percent => numeric_minmax(rows, index, digits),
+    ColumnType::String => len_minmax(&fields),
+  };
+
+  Stats { fill: format!("{fill}%"), uniq: seen.len().to_string(), min, max }
+}
+
+fn fill_pct(nonempty: usize, nrows: usize) -> usize {
+  nonempty.saturating_mul(100).checked_div(nrows).unwrap_or(0)
+}
+
+fn numeric_minmax(rows: &[Vec<Cell>], index: usize, digits: usize) -> (String, String) {
+  let values = rows.iter().filter_map(|row| row[index].value().copied());
+  let Some((min, max)) = util::minmax_by(values, |a, b| a.cmp_same_type(*b)) else {
+    return placeholders();
+  };
+  (min.format(digits), max.format(digits))
+}
+
+fn len_minmax(fields: &[&str]) -> (String, String) {
+  let Some((min, max)) = util::minmax_by(fields.iter().map(|f| f.width()), Ord::cmp) else {
+    return placeholders();
+  };
+  (util::pluralize("width", min, true), util::pluralize("width", max, true))
+}
+
+fn placeholders() -> (String, String) {
+  (util::PLACEHOLDER.to_owned(), util::PLACEHOLDER.to_owned())
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn make_input(input: &[Vec<&str>]) -> Grid {
+    let headers: Vec<String> = input[0].iter().map(|s| s.to_string()).collect();
+    let rows: Vec<Vec<String>> = input[1..].iter().map(|r| r.iter().map(|s| s.to_string()).collect()).collect();
+    Grid::new(headers, rows).unwrap()
+  }
+
+  #[test]
+  fn test_sample_title() {
+    let input = make_input(&[vec!["a", "b"], vec!["1", "2"], vec!["3", "4"]]);
+    assert_eq!("2 rows × 2 cols", sample_title(&input, None));
+    assert_eq!("foo (2 rows × 2 cols)", sample_title(&input, Some("foo")));
+
+    let input = make_input(&[vec!["a"], vec!["x"]]);
+    assert_eq!("1 row × 1 col", sample_title(&input, None));
+  }
+
+  #[test]
+  fn test_stats_rows() {
+    let args = Args::default();
+    let input = make_input(&[
+      vec!["name", "score", "city"],
+      vec!["alice", "10", "boston"],
+      vec!["bob", "20", ""],
+      vec!["cara", "20", "chicago"],
+    ]);
+    let sr = stats_rows(&input, &args);
+    assert_eq!(["name", "string", "100%", "3", "3 widths", "5 widths"], sr[1].as_slice());
+    assert_eq!(["score", "int", "100%", "2", "10", "20"], sr[2].as_slice());
+    assert_eq!(["city", "string", "66%", "2", "6 widths", "7 widths"], sr[3].as_slice());
+  }
+
+  #[test]
+  fn test_stats_rows_empty_column() {
+    let args = Args::default();
+    let input = make_input(&[vec!["empty"], vec![""], vec![""]]);
+    let rows = stats_rows(&input, &args);
+    assert_eq!(["empty", "string", "0%", "0", "—", "—"], rows[1].as_slice());
+  }
+
+  #[test]
+  fn test_stats_rows_negative_ints() {
+    let args = Args::default();
+    let input = make_input(&[vec!["score"], vec!["-5000"], vec!["10"]]);
+    let rows = stats_rows(&input, &args);
+    assert_eq!(["score", "int", "100%", "2"], rows[1][..4]);
+    assert_eq!(Value::Int(-5000).format(3), rows[1][4]);
+    assert_eq!("10", rows[1][5]);
+  }
+
+  #[test]
+  fn test_stats_rows_oversized_ints_are_floats() {
+    let args = Args::default();
+    let input = make_input(&[vec!["count"], vec!["99999999999999999999"]]);
+    let rows = stats_rows(&input, &args);
+    let formatted = Value::Float(1e20).format(3);
+    assert_eq!(["count", "float", "100%", "1"], rows[1][..4]);
+    assert_eq!(formatted, rows[1][4]);
+    assert_eq!(formatted, rows[1][5]);
+  }
+
+  #[test]
+  fn test_stats_rows_floats() {
+    let args = Args::default();
+    let input = make_input(&[vec!["score"], vec!["1.23456"], vec!["20.9999"]]);
+    let rows = stats_rows(&input, &args);
+    assert_eq!(["score", "float", "100%", "2", "1.235", "21.000"], rows[1].as_slice());
+  }
+
+  #[test]
+  fn test_stats_rows_percent() {
+    let args = Args::default();
+    let input = make_input(&[vec!["score", "other"], vec!["12%", "x"], vec!["-3.5%", "y"], vec!["", "z"]]);
+    let rows = stats_rows(&input, &args);
+    assert_eq!(["score", "percent", "66%", "2", "-3.500%", "12.000%"], rows[1].as_slice());
+  }
+
+  #[test]
+  fn test_stats_rows_unicode_width() {
+    let args = Args::default();
+    let input = make_input(&[vec!["city"], vec!["a"], vec!["香港"]]);
+    let rows = stats_rows(&input, &args);
+    assert_eq!(["city", "string", "100%", "2", "1 width", "4 widths"], rows[1].as_slice());
+  }
+
+  #[test]
+  fn test_stats_rows_args_formatting() {
+    let args = Args { digits: Some(2), ..Args::default() };
+    let input = make_input(&[vec!["float", "percent"], vec!["1.23456", "12.345%"], vec!["20.9999", "-3.5%"]]);
+    let rows = stats_rows(&input, &args);
+    assert_eq!(["float", "float", "100%", "2", "1.23", "21.00"], rows[1].as_slice());
+    assert_eq!(["percent", "percent", "100%", "2", "-3.50%", "12.35%"], rows[2].as_slice());
+
+    let args = Args { vanilla: true, ..Args::default() };
+    let input = make_input(&[vec!["score"], vec!["-5000"], vec!["10"]]);
+    let rows = stats_rows(&input, &args);
+    assert_eq!(["score", "string", "100%", "2", "2 widths", "5 widths"], rows[1].as_slice());
+  }
+
+  #[test]
+  fn test_peek_render() {
+    let args = Args { width: Some(WidthMode::Fixed(80)), ..Args::default() };
+    let input = make_input(&[vec!["name", "score"], vec!["alice", "10"], vec!["bob", "20"]]);
+    let out = render(&input, &args).unwrap();
+    assert!(out.contains("\n\n"));
+    assert!(out.contains("alice"));
+    assert!(out.contains("stats"));
+    assert!(out.contains("score"));
+    assert!(out.contains("int"));
+  }
+
+  #[test]
+  fn test_peek_render_empty_shape() {
+    let args = Args { width: Some(WidthMode::Fixed(80)), ..Args::default() };
+    let input = make_input(&[vec!["name", "score"], vec!["alice", "10"]]);
+    let args = Args { filter: Some("missing".to_owned()), width: Some(WidthMode::Fixed(80)), ..args };
+    // empty transform result means 0 data rows but headers remain
+    let input = Grid::new(input.headers().to_vec(), Vec::new()).unwrap();
+    let out = render(&input, &args).unwrap();
+    assert!(out.contains("0 rows × 2 cols"));
+  }
+
+  #[test]
+  fn test_peek_render_footer() {
+    let args = Args { width: Some(WidthMode::Fixed(80)), ..Args::default() };
+    let input = make_input(&[
+      vec!["customer_name_or_identifier"],
+      vec!["alice"],
+      vec!["bob"],
+      vec!["cara"],
+      vec!["dave"],
+      vec!["erin"],
+      vec!["frank"],
+    ]);
+    let out = render(&input, &args).unwrap();
+    assert!(out.contains("… 1 more row …"));
+  }
+
+  #[test]
+  fn test_peek_render_bad_big() {
+    let args = Args { big1: vec!["missing".to_owned()], width: Some(WidthMode::Fixed(80)), ..Args::default() };
+    let input = make_input(&[vec!["name", "score"], vec!["alice", "10"]]);
+    assert!(matches!(render(&input, &args), Err(crate::error::Error::MissingColumn { .. })));
+  }
+}

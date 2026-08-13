@@ -1,38 +1,27 @@
-[workspace]
-members = ["cli", "tennis-derive"]
-resolver = "3"
-
 [package]
 name = "tennis"
 version = "0.7.1"
 edition = "2024"
 rust-version = "1.96"
 license = "MIT"
-categories = ["command-line-utilities", "text-processing"]
 description = "Stylish CSV tables in your terminal"
-exclude = ["assets/", "bin/", "cli/", "extra/", "tests/"]
-keywords = ["csv", "table", "terminal", "json", "sqlite", "cli"]
+publish = false
 repository = "https://github.com/gurgeous/tennis"
 
 [dependencies]
 anstyle = "1"
 anstream = "1"
+clap = { version = "4", features = ["derive"] }
+csv = "1"
+natord = "1"
 num-format = "0.4"
 rand = "0.8"
-serde_json = "1"
-tennis-derive = { path = "tennis-derive" }
+shell-words = "1"
+simd-json = { version = "0.17", default-features = false, features = ["runtime-detection", "swar-number-parsing"] }
 terminal-colorsaurus = { version = "1", features = ["anstyle"] }
 terminal_size = "0.4"
 unicode-truncate = "2"
 unicode-width = "0.2"
-
-#
-# tests
-#
-
-[dev-dependencies]
-csv = "1"
-serde = { version = "1", features = ["derive"] }
 
 #
 # haven't decided which release is preferred yet

@@ -387,6 +387,7 @@ run_tty() {
 
   run_ok --version
   [[ "$output" == tennis:* ]]
+  [[ "$output" != *"unknown sha"* ]]
 }
 
 # bats test_tags=skipwin

@@ -3,14 +3,14 @@
 use std::{fmt, time::Instant};
 
 /// log if TENNIS_VERBOSE
-pub fn log(args: fmt::Arguments<'_>) {
+pub(crate) fn log(args: fmt::Arguments<'_>) {
   if enabled() {
     eprintln!("tennis: {args}");
   }
 }
 
 /// time lambda, print timing if TENNIS_VERBOSE
-pub fn time<T>(label: &str, f: impl FnOnce() -> T) -> T {
+pub(crate) fn time<T>(label: &str, f: impl FnOnce() -> T) -> T {
   let tm = Instant::now();
   let out = f();
   log(format_args!("{label:<14} {:>10.3} ms", tm.elapsed().as_secs_f64() * 1000.0));

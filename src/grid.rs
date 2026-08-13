@@ -5,14 +5,14 @@ use std::{borrow::Cow, cmp::Ordering};
 use rand::seq::SliceRandom;
 
 use crate::{
-  Cell,
-  builder::{Error, Result},
+  cell::Cell,
+  error::{Error, Result},
   infer::{self, ColumnType},
   util,
 };
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Grid {
+pub(crate) struct Grid {
   pub(crate) headers: Vec<String>,
   pub(crate) rows: Vec<Vec<Cell>>,
   pub(crate) types: Vec<ColumnType>,
@@ -21,13 +21,13 @@ pub struct Grid {
 impl Grid {
   /// Builds a rectangular grid, trimming ASCII whitespace and collapsing
   /// internal whitespace runs in every header and cell.
-  pub fn new(headers: Vec<String>, rows: Vec<Vec<String>>) -> Result<Self> {
+  pub(crate) fn new(headers: Vec<String>, rows: Vec<Vec<String>>) -> Result<Self> {
     let rows = rows.into_iter().map(|row| row.into_iter().map(Cell::from).collect()).collect();
     Self::from_cells(headers, rows)
   }
 
   /// Builds a rectangular grid from cells.
-  pub fn from_cells(mut headers: Vec<String>, mut rows: Vec<Vec<Cell>>) -> Result<Self> {
+  pub(crate) fn from_cells(mut headers: Vec<String>, mut rows: Vec<Vec<Cell>>) -> Result<Self> {
     if let Some(row) = rows.iter().find(|row| row.len() != headers.len()) {
       return Err(Error::Jagged { expected: headers.len(), actual: row.len() });
     }
@@ -64,15 +64,15 @@ impl Grid {
     Self { headers, rows, types }
   }
 
-  pub fn headers(&self) -> &[String] {
+  pub(crate) fn headers(&self) -> &[String] {
     &self.headers
   }
 
-  pub fn rows(&self) -> &[Vec<Cell>] {
+  pub(crate) fn rows(&self) -> &[Vec<Cell>] {
     &self.rows
   }
 
-  pub fn is_empty(&self) -> bool {
+  pub(crate) fn is_empty(&self) -> bool {
     self.rows.is_empty()
   }
 
@@ -81,12 +81,12 @@ impl Grid {
   /// # Panics
   ///
   /// Panics if `index` is outside the grid's columns.
-  pub fn column_type(&self, index: usize) -> ColumnType {
+  pub(crate) fn column_type(&self, index: usize) -> ColumnType {
     self.types[index]
   }
 
   /// Convert a 1-based column index to its header, leaving names unchanged.
-  pub fn resolve_header<'a>(&'a self, reference: &'a str) -> &'a str {
+  pub(crate) fn resolve_header<'a>(&'a self, reference: &'a str) -> &'a str {
     reference
       .parse::<usize>()
       .ok()
@@ -95,7 +95,7 @@ impl Grid {
       .map_or(reference, String::as_str)
   }
 
-  pub fn position(&self, name: &str) -> Result<usize> {
+  pub(crate) fn position(&self, name: &str) -> Result<usize> {
     self.headers.iter().position(|str| str.eq_ignore_ascii_case(name)).ok_or_else(|| Error::MissingColumn {
       column: name.to_owned(),
       operation: None,
@@ -103,7 +103,7 @@ impl Grid {
     })
   }
 
-  pub fn positions(&self, names: &[String]) -> Result<Vec<usize>> {
+  pub(crate) fn positions(&self, names: &[String]) -> Result<Vec<usize>> {
     names.iter().map(|name| self.position(name)).collect()
   }
 
@@ -112,13 +112,13 @@ impl Grid {
   //
 
   /// Keep only the columns with the given names, in the given order.
-  pub fn select(self, names: &[String]) -> Result<Self> {
+  pub(crate) fn select(self, names: &[String]) -> Result<Self> {
     let positions = self.positions(names)?;
     Ok(self.project(&positions))
   }
 
   /// Remove the columns with the given names.
-  pub fn deselect(self, names: &[String]) -> Result<Self> {
+  pub(crate) fn deselect(self, names: &[String]) -> Result<Self> {
     let names = names
       .iter()
       .map(|name| self.position(name).map(|index| self.headers[index].as_str()))
@@ -144,37 +144,37 @@ impl Grid {
   //
 
   /// Keep only rows for which `predicate` returns true.
-  pub fn filter(mut self, mut pred: impl FnMut(&[Cell]) -> bool) -> Self {
+  pub(crate) fn filter(mut self, mut pred: impl FnMut(&[Cell]) -> bool) -> Self {
     self.rows.retain(|row| pred(row));
     self
   }
 
   /// Sort rows using the given comparator.
-  pub fn sort_by(mut self, mut cmp: impl FnMut(&[Cell], &[Cell]) -> Ordering) -> Self {
+  pub(crate) fn sort_by(mut self, mut cmp: impl FnMut(&[Cell], &[Cell]) -> Ordering) -> Self {
     self.rows.sort_by(|a, b| cmp(a, b));
     self
   }
 
   /// Randomize row order.
-  pub fn shuffle(mut self) -> Self {
+  pub(crate) fn shuffle(mut self) -> Self {
     self.rows.shuffle(&mut rand::thread_rng());
     self
   }
 
   /// Reverse row order.
-  pub fn reverse(mut self) -> Self {
+  pub(crate) fn reverse(mut self) -> Self {
     self.rows.reverse();
     self
   }
 
   /// Keep only the first `n` rows.
-  pub fn head(mut self, n: usize) -> Self {
+  pub(crate) fn head(mut self, n: usize) -> Self {
     self.rows.truncate(n);
     self
   }
 
   /// Keep only the last `n` rows.
-  pub fn tail(mut self, n: usize) -> Self {
+  pub(crate) fn tail(mut self, n: usize) -> Self {
     let n = n.min(self.rows.len());
     let start = self.rows.len() - n;
     self.rows = self.rows.split_off(start);
@@ -185,6 +185,7 @@ impl Grid {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::value::Value;
 
   fn abc() -> Grid {
     Grid::new(
@@ -229,8 +230,8 @@ mod tests {
   fn test_column_type() {
     let grid = Grid::new(vec!["score".to_owned()], vec![vec!["2".to_owned()], vec!["10.5".to_owned()]]).unwrap();
     assert_eq!(ColumnType::Float, grid.column_type(0));
-    assert_eq!(Some(&crate::Value::Float(2.0)), grid.rows()[0][0].value());
-    assert_eq!(Some(&crate::Value::Float(10.5)), grid.rows()[1][0].value());
+    assert_eq!(Some(&Value::Float(2.0)), grid.rows()[0][0].value());
+    assert_eq!(Some(&Value::Float(10.5)), grid.rows()[1][0].value());
   }
 
   #[test]
@@ -255,13 +256,13 @@ mod tests {
       ],
       grid.types.as_slice()
     );
-    assert_eq!(Some(&crate::Value::Int(2)), grid.rows[0][0].value());
+    assert_eq!(Some(&Value::Int(2)), grid.rows[0][0].value());
     assert_eq!(None, grid.rows[1][0].value());
-    assert_eq!(Some(&crate::Value::Percent(12.0)), grid.rows[0][1].value());
+    assert_eq!(Some(&Value::Percent(12.0)), grid.rows[0][1].value());
     assert_eq!(None, grid.rows[0][2].value());
     assert_eq!(None, grid.rows[0][3].value());
-    assert!(matches!(grid.rows[0][5].value(), Some(crate::Value::Float(_))));
-    assert_eq!(Some(&crate::Value::Float(1.0)), grid.rows[1][5].value());
+    assert!(matches!(grid.rows[0][5].value(), Some(Value::Float(_))));
+    assert_eq!(Some(&Value::Float(1.0)), grid.rows[1][5].value());
   }
 
   #[test]

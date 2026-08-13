@@ -2,12 +2,12 @@
 
 use std::{borrow::Cow, ops::Deref};
 
-use crate::{Value, util};
+use crate::{util, value::Value};
 
 /// Display text plus its normalized numeric value, when the column is numeric.
 /// Formatting may change `text`; `value` remains stable for sorting and scales.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Cell {
+pub(crate) struct Cell {
   text: String,
   value: Option<Value>,
 }
@@ -19,11 +19,11 @@ impl Cell {
     Self { text, value }
   }
 
-  pub fn as_str(&self) -> &str {
+  pub(crate) fn as_str(&self) -> &str {
     &self.text
   }
 
-  pub fn value(&self) -> Option<&Value> {
+  pub(crate) fn value(&self) -> Option<&Value> {
     self.value.as_ref()
   }
 

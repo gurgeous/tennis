@@ -1,18 +1,11 @@
 //! Generic text helpers shared by layout, columns, and rendering.
 
-use std::borrow::Cow;
+use std::{borrow::Cow, cmp::Ordering, fmt::Write as _};
 
 use unicode_truncate::UnicodeTruncateStr;
 use unicode_width::UnicodeWidthStr;
 
-// Capitalizes one titleized word, lowercasing the rest.
-pub(crate) fn capitalize(word: &str) -> String {
-  let mut chars = word.chars();
-  let Some(first) = chars.next() else {
-    return String::new();
-  };
-  first.to_uppercase().chain(chars.flat_map(char::to_lowercase)).collect()
-}
+pub(crate) const PLACEHOLDER: &str = "—";
 
 // Measures display width, avoiding Unicode table lookup for plain ASCII.
 pub(crate) fn display_width(text: &str) -> usize {
@@ -36,11 +29,58 @@ pub(crate) fn markdown_link(input: &str) -> Option<(&str, &str)> {
   Some((label, url))
 }
 
-// Scans a numeric iterator once and returns its min and max.
-pub(crate) fn minmax(values: impl IntoIterator<Item = f64>) -> Option<(f64, f64)> {
+// ASCII-case-insensitive substring check.
+pub(crate) fn has_ascii_case(haystack: &str, needle: &str) -> bool {
+  if needle.is_empty() {
+    return true;
+  }
+  let haystack = haystack.as_bytes();
+  let needle = needle.as_bytes();
+  if needle.len() > haystack.len() {
+    return false;
+  }
+  haystack.windows(needle.len()).any(|window| window.iter().zip(needle).all(|(a, b)| a.eq_ignore_ascii_case(b)))
+}
+
+// Escape a string as a JSON string literal.
+pub(crate) fn json_escape(text: &str) -> String {
+  let mut out = String::with_capacity(text.len() + 2);
+  out.push('"');
+  for ch in text.chars() {
+    match ch {
+      '"' => out.push_str("\\\""),
+      '\\' => out.push_str("\\\\"),
+      '\u{08}' => out.push_str("\\b"),
+      '\u{0c}' => out.push_str("\\f"),
+      '\n' => out.push_str("\\n"),
+      '\r' => out.push_str("\\r"),
+      '\t' => out.push_str("\\t"),
+      ch if ch <= '\u{1f}' => write!(out, "\\u{:04x}", ch as u32).expect("writing to String cannot fail"),
+      _ => out.push(ch),
+    }
+  }
+  out.push('"');
+  out
+}
+
+// Return min/max using a custom comparator.
+pub(crate) fn minmax_by<T>(values: impl IntoIterator<Item = T>, compare: impl Fn(&T, &T) -> Ordering) -> Option<(T, T)>
+where
+  T: Copy,
+{
   let mut values = values.into_iter();
   let first = values.next()?;
-  Some(values.fold((first, first), |(min, max), value| (min.min(value), max.max(value))))
+  Some(values.fold((first, first), |(min, max), value| {
+    let min = if compare(&value, &min).is_lt() { value } else { min };
+    let max = if compare(&value, &max).is_gt() { value } else { max };
+    (min, max)
+  }))
+}
+
+// Match the old JS helper: pluralize with optional count prefix.
+pub(crate) fn pluralize(word: &str, count: usize, inclusive: bool) -> String {
+  let word = if count == 1 { word.to_owned() } else { format!("{word}s") };
+  if inclusive { format!("{count} {word}") } else { word }
 }
 
 // Interpolates a percentile from sorted display widths.
@@ -105,29 +145,6 @@ fn is_squished(s: &str) -> bool {
   !last
 }
 
-// Converts machine-style headers like `person_id` into display labels.
-pub(crate) fn titleize(input: &str) -> String {
-  let input = input.strip_suffix("_id").unwrap_or(input);
-  let mut spaced = String::new();
-  let mut prev_word = false;
-
-  for ch in input.chars() {
-    if ch == '_' {
-      spaced.push(' ');
-      prev_word = false;
-    } else if ch.is_uppercase() && prev_word {
-      spaced.push(' ');
-      spaced.push(ch);
-      prev_word = true;
-    } else {
-      spaced.push(ch);
-      prev_word = ch.is_alphanumeric();
-    }
-  }
-
-  spaced.split_whitespace().map(capitalize).collect::<Vec<_>>().join(" ")
-}
-
 // Truncates text w/ ellipsis, preserving Unicode grapheme boundaries.
 pub(crate) fn truncate(text: &str, stop: usize) -> String {
   if stop == 0 {
@@ -190,10 +207,39 @@ mod tests {
   }
 
   #[test]
-  fn test_minmax() {
-    assert_eq!(None, minmax([]));
-    assert_eq!(Some((3.0, 3.0)), minmax([3.0]));
-    assert_eq!(Some((-2.0, 10.0)), minmax([3.0, -2.0, 10.0, 4.0]));
+  fn test_has_ascii_case() {
+    for (haystack, needle, expected) in [
+      ("Alice", "ali", true),
+      ("Alice", "ICE", true),
+      ("Alice", "Alice", true),
+      ("Alice", "e", true),
+      ("Alice", "", true),
+      ("Ali", "Alice", false),
+      ("Alice", "bob", false),
+    ] {
+      assert_eq!(expected, has_ascii_case(haystack, needle));
+    }
+  }
+
+  #[test]
+  fn test_json_escape() {
+    for (input, expected) in [
+      ("abc", "\"abc\""),
+      ("a\tb", "\"a\\tb\""),
+      ("he said \"hi\"", "\"he said \\\"hi\\\"\""),
+      ("slash\\path", "\"slash\\\\path\""),
+      ("\u{08}\u{0c}\n\r\t", "\"\\b\\f\\n\\r\\t\""),
+      ("\u{01}", "\"\\u0001\""),
+      ("香港", "\"香港\""),
+    ] {
+      assert_eq!(expected, json_escape(input));
+    }
+  }
+
+  #[test]
+  fn test_minmax_by() {
+    let values = [(2.0_f64, "b"), (1.0, "a"), (3.0, "c")];
+    assert_eq!(Some(((1.0, "a"), (3.0, "c"))), minmax_by(values, |lhs, rhs| lhs.0.total_cmp(&rhs.0)));
   }
 
   #[test]
@@ -207,6 +253,15 @@ mod tests {
   }
 
   #[test]
+  fn test_pluralize() {
+    for (word, count, inclusive, expected) in
+      [("row", 1, false, "row"), ("row", 2, false, "rows"), ("row", 1, true, "1 row"), ("row", 2, true, "2 rows")]
+    {
+      assert_eq!(expected, pluralize(word, count, inclusive));
+    }
+  }
+
+  #[test]
   fn test_squish() {
     assert!(matches!(squish("a b c"), Cow::Borrowed(_)));
 
@@ -214,22 +269,6 @@ mod tests {
     assert_eq!(squish(" a"), "a");
     assert_eq!(squish(""), "");
     assert_eq!(squish("   "), "");
-  }
-
-  #[test]
-  fn test_titleize_matches_ruby_cases() {
-    let cases = [
-      ("action", "Action"),
-      ("action_id", "Action"),
-      ("created_at", "Created At"),
-      ("HTTP_status", "H T T P Status"),
-      ("serp_total_time", "Serp Total Time"),
-      ("serp time", "Serp Time"),
-      ("SerpTime", "Serp Time"),
-    ];
-    for (input, want) in cases {
-      assert_eq!(want, titleize(input));
-    }
   }
 
   #[test]

@@ -2,11 +2,11 @@
 
 use std::fmt;
 
-use crate::{Cell, Value};
+use crate::{cell::Cell, value::Value};
 
 /// What kind of column is this?
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub enum ColumnType {
+pub(crate) enum ColumnType {
   #[default]
   String,
   Float,

@@ -7,7 +7,7 @@ use crate::num_locale::NumLocale;
 /// Numeric cell value after column inference.
 /// Percent values retain display units: `12%` is `Percent(12.0)`.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Value {
+pub(crate) enum Value {
   Int(i64),
   Float(f64),
   Percent(f64),
@@ -27,7 +27,7 @@ impl Value {
   }
 
   /// convert to f64 if possible (only used for colorscale)
-  pub fn as_f64(self) -> f64 {
+  pub(crate) fn as_f64(self) -> f64 {
     match self {
       Self::Int(x) => x as f64,
       Self::Float(x) | Self::Percent(x) => x,
@@ -35,7 +35,7 @@ impl Value {
   }
 
   /// Compares values to the same value type.
-  pub fn cmp_same_type(self, other: Self) -> Ordering {
+  pub(crate) fn cmp_same_type(self, other: Self) -> Ordering {
     match (self, other) {
       (Self::Int(a), Self::Int(b)) => a.cmp(&b),
       (Self::Float(a), Self::Float(b)) | (Self::Percent(a), Self::Percent(b)) => a.total_cmp(&b),
@@ -44,7 +44,7 @@ impl Value {
   }
 
   /// Formats a value for display using the current numeric locale.
-  pub fn format(self, digits: usize) -> String {
+  pub(crate) fn format(self, digits: usize) -> String {
     let locale = NumLocale::current();
     match self {
       Self::Int(x) => locale.format_int(x),
