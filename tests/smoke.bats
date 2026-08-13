@@ -262,7 +262,7 @@ run_tty() {
   [[ "$output" != *"Ideal"* ]]
 
   # -b
-  run_ok --color=off --width 80 -b cut "$ROOT/tests/test.csv"
+  run_ok --color=off --width 80 -b 2 "$ROOT/tests/test.csv"
   [[ "$output" == *"Ideal"* ]]
 
   # -bb
@@ -284,7 +284,7 @@ run_tty() {
 
 @test "--scale and --rscale" {
   # scale
-  run_ok --color=on --theme dark --width 80 --scale carat "$ROOT/tests/test.csv"
+  run_ok --color=on --theme dark --width 80 --scale 1 "$ROOT/tests/test.csv"
   [[ "$output" == *$'\e[48;2;'* ]]
 
   # reverse scale
@@ -461,9 +461,17 @@ run_tty() {
   [[ "$output" == *"│ name  │"* ]]
   [[ "$output" == *"│ alice │"* ]]
   [[ "$output" != *"score"* ]]
+
+  # indexes always refer to original columns
+  run_ok --color=off --width 80 --select 2,1,2 --deselect 2 "$ROOT/tests/test.json"
+  [[ "$output" == *"name"* ]]
+  [[ "$output" != *"score"* ]]
 }
 
 @test "--sort" {
+  run_ok --color=off --width 80 --sort 1 --head 2 "$ROOT/tests/test.json"
+  [[ "$output" == *"alice"* ]]
+
   # before head
   run_ok --color=off --width 80 --sort name --head 2 "$ROOT/tests/test.json"
   [[ "$output" == *"alice"* ]]

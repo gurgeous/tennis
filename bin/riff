@@ -1,0 +1,54 @@
+#!/usr/bin/env ruby
+
+#
+# Shows a git diff with inline Rust test modules removed.
+#
+# Usage: riff [git-diff arguments]
+#   riff
+#   riff --cached
+#   riff HEAD -- src/grid.rs
+#
+
+require "tempfile"
+require_relative "run_kit"
+
+include RunKit
+
+CFG = /\A#\[cfg.*\btest\b/
+OPEN = /\Amod tests \{/
+CLOSE = /\A}\s*\z/
+
+def textconv(filename)
+  idx = 0
+  lines = file_read(filename).lines
+  while idx < lines.length
+    if lines[idx].match?(CFG) && lines[idx + 1]&.match?(OPEN)
+      mod_end = ((idx + 2)...lines.length).find { lines[_1].match?(CLOSE) }
+      if mod_end
+        idx = mod_end + 1
+        next
+      end
+    end
+
+    print lines[idx]
+    idx += 1
+  end
+end
+
+if ARGV.first == "--textconv"
+  textconv(ARGV.fetch(1))
+  exit
+end
+
+script = Pathname($PROGRAM_NAME).expand_path.to_s.shellescape
+Tempfile.create("riff-attributes") do |attrs|
+  attrs.write("*.rs diff=riff\n")
+  attrs.flush
+  system(
+    "git",
+    "-c", "core.attributesFile=#{attrs.path}",
+    "-c", "diff.riff.textconv=#{script} --textconv",
+    "diff", "--textconv", *ARGV
+  )
+  exit($?.exitstatus || 1)
+end

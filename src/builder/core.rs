@@ -94,7 +94,7 @@ impl Builder {
   /// Builds the table. This will return an error if something is off in the
   /// builder.
   pub fn build(self) -> Result<Table> {
-    let Builder { grid, options, record_options, select, deselect } = self;
+    let Builder { grid, options, record_options, mut select, mut deselect } = self;
     let grid = match grid {
       Some(grid) => grid?,
       None => grid::from_cells(Vec::new())?,
@@ -102,7 +102,15 @@ impl Builder {
 
     // Finalize terminal-sensitive options before constructing Table. Renderers
     // assume color/theme are concrete and never start terminal probes.
-    let options = record_options.unwrap_or_default().merge(options);
+    let mut options = record_options.unwrap_or_default().merge(options);
+    resolve_columns(&grid, &mut select);
+    resolve_columns(&grid, &mut deselect);
+    for (column, _) in &mut options.bigs {
+      *column = grid.resolve_header(column).to_owned();
+    }
+    for (column, _) in &mut options.color_scales {
+      *column = grid.resolve_header(column).to_owned();
+    }
     let resolved = crate::resolved::Resolved::new(options);
 
     // (de)select, then make sure options work with the list of headers
@@ -116,6 +124,12 @@ impl Builder {
 //
 // standalone helpers
 //
+
+fn resolve_columns(grid: &Grid, columns: &mut [String]) {
+  for column in columns {
+    *column = grid.resolve_header(column).to_owned();
+  }
+}
 
 fn pick_columns(mut grid: Grid, select: &[String], deselect: &[String]) -> Result<Grid> {
   if !select.is_empty() {
@@ -366,6 +380,15 @@ mod tests {
       Error::MissingColumn { column: "score".to_owned(), operation: None, headers: vec!["name".to_owned()] },
       error
     );
+  }
+
+  #[test]
+  fn test_column_indexes() {
+    let grid = named_grid(&["name", "score"], &[vec!["alice", "1234"]]);
+    let table = build(Table::builder().load_grid(grid).select(["2", "1"]).big("2").color_scale("2", ColorScale::Green));
+    assert_eq!(["score", "name"], table.headers());
+    assert_eq!(ColumnBig::Big, table.options.column_big("score"));
+    assert_eq!(Some(ColorScale::Green), table.options.color_scale("score"));
   }
 
   #[test]
