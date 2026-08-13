@@ -158,12 +158,12 @@ fn natural_widths(ctx: &mut Context<'_>) {
 mod tests {
   use super::*;
   use crate::{
-    Border, Context, Grid, ResolvedOptions, ResolvedWidth,
+    Border, Context, Grid, Resolved, ResolvedWidth,
     middleware::{columns, format},
     render::{border::get_border, test_grid, test_options},
   };
 
-  fn layout(grid: Grid, f: impl FnOnce(&mut ResolvedOptions)) -> Vec<usize> {
+  fn layout(grid: Grid, f: impl FnOnce(&mut Resolved)) -> Vec<usize> {
     let mut options = test_options();
     f(&mut options);
     let mut out = Vec::new();

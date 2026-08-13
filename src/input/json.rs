@@ -8,8 +8,8 @@ use crate::{Error, Grid, Result, util};
 // JSON loading
 //
 // This path is tuned for big JSON/JSONL. Do not replace simd-json with
-// serde_json; that is too slow for large files. Handles arrays, objects, and
-// JSONL.
+// serde_json; that is too slow for large files. Handles JSON arrays, JSON
+// objects, and JSONL.
 //
 
 const MAX_COMPACT_DEPTH: usize = 1024;

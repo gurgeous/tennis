@@ -15,7 +15,7 @@ use crate::util::read_bool_env;
 //
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ResolvedOptions {
+pub struct Resolved {
   pub bigs: Vec<(String, ColumnBig)>,
   pub border: Border,
   pub color: ColorMode,
@@ -31,7 +31,7 @@ pub struct ResolvedOptions {
   pub zebra: bool,
 }
 
-impl ResolvedOptions {
+impl Resolved {
   //
   // column option lookup
   //
@@ -83,7 +83,7 @@ pub(super) fn resolve_color(color: Option<ColorMode>) -> ColorMode {
 // Resolve our `color` to anstream auto/never/always. Note that both None and
 // Auto honor the env variables, but None biases toward turning color on (as
 // opposed to Auto). Tennis is all about color, that's like the whole purpose of
-// the app. Don't turn it off lightly.
+// the app/crate. Don't turn it off lightly.
 //
 fn color_choice_with_env(color: Option<ColorMode>, force_color: bool, no_color: bool) -> anstream::ColorChoice {
   match color {

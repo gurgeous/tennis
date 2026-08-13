@@ -11,7 +11,7 @@
 const CANDIDATES: &[u8] = b",\t;|";
 
 /// look at the first few lines, what delim do we see?
-pub fn sniff(sample: &[u8]) -> Option<u8> {
+pub fn sniff(sample: &str) -> Option<u8> {
   let lines = split_lines(sample);
 
   if lines.len() < 3 || lines.iter().any(|line| line.is_empty()) {
@@ -32,14 +32,13 @@ pub fn sniff(sample: &[u8]) -> Option<u8> {
 
 /// Split on LF and trim CR per line so mixed CRLF/LF samples still sniff.
 /// Drop the final line because file samples are often cut mid-record.
-fn split_lines(sample: &[u8]) -> Vec<&[u8]> {
-  let mut lines: Vec<_> =
-    sample.split(|&byte| byte == b'\n').take(11).map(|line| line.strip_suffix(b"\r").unwrap_or(line)).collect();
+fn split_lines(sample: &str) -> Vec<&str> {
+  let mut lines: Vec<_> = sample.split('\n').take(11).map(|line| line.strip_suffix('\r').unwrap_or(line)).collect();
   lines.pop();
   lines
 }
 
-fn count_columns(lines: &[&[u8]], delimiter: u8) -> usize {
+fn count_columns(lines: &[&str], delimiter: u8) -> usize {
   let mut expected = 0;
   for line in lines {
     let n = count_columns_for_line(line, delimiter);
@@ -53,10 +52,10 @@ fn count_columns(lines: &[&[u8]], delimiter: u8) -> usize {
   if expected < 2 { 0 } else { expected }
 }
 
-fn count_columns_for_line(line: &[u8], delimiter: u8) -> usize {
+fn count_columns_for_line(line: &str, delimiter: u8) -> usize {
   let mut n = 1;
   let mut in_quotes = false;
-  let mut iter = line.iter().peekable();
+  let mut iter = line.as_bytes().iter().peekable();
   while let Some(&ch) = iter.next() {
     if ch == b'"' {
       if in_quotes && iter.peek() == Some(&&b'"') {
@@ -91,7 +90,7 @@ mod tests {
       ("a|b|c|d,;\n1|2|3|4,;\n5|6|7|8,;\n9|10|11|", b'|'),
     ];
     for (sample, delimiter) in cases {
-      assert_eq!(Some(delimiter), sniff(sample.as_bytes()));
+      assert_eq!(Some(delimiter), sniff(sample));
     }
   }
 
@@ -107,13 +106,13 @@ mod tests {
       "a,b,c\n1,2,3",
       "\"a,b,c\n1,2,3\n4,5,6\n",
     ] {
-      assert_eq!(None, sniff(sample.as_bytes()));
+      assert_eq!(None, sniff(sample));
     }
   }
 
   #[test]
   fn test_sniff_priority() {
-    assert_eq!(Some(b';'), sniff(b"a;b|c\n1;2|3\n4;5|6\n"));
+    assert_eq!(Some(b';'), sniff("a;b|c\n1;2|3\n4;5|6\n"));
   }
 
   #[test]
@@ -129,8 +128,7 @@ mod tests {
     ];
 
     for (sample, want) in cases {
-      let want: Vec<_> = want.iter().map(|line| line.as_bytes()).collect();
-      assert_eq!(want, split_lines(sample.as_bytes()));
+      assert_eq!(want, split_lines(sample));
     }
   }
 
@@ -146,7 +144,7 @@ mod tests {
     ];
 
     for (line, delimiter, want) in cases {
-      assert_eq!(want, count_columns_for_line(line.as_bytes(), delimiter));
+      assert_eq!(want, count_columns_for_line(line, delimiter));
     }
   }
 }

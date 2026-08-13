@@ -2,10 +2,12 @@
 
 use crate::Context;
 
+// re-export these
 pub mod columns;
 pub mod format;
 pub mod layout;
 pub mod paint;
+pub mod render;
 pub mod truncate;
 
 //

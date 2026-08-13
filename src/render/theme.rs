@@ -4,7 +4,7 @@ use anstyle::{Ansi256Color, Color as AnsiColor, RgbColor};
 
 use super::{
   ansi256::Ansi256,
-  resolved::{ResolvedOptions, ResolvedTheme},
+  resolved::{Resolved, ResolvedTheme},
 };
 
 pub const RESET: &str = "\x1b[0m";
@@ -32,7 +32,7 @@ impl Default for Theme {
 }
 
 impl Theme {
-  pub fn new(options: &ResolvedOptions) -> Self {
+  pub fn new(options: &Resolved) -> Self {
     match options.theme {
       ResolvedTheme::Light => Self::light(options.termbg),
       ResolvedTheme::Dark => Self::dark(options.termbg),

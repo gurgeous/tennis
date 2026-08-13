@@ -2,7 +2,7 @@
 
 use super::{
   color_scale::ColorScale,
-  resolved::{ResolvedOptions, ResolvedWidth, resolve_color, resolve_theme, terminal_width},
+  resolved::{Resolved, ResolvedWidth, resolve_color, resolve_theme, terminal_width},
 };
 use crate::{ColumnOperation, Error, Grid, Result};
 
@@ -60,12 +60,12 @@ impl RenderOptions {
     Ok(())
   }
 
-  pub fn resolve(self) -> ResolvedOptions {
+  pub fn resolve(self) -> Resolved {
     // Finalize terminal-sensitive settings before rendering. Render passes
     // assume concrete color/theme values and never start terminal probes.
     let color = resolve_color(self.color);
     let (theme, termbg) = resolve_theme(color, self.theme);
-    ResolvedOptions {
+    Resolved {
       bigs: self.bigs,
       border: self.border,
       color,
@@ -133,7 +133,7 @@ pub enum Border {
   WithLove,
 }
 
-/// Should Tennis use color?
+/// Should we use color?
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum ColorMode {
   #[default]
@@ -142,7 +142,7 @@ pub enum ColorMode {
   Off,
 }
 
-/// Dark versus light color theme.
+/// Dark vs light color theme.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum ThemeMode {
   #[default]
@@ -151,7 +151,7 @@ pub enum ThemeMode {
   Light,
 }
 
-/// How Tennis chooses the table width.
+/// How do we choose table width?
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum WidthMode {
   #[default]

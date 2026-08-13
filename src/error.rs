@@ -15,7 +15,7 @@ pub enum Error {
   Csv,
   FileNotFound(PathBuf),
   FileRead,
-  Jagged { expected: usize, actual: usize },
+  JaggedCsv,
   Json,
   MissingColumn { column: String, operation: Option<ColumnOperation>, headers: Vec<String> },
   PagerStart,
@@ -66,7 +66,7 @@ fn format(error: &Error) -> String {
       return message(&format!("Could not read file '{}'", path.display()));
     }
     Error::FileRead => "Could not read that file",
-    Error::Jagged { .. } => "All csv rows must have same number of columns",
+    Error::JaggedCsv => "All csv rows must have same number of columns",
     Error::Json => "That JSON/JSONL file doesn't look right",
     Error::MissingColumn { column, operation, headers } => {
       return missing_column(column, *operation, headers);

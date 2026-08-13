@@ -33,7 +33,7 @@ use render::{
   column::Column,
   context::Context,
   options::{Border, ColorMode, ColumnBig, RenderOptions, ThemeMode, WidthMode},
-  resolved::{ResolvedOptions, ResolvedWidth},
+  resolved::{Resolved, ResolvedWidth},
 };
 use value::Value;
 
@@ -246,7 +246,7 @@ impl Main {
   //
 
   // write table somewhere based on args
-  fn write(&self, grid: Grid, options: ResolvedOptions) -> Result<()> {
+  fn write(&self, grid: Grid, options: Resolved) -> Result<()> {
     if self.args.pager {
       let mut pager = self.pager()?;
       let _ = render::write(grid, options, &mut pager.stdin as &mut dyn Write);
@@ -314,7 +314,8 @@ fn load_bytes(args: &Args, filename: Option<&Path>, bytes: &[u8]) -> Result<Grid
     _ if args.table.is_some() => Err(Error::SqliteTableRequiresSqlite),
     InputFormat::Json => json::load(bytes),
     InputFormat::Csv => {
-      let delimiter = args.delimiter.or_else(|| sniffer::sniff(bytes)).unwrap_or(b',');
+      let text = String::from_utf8_lossy(bytes);
+      let delimiter = args.delimiter.or_else(|| sniffer::sniff(&text)).unwrap_or(b',');
       csv::load(bytes, delimiter)
     }
   }

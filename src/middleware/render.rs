@@ -1,16 +1,18 @@
-//! Final table rendering.
+//! Final table rendering middleware.
 
 use std::io;
 
 use unicode_width::UnicodeWidthStr;
 
-use super::{
-  border::{BorderDraw, BorderRule},
-  column::Align,
-  context::Context,
-  theme::{BOLD, RESET},
+use crate::{
+  render::{
+    border::{BorderDraw, BorderRule},
+    column::Align,
+    context::Context,
+    theme::{BOLD, RESET},
+  },
+  util::PLACEHOLDER,
 };
-use crate::util::PLACEHOLDER;
 
 // Middleware entry point.
 pub fn run(ctx: &mut Context<'_>) -> io::Result<()> {
@@ -365,7 +367,7 @@ mod tests {
 
   use super::*;
   use crate::{
-    Border, ColorMode, ColorScale, ColumnBig, Grid, ResolvedOptions, ResolvedTheme, ResolvedWidth,
+    Border, ColorMode, ColorScale, ColumnBig, Grid, Resolved, ResolvedTheme, ResolvedWidth,
     middleware::MIDDLEWARE,
     num_locale::NumLocale,
     render::{self, test_grid, test_options},
@@ -398,7 +400,7 @@ mod tests {
     test_grid(headers, rows)
   }
 
-  fn rendered(grid: Grid, f: impl FnOnce(&mut ResolvedOptions)) -> String {
+  fn rendered(grid: Grid, f: impl FnOnce(&mut Resolved)) -> String {
     let mut options = test_options();
     f(&mut options);
     render::text(grid, options)

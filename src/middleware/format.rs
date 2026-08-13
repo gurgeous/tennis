@@ -55,13 +55,13 @@ fn format_cell(ctx: &mut Context<'_>, r: usize, c: usize, digits: usize) -> Opti
 mod tests {
   use super::*;
   use crate::{
-    Cell, Context, Grid, ResolvedOptions, Value,
+    Cell, Context, Grid, Resolved, Value,
     middleware::columns,
     num_locale::NumLocale,
     render::{context::Links, test_grid, test_options},
   };
 
-  fn formatted(grid: Grid, f: impl FnOnce(&mut ResolvedOptions)) -> (Vec<Vec<Cell>>, Links) {
+  fn formatted(grid: Grid, f: impl FnOnce(&mut Resolved)) -> (Vec<Vec<Cell>>, Links) {
     let mut options = test_options();
     f(&mut options);
     let mut out = Vec::new();

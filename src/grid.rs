@@ -27,8 +27,8 @@ impl Grid {
 
   /// Builds a rectangular grid from cells.
   pub fn from_cells(mut headers: Vec<String>, mut rows: Vec<Vec<Cell>>) -> Result<Self> {
-    if let Some(row) = rows.iter().find(|row| row.len() != headers.len()) {
-      return Err(Error::Jagged { expected: headers.len(), actual: row.len() });
+    if rows.iter().any(|row| row.len() != headers.len()) {
+      return Err(Error::JaggedCsv);
     }
 
     for header in &mut headers {
@@ -204,7 +204,7 @@ mod tests {
     assert_eq!(["name", "score"], grid.headers());
     assert_eq!("bob", grid.rows()[0][0]);
     assert_eq!(
-      Err(Error::Jagged { expected: 2, actual: 1 }),
+      Err(Error::JaggedCsv),
       Grid::new(vec!["name".to_owned(), "score".to_owned()], vec![vec!["alice".to_owned()]])
     );
   }

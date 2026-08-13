@@ -34,12 +34,12 @@ pub fn run(ctx: &mut Context<'_>) {
 mod tests {
   use super::*;
   use crate::{
-    Cell, Context, Grid, ResolvedOptions, ResolvedWidth,
+    Cell, Context, Grid, Resolved, ResolvedWidth,
     middleware::{columns, format, layout},
     render::{test_grid, test_options},
   };
 
-  fn truncated(grid: Grid, f: impl FnOnce(&mut ResolvedOptions)) -> (Vec<String>, Vec<Vec<Cell>>) {
+  fn truncated(grid: Grid, f: impl FnOnce(&mut Resolved)) -> (Vec<String>, Vec<Vec<Cell>>) {
     let mut options = test_options();
     f(&mut options);
     let mut out = Vec::new();

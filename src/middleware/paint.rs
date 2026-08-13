@@ -121,12 +121,12 @@ fn paint_string_scale(ctx: &mut Context<'_>, c: usize, scale: ColorScale) {
 mod tests {
   use super::*;
   use crate::{
-    ColorMode, Context, Grid, ResolvedOptions, ResolvedTheme, ResolvedWidth,
+    ColorMode, Context, Grid, Resolved, ResolvedTheme, ResolvedWidth,
     middleware::{columns, format, layout, truncate},
     render::{context::PaintState, test_grid, test_options},
   };
 
-  fn painted(grid: Grid, f: impl FnOnce(&mut ResolvedOptions)) -> PaintState {
+  fn painted(grid: Grid, f: impl FnOnce(&mut Resolved)) -> PaintState {
     let mut options = test_options();
     options.color = ColorMode::On;
     options.theme = ResolvedTheme::Dark;

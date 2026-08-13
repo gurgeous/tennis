@@ -9,7 +9,7 @@ use crate::{Error, Value, WidthMode};
 //
 // `tennis --peek`
 //
-// Share inference and number formatting with normal tables.
+// Share inference and number formatting with the crate so stats match tables.
 //
 
 const SAMPLE_ROWS: usize = 5;

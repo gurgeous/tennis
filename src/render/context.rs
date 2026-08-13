@@ -5,7 +5,7 @@ use std::{collections::HashMap, io::Write};
 use super::{
   border::{self, BorderDraw},
   column::Column,
-  resolved::ResolvedOptions,
+  resolved::Resolved,
   theme::{Ansi, Theme},
 };
 use crate::Grid;
@@ -15,7 +15,7 @@ pub type Links = HashMap<(usize, usize), String>;
 pub struct Context<'w> {
   // inputs
   pub grid: Grid,
-  pub options: ResolvedOptions,
+  pub options: Resolved,
   pub writer: &'w mut dyn Write,
 
   // populated in ctor
@@ -42,7 +42,7 @@ pub struct PaintState {
 }
 
 impl<'w> Context<'w> {
-  pub fn new<W: Write + 'w>(grid: Grid, options: ResolvedOptions, writer: &'w mut W) -> Self {
+  pub fn new<W: Write + 'w>(grid: Grid, options: Resolved, writer: &'w mut W) -> Self {
     // ordered
     let theme = Theme::new(&options);
     let border = border::get_border(options.border);

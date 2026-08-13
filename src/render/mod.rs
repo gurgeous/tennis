@@ -7,8 +7,12 @@ use anstream::{
   stream::{AsLockedWrite, RawStream},
 };
 
-use self::{context::Context, resolved::ResolvedOptions};
-use crate::{Grid, middleware::MIDDLEWARE, verbose};
+use self::{context::Context, resolved::Resolved};
+use crate::{
+  Grid,
+  middleware::{MIDDLEWARE, render},
+  verbose,
+};
 
 pub mod ansi256;
 pub mod border;
@@ -16,21 +20,16 @@ pub mod color_scale;
 pub mod column;
 pub mod context;
 pub mod options;
-pub mod output;
 pub mod resolved;
 pub mod theme;
 
-pub fn text(grid: Grid, options: ResolvedOptions) -> String {
+pub fn text(grid: Grid, options: Resolved) -> String {
   let mut out = Vec::new();
   write(grid, options, &mut out).expect("render to Vec cannot fail");
   String::from_utf8(out).expect("renderer writes valid utf-8")
 }
 
-pub fn write<W: RawStream + AsLockedWrite + ?Sized>(
-  grid: Grid,
-  options: ResolvedOptions,
-  writer: &mut W,
-) -> io::Result<()> {
+pub fn write<W: RawStream + AsLockedWrite + ?Sized>(grid: Grid, options: Resolved, writer: &mut W) -> io::Result<()> {
   // build context
   let choice = match options.color {
     options::ColorMode::On => ColorChoice::Always,
@@ -40,8 +39,8 @@ pub fn write<W: RawStream + AsLockedWrite + ?Sized>(
   let mut autostream = AutoStream::new(writer, choice);
   let mut ctx = Context::new(grid, options, &mut autostream);
 
-  // Empty output is handled by the final renderer; the other passes assume
-  // at least one row.
+  // pipeline. note if we skip if empty, middleware doesn't attempt to handle
+  // the empty case
   if !ctx.is_empty() {
     for middleware in MIDDLEWARE {
       verbose::time(middleware.name, || (middleware.run)(&mut ctx));
@@ -49,7 +48,7 @@ pub fn write<W: RawStream + AsLockedWrite + ?Sized>(
   }
 
   // now render
-  verbose::time("render", || output::run(&mut ctx))
+  verbose::time("render", || render::run(&mut ctx))
 }
 
 // Direct fixtures shared by render-pass tests.
@@ -68,7 +67,7 @@ where
 }
 
 #[cfg(test)]
-pub fn test_options() -> ResolvedOptions {
+pub fn test_options() -> Resolved {
   options::RenderOptions {
     color: Some(options::ColorMode::Off),
     theme: Some(options::ThemeMode::Dark),

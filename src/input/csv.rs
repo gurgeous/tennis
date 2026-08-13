@@ -26,9 +26,7 @@ pub fn load(bytes: &[u8], delimiter: u8) -> Result<Grid> {
 
 fn csv_error(error: csv::Error) -> Error {
   match error.kind() {
-    csv::ErrorKind::UnequalLengths { expected_len, len, .. } => {
-      Error::Jagged { expected: *expected_len as usize, actual: *len as usize }
-    }
+    csv::ErrorKind::UnequalLengths { .. } => Error::JaggedCsv,
     _ => Error::Csv,
   }
 }
@@ -43,7 +41,7 @@ mod tests {
     assert_eq!(["a", "b"], input.headers());
     assert_eq!("x,y", input.rows()[0][0]);
     assert_eq!("say \"hi\"", input.rows()[0][1]);
-    assert_eq!(Err(Error::Jagged { expected: 2, actual: 1 }), load(b"a,b\nc\n", b','));
+    assert_eq!(Err(Error::JaggedCsv), load(b"a,b\nc\n", b','));
   }
 
   #[test]

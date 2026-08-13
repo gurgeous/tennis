@@ -1,4 +1,4 @@
-// Embed the Git revision.
+// Embed the CLI git revision.
 
 use std::process::Command;
 
