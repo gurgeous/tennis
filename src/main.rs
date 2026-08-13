@@ -1,10 +1,18 @@
 mod args;
+mod cell;
 mod completion;
 mod error;
+mod grid;
+mod infer;
 mod input;
-pub(crate) mod peek;
+mod middleware;
+mod num_locale;
+mod peek;
+mod render;
 mod sort;
-pub(crate) mod util;
+mod util;
+mod value;
+mod verbose;
 
 use std::{
   io::{self, IsTerminal, Read, Write},
@@ -12,13 +20,22 @@ use std::{
   process::{Child, ChildStdin, Command, ExitCode, Stdio},
 };
 
-use tennis::{ColorScale, Grid, Table};
-
-use crate::{
-  args::Args,
-  error::{Error, Result},
-  input::{csv, detect, detect::InputFormat, json, sniffer, sqlite},
+use args::Args;
+use cell::Cell;
+use error::{ColumnOperation, Error, Result};
+use grid::Grid;
+use infer::ColumnType;
+use input::{csv, detect, detect::InputFormat, json, sniffer, sqlite};
+#[cfg(test)]
+use render::resolved::ResolvedTheme;
+use render::{
+  color_scale::ColorScale,
+  column::Column,
+  context::Context,
+  options::{Border, ColorMode, ColumnBig, RenderOptions, ThemeMode, WidthMode},
+  resolved::{Resolved, ResolvedWidth},
 };
+use value::Value;
 
 //
 // main/main0 around Main
@@ -72,38 +89,54 @@ fn version() -> String {
 // Main orchestrates everything: loading, transforming, rendering.
 //
 
-pub struct Main {
+struct Main {
   args: Args,
 }
 
 impl Main {
-  pub fn new(args: Args) -> Self {
+  fn new(args: Args) -> Self {
     Self { args }
   }
 
-  pub fn run(mut self) -> Result<()> {
+  fn run(mut self) -> Result<()> {
     // read input
     let input = self.load()?;
     self.resolve_columns(&input);
 
     // --peek
     if self.args.peek {
-      let input =
-        if self.has_transforms() { tennis::verbose::time("transform", || self.transform(input))? } else { input };
+      let input = if self.has_transforms() { verbose::time("transform", || self.transform(input))? } else { input };
       let output = peek::render(&input, &self.args)?;
       let _ = io::stdout().write_all(output.as_bytes());
       return Ok(());
     };
 
     // --select, --sort, --head, etc.
-    let input =
-      if self.has_transforms() { tennis::verbose::time("transform", || self.transform(input))? } else { input };
+    let input = if self.has_transforms() { verbose::time("transform", || self.transform(input))? } else { input };
 
-    // feed data and options into our crate
-    let table = to_tennis(input, &self.args)?;
+    // (De)select first, then validate render options against the remaining headers.
+    let mut options = RenderOptions {
+      border: self.args.border.unwrap_or_default(),
+      color: self.args.color,
+      digits: self.args.digits.unwrap_or(3) as usize,
+      row_numbers: self.args.row_numbers,
+      theme: self.args.theme,
+      title: self.args.title.clone(),
+      vanilla: self.args.vanilla,
+      width: self.args.width.unwrap_or_default(),
+      zebra: self.args.zebra,
+      ..RenderOptions::default()
+    };
+    options.bigs.extend(self.args.big1.iter().cloned().map(|column| (column, ColumnBig::Big)));
+    options.bigs.extend(self.args.big2.iter().cloned().map(|column| (column, ColumnBig::Bigger)));
+    options.bigs.extend(self.args.big3.iter().cloned().map(|column| (column, ColumnBig::Biggest)));
+    options.color_scales.extend(self.args.scale.iter().cloned().map(|column| (column, ColorScale::RedGreen)));
+    options.color_scales.extend(self.args.rscale.iter().cloned().map(|column| (column, ColorScale::GreenRed)));
+    options.validate(&input)?;
+    let options = options.resolve();
 
     // output to stdout or pager
-    tennis::verbose::time("write", || self.write(table))
+    verbose::time("write", || self.write(input, options))
   }
 
   //
@@ -115,8 +148,8 @@ impl Main {
       Some(path) if path != Path::new("-") => load_path(&self.args),
       _ => {
         let mut bytes = Vec::new();
-        tennis::verbose::time("read stdin", || io::stdin().read_to_end(&mut bytes)).map_err(|_| Error::StdinRead)?;
-        tennis::verbose::time("parse input", || load_bytes(&self.args, None, &bytes))
+        verbose::time("read stdin", || io::stdin().read_to_end(&mut bytes)).map_err(|_| Error::StdinRead)?;
+        verbose::time("parse input", || load_bytes(&self.args, None, &bytes))
       }
     }
   }
@@ -152,8 +185,8 @@ impl Main {
     // --sort
     if !self.args.sort.is_empty() {
       let sort = sort::sort_keys(&grid, &self.args.sort).map_err(|error| match error {
-        tennis::Error::MissingColumn { column, headers, .. } => Error::BadSort(column, headers),
-        error => error.into(),
+        Error::MissingColumn { column, headers, .. } => Error::BadSort(column, headers),
+        error => error,
       })?;
       grid = grid.sort_by(|a, b| sort::compare_rows(a, b, &sort, self.args.reverse));
     }
@@ -179,15 +212,15 @@ impl Main {
     // --select and --deselect
     if !self.args.select.is_empty() {
       grid = grid.select(&self.args.select).map_err(|error| match error {
-        tennis::Error::MissingColumn { column, headers, .. } => Error::BadSelect(column, headers),
-        error => error.into(),
+        Error::MissingColumn { column, headers, .. } => Error::BadSelect(column, headers),
+        error => error,
       })?;
     }
     if !self.args.deselect.is_empty() {
       let headers = grid.headers().to_vec();
       grid = grid.deselect(&self.args.deselect).map_err(|error| match error {
-        tennis::Error::MissingColumn { column, headers, .. } => Error::BadDeselect(column, headers),
-        error => error.into(),
+        Error::MissingColumn { column, headers, .. } => Error::BadDeselect(column, headers),
+        error => error,
       })?;
       if grid.headers().is_empty() {
         return Err(Error::BadDeselect(self.args.deselect.join(","), headers));
@@ -213,16 +246,16 @@ impl Main {
   //
 
   // write table somewhere based on args
-  fn write(&self, table: Table) -> Result<()> {
+  fn write(&self, grid: Grid, options: Resolved) -> Result<()> {
     if self.args.pager {
       let mut pager = self.pager()?;
-      let _ = table.write_to(&mut pager.stdin as &mut dyn Write);
+      let _ = render::write(grid, options, &mut pager.stdin as &mut dyn Write);
       pager.finish();
       return Ok(());
     }
 
     let mut stdout = io::BufWriter::new(io::stdout().lock());
-    let _ = table.write_to(&mut stdout as &mut dyn Write);
+    let _ = render::write(grid, options, &mut stdout as &mut dyn Write);
     Ok(())
   }
 
@@ -269,60 +302,6 @@ fn env_pager() -> String {
 }
 
 //
-// crate table conversion
-//
-
-fn to_tennis(grid: Grid, args: &Args) -> Result<Table> {
-  let mut builder = Table::builder()
-    .load_grid(grid) // fast path
-    .row_numbers(args.row_numbers)
-    .vanilla(args.vanilla)
-    .zebra(args.zebra);
-
-  // optionals
-  if let Some(border) = args.border {
-    builder = builder.border(border);
-  }
-  if let Some(color) = args.color {
-    builder = builder.color(color);
-  }
-  if let Some(digits) = args.digits {
-    builder = builder.digits(digits as usize);
-  }
-  if let Some(title) = &args.title {
-    builder = builder.title(title);
-  }
-  if let Some(footer) = &args.footer {
-    builder = builder.footer(footer);
-  }
-  if let Some(theme) = args.theme {
-    builder = builder.theme(theme);
-  }
-  if let Some(width) = args.width {
-    builder = builder.width(width);
-  }
-
-  // big(ger|gest)
-  for raw in &args.big1 {
-    builder = builder.big(raw);
-  }
-  for raw in &args.big2 {
-    builder = builder.bigger(raw);
-  }
-  for raw in &args.big3 {
-    builder = builder.biggest(raw);
-  }
-  for raw in &args.scale {
-    builder = builder.color_scale(raw, ColorScale::RedGreen);
-  }
-  for raw in &args.rscale {
-    builder = builder.color_scale(raw, ColorScale::GreenRed);
-  }
-
-  builder.build().map_err(Error::from)
-}
-
-//
 // file loading
 //
 
@@ -349,14 +328,14 @@ fn load_path(args: &Args) -> Result<Grid> {
     std::io::ErrorKind::NotFound => Error::FileNotFound(path.to_owned()),
     _ => Error::FileRead,
   })? {
-    return tennis::verbose::time("sqlite", || sqlite::load(path, args.table.as_deref()));
+    return verbose::time("sqlite", || sqlite::load(path, args.table.as_deref()));
   }
 
-  let bytes = tennis::verbose::time("read file", || std::fs::read(path)).map_err(|err| match err.kind() {
+  let bytes = verbose::time("read file", || std::fs::read(path)).map_err(|err| match err.kind() {
     std::io::ErrorKind::NotFound => Error::FileNotFound(path.to_owned()),
     _ => Error::FileRead,
   })?;
-  tennis::verbose::time("parse input", || load_bytes(args, Some(path), &bytes))
+  verbose::time("parse input", || load_bytes(args, Some(path), &bytes))
 }
 
 #[cfg(test)]
@@ -364,9 +343,10 @@ mod tests {
   use std::path::PathBuf;
 
   use super::*;
+  use crate::{ColorMode, ThemeMode, WidthMode};
 
   fn fixture(name: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("tests").join(name)
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests").join(name)
   }
 
   fn test_input(headers: &[&str], rows: &[Vec<&str>]) -> Grid {
@@ -572,42 +552,33 @@ mod tests {
   }
 
   #[test]
-  fn test_to_tennis_scale() {
+  fn test_render_options_scale() {
     let args = Args {
-      color: Some(tennis::ColorMode::On),
+      color: Some(ColorMode::On),
       scale: vec!["score".to_owned()],
-      theme: Some(tennis::ThemeMode::Dark),
-      width: Some(tennis::WidthMode::Fixed(80)),
+      theme: Some(ThemeMode::Dark),
+      width: Some(WidthMode::Fixed(80)),
       ..Args::default()
     };
     let input = test_input(&["name", "score"], &[vec!["alice", "10"], vec!["bob", "20"]]);
-    let out = to_tennis(input, &args).unwrap().into_text();
+    let mut options = RenderOptions {
+      color: args.color,
+      theme: args.theme,
+      width: args.width.unwrap_or_default(),
+      ..RenderOptions::default()
+    };
+    options.color_scales.extend(args.scale.iter().cloned().map(|column| (column, ColorScale::RedGreen)));
+    options.validate(&input).unwrap();
+    let out = render::text(input, options.resolve());
     assert!(out.contains("\x1b[48;2;"), "{out:?}");
   }
 
   #[test]
-  fn test_to_tennis_rscale_bad_column() {
+  fn test_render_options_rscale_bad_column() {
     let args = Args { rscale: vec!["bogus".to_owned()], ..Args::default() };
     let input = test_input(&["name", "score"], &[vec!["alice", "10"]]);
-    assert!(matches!(to_tennis(input, &args), Err(Error::MissingColumn { .. })));
-  }
-
-  #[test]
-  fn test_tennis_error_conversion() {
-    let headers = vec!["name".to_owned(), "score".to_owned()];
-    assert_eq!(Error::JaggedCsv, Error::from(tennis::Error::Jagged { expected: 2, actual: 1 }));
-    assert_eq!(Error::JaggedCsv, Error::from(tennis::Error::HeaderLength { expected: 2, actual: 1 }));
-    assert_eq!(Error::Json, Error::from(tennis::Error::JsonArrayExpected));
-    assert_eq!(Error::Json, Error::from(tennis::Error::JsonObjectExpected));
-
-    let missing = Error::from(tennis::Error::MissingColumn {
-      column: "bogus".to_owned(),
-      operation: Some(tennis::ColumnOperation::Big),
-      headers: headers.clone(),
-    });
-    assert_eq!(
-      Error::MissingColumn { column: "bogus".to_owned(), operation: Some(tennis::ColumnOperation::Big), headers },
-      missing
-    );
+    let mut options = RenderOptions::default();
+    options.color_scales.extend(args.rscale.iter().cloned().map(|column| (column, ColorScale::GreenRed)));
+    assert!(matches!(options.validate(&input), Err(Error::MissingColumn { .. })));
   }
 }

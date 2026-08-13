@@ -5,17 +5,16 @@ use std::{borrow::Cow, cmp::Ordering};
 use rand::seq::SliceRandom;
 
 use crate::{
-  Cell,
-  builder::{Error, Result},
+  Cell, Error, Result,
   infer::{self, ColumnType},
   util,
 };
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Grid {
-  pub(crate) headers: Vec<String>,
-  pub(crate) rows: Vec<Vec<Cell>>,
-  pub(crate) types: Vec<ColumnType>,
+  pub headers: Vec<String>,
+  pub rows: Vec<Vec<Cell>>,
+  pub types: Vec<ColumnType>,
 }
 
 impl Grid {
@@ -28,8 +27,8 @@ impl Grid {
 
   /// Builds a rectangular grid from cells.
   pub fn from_cells(mut headers: Vec<String>, mut rows: Vec<Vec<Cell>>) -> Result<Self> {
-    if let Some(row) = rows.iter().find(|row| row.len() != headers.len()) {
-      return Err(Error::Jagged { expected: headers.len(), actual: row.len() });
+    if rows.iter().any(|row| row.len() != headers.len()) {
+      return Err(Error::JaggedCsv);
     }
 
     for header in &mut headers {
@@ -185,6 +184,7 @@ impl Grid {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::Value;
 
   fn abc() -> Grid {
     Grid::new(
@@ -204,7 +204,7 @@ mod tests {
     assert_eq!(["name", "score"], grid.headers());
     assert_eq!("bob", grid.rows()[0][0]);
     assert_eq!(
-      Err(Error::Jagged { expected: 2, actual: 1 }),
+      Err(Error::JaggedCsv),
       Grid::new(vec!["name".to_owned(), "score".to_owned()], vec![vec!["alice".to_owned()]])
     );
   }
@@ -229,8 +229,8 @@ mod tests {
   fn test_column_type() {
     let grid = Grid::new(vec!["score".to_owned()], vec![vec!["2".to_owned()], vec!["10.5".to_owned()]]).unwrap();
     assert_eq!(ColumnType::Float, grid.column_type(0));
-    assert_eq!(Some(&crate::Value::Float(2.0)), grid.rows()[0][0].value());
-    assert_eq!(Some(&crate::Value::Float(10.5)), grid.rows()[1][0].value());
+    assert_eq!(Some(&Value::Float(2.0)), grid.rows()[0][0].value());
+    assert_eq!(Some(&Value::Float(10.5)), grid.rows()[1][0].value());
   }
 
   #[test]
@@ -255,13 +255,13 @@ mod tests {
       ],
       grid.types.as_slice()
     );
-    assert_eq!(Some(&crate::Value::Int(2)), grid.rows[0][0].value());
+    assert_eq!(Some(&Value::Int(2)), grid.rows[0][0].value());
     assert_eq!(None, grid.rows[1][0].value());
-    assert_eq!(Some(&crate::Value::Percent(12.0)), grid.rows[0][1].value());
+    assert_eq!(Some(&Value::Percent(12.0)), grid.rows[0][1].value());
     assert_eq!(None, grid.rows[0][2].value());
     assert_eq!(None, grid.rows[0][3].value());
-    assert!(matches!(grid.rows[0][5].value(), Some(crate::Value::Float(_))));
-    assert_eq!(Some(&crate::Value::Float(1.0)), grid.rows[1][5].value());
+    assert!(matches!(grid.rows[0][5].value(), Some(Value::Float(_))));
+    assert_eq!(Some(&Value::Float(1.0)), grid.rows[1][5].value());
   }
 
   #[test]

@@ -1,6 +1,4 @@
-use tennis::{Cell, Grid};
-
-use crate::error::{Error, Result};
+use crate::{Cell, Error, Grid, Result};
 
 //
 // CSV loading

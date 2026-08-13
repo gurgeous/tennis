@@ -5,18 +5,19 @@ use std::io;
 use unicode_width::UnicodeWidthStr;
 
 use crate::{
-  border::{BorderDraw, BorderRule},
-  column::Align,
-  context::Context,
-  theme::{BOLD, RESET},
+  render::{
+    border::{BorderDraw, BorderRule},
+    column::Align,
+    context::Context,
+    theme::{BOLD, RESET},
+  },
+  util::PLACEHOLDER,
 };
 
 // Middleware entry point.
-pub(crate) fn run(ctx: &mut Context<'_>) -> io::Result<()> {
+pub fn run(ctx: &mut Context<'_>) -> io::Result<()> {
   Render::new(ctx).run()
 }
-
-const PLACEHOLDER: &str = "—";
 
 struct Render<'w, 'ctx> {
   ctx: &'ctx mut Context<'w>,
@@ -172,8 +173,7 @@ impl<'w, 'ctx> Render<'w, 'ctx> {
     } else {
       ""
     };
-    let link =
-      if self.ctx.options.hyperlinks && !empty { self.ctx.links.get(&(row, col)).map(String::as_str) } else { None };
+    let link = if !empty { self.ctx.links.get(&(row, col)).map(String::as_str) } else { None };
     self.buf.push(' ');
     let paint = CellPaint { code, row_style: &self.row_style, bold: false };
     fill_cell(&mut self.buf, display_text, width, align, &paint, link);
@@ -367,12 +367,10 @@ mod tests {
 
   use super::*;
   use crate::{
-    Grid, IntoCells, Table,
-    builder::{
-      options::ColumnBig,
-      types::{Border, ColorMode},
-    },
-    resolved::{Resolved, ResolvedTheme, ResolvedWidth},
+    Border, ColorMode, ColorScale, ColumnBig, Grid, Resolved, ResolvedTheme, ResolvedWidth,
+    middleware::MIDDLEWARE,
+    num_locale::NumLocale,
+    render::{self, test_grid, test_options},
   };
 
   #[derive(Default)]
@@ -391,60 +389,60 @@ mod tests {
     }
   }
 
-  fn table<H, R>(headers: H, rows: impl IntoIterator<Item = R>) -> Table
+  fn table<H, R, C>(headers: H, rows: R) -> Grid
   where
-    H: IntoCells,
-    R: IntoCells,
+    H: IntoIterator,
+    H::Item: ToString,
+    R: IntoIterator<Item = C>,
+    C: IntoIterator,
+    C::Item: ToString,
   {
-    let rows = rows.into_iter().map(IntoCells::into_cells).collect();
-    Table::builder()
-      .load_grid(Grid::new(headers.into_cells(), rows).expect("valid grid"))
-      .color(ColorMode::Off)
-      .build()
-      .expect("valid table")
+    test_grid(headers, rows)
   }
 
-  fn configured(mut table: Table, f: impl FnOnce(&mut Resolved)) -> Table {
-    f(&mut table.options);
-
-    table
+  fn rendered(grid: Grid, f: impl FnOnce(&mut Resolved)) -> String {
+    let mut options = test_options();
+    f(&mut options);
+    render::text(grid, options)
   }
 
   #[test]
   fn test_render_streams_lines() {
-    let table = configured(table(["name"], [["alice"]]), |options| {
-      options.color = ColorMode::Off;
-      options.width = ResolvedWidth::Fixed(80);
-    });
+    let grid = table(["name"], [["alice"]]);
+    let mut options = test_options();
+    options.color = ColorMode::Off;
+    options.width = ResolvedWidth::Fixed(80);
     let mut writer = LineWriter::default();
-    table.write_to(&mut writer as &mut dyn Write).unwrap();
+    let mut ctx = Context::new(grid, options, &mut writer);
+    for middleware in MIDDLEWARE {
+      (middleware.run)(&mut ctx);
+    }
+    run(&mut ctx).unwrap();
     assert!(writer.chunks.len() > 1);
     assert!(writer.chunks.concat().contains("alice"));
   }
 
   #[test]
   fn test_render_basic() {
-    let out = configured(table(["name", "score"], [["alice", "1234"]]), |options| {
+    let out = rendered(table(["name", "score"], [["alice", "1234"]]), |options| {
       options.border = Border::Basic;
       options.color = ColorMode::Off;
       options.width = ResolvedWidth::Fixed(80);
-    })
-    .into_text();
+    });
     assert!(out.contains("+-------+-------+"));
     assert!(out.contains("| name  | score |"));
-    let number = crate::num_locale::NumLocale::current().format_int(1234);
+    let number = NumLocale::current().format_int(1234);
     assert!(out.contains(&format!("| alice | {number:>5} |")));
   }
 
   #[test]
   fn test_render_colored_rule_has_single_chrome_prefix() {
-    let out = configured(table(["a", "b"], [["1", "2"]]), |options| {
+    let out = rendered(table(["a", "b"], [["1", "2"]]), |options| {
       options.border = Border::Basic;
       options.color = ColorMode::On;
       options.theme = ResolvedTheme::Dark;
       options.width = ResolvedWidth::Fixed(80);
-    })
-    .into_text();
+    });
     let top = out.lines().next().unwrap();
 
     assert_eq!("\x1b[38;5;243m+----+----+\x1b[0m", top);
@@ -452,48 +450,43 @@ mod tests {
 
   #[test]
   fn test_render_placeholder_uses_chrome_paint() {
-    let out = configured(table(["name", "score"], [["alice", ""]]), |options| {
+    let out = rendered(table(["name", "score"], [["alice", ""]]), |options| {
       options.color = ColorMode::On;
       options.theme = ResolvedTheme::Dark;
       options.width = ResolvedWidth::Fixed(80);
-    })
-    .into_text();
+    });
 
     assert!(out.contains("\x1b[38;5;243m—    \x1b[0m"), "{out:?}");
   }
 
   #[test]
   fn test_render_color_scale_uses_cell_paint() {
-    let out = configured(table(["service", "latency_ms"], [["api", "37"], ["worker", "950"]]), |options| {
+    let out = rendered(table(["service", "latency_ms"], [["api", "37"], ["worker", "950"]]), |options| {
       options.color = ColorMode::On;
       options.theme = ResolvedTheme::Dark;
       options.width = ResolvedWidth::Fixed(80);
-      options.color_scales.push(("latency_ms".to_owned(), crate::ColorScale::GreenRed));
-    })
-    .into_text();
+      options.color_scales.push(("latency_ms".to_owned(), ColorScale::GreenRed));
+    });
 
     assert!(out.contains("\x1b[38;2;"), "{out:?}");
   }
 
   #[test]
   fn test_render_footer() {
-    let out = configured(table(["name"], [["alice"]]), |options| {
+    let out = rendered(table(["name"], [["alice"]]), |options| {
       options.color = ColorMode::Off;
       options.width = ResolvedWidth::Fixed(80);
       options.footer = Some("done".into());
-    })
-    .into_text();
+    });
     assert!(out.contains("done"));
   }
 
   #[test]
   fn test_render_markdown_link_uses_label_when_color_is_off() {
-    let out = configured(table(["site"], [["[search](https://google.com)"]]), |options| {
+    let out = rendered(table(["site"], [["[search](https://google.com)"]]), |options| {
       options.color = ColorMode::Off;
-      options.hyperlinks = false;
       options.width = ResolvedWidth::Fixed(80);
-    })
-    .into_text();
+    });
 
     assert!(out.contains("search"));
     assert!(!out.contains("\x1b]8;;"));
@@ -502,52 +495,34 @@ mod tests {
 
   #[test]
   fn test_render_markdown_link_as_osc8_when_color_is_on() {
-    let out = configured(table(["site"], [["[search](https://google.com)"]]), |options| {
+    let out = rendered(table(["site"], [["[search](https://google.com)"]]), |options| {
       options.color = ColorMode::On;
       options.theme = ResolvedTheme::Dark;
       options.width = ResolvedWidth::Fixed(80);
-    })
-    .into_text();
+    });
 
     assert!(out.contains("\x1b]8;;https://google.com\x1b\\search\x1b]8;;\x1b\\"));
     assert!(!out.contains("[search](https://google.com)"));
   }
 
   #[test]
-  fn test_render_markdown_link_can_disable_hyperlinks() {
-    let out = configured(table(["site"], [["[search](https://google.com)"]]), |options| {
-      options.color = ColorMode::On;
-      options.theme = ResolvedTheme::Dark;
-      options.hyperlinks = false;
-      options.width = ResolvedWidth::Fixed(80);
-    })
-    .into_text();
-
-    assert!(out.contains("search"));
-    assert!(!out.contains("\x1b]8;;"));
-    assert!(!out.contains("[search](https://google.com)"));
-  }
-
-  #[test]
   fn test_render_markdown_link_truncates_visible_label() {
-    let out = configured(table(["site"], [["[verylonglabel](https://google.com)"]]), |options| {
+    let out = rendered(table(["site"], [["[verylonglabel](https://google.com)"]]), |options| {
       options.color = ColorMode::On;
       options.theme = ResolvedTheme::Dark;
       options.width = ResolvedWidth::Fixed(8);
-    })
-    .into_text();
+    });
 
     assert!(out.contains("\x1b]8;;https://google.com\x1b\\ver…\x1b]8;;\x1b\\"), "{out:?}");
   }
 
   #[test]
   fn test_render_malformed_markdown_link_stays_raw() {
-    let out = configured(table(["site"], [["[search](ftp://example.com)"]]), |options| {
+    let out = rendered(table(["site"], [["[search](ftp://example.com)"]]), |options| {
       options.color = ColorMode::On;
       options.theme = ResolvedTheme::Dark;
       options.width = ResolvedWidth::Fixed(80);
-    })
-    .into_text();
+    });
 
     assert!(out.contains("[search](ftp://example.com)"));
     assert!(!out.contains("\x1b]8;;"));
@@ -555,69 +530,64 @@ mod tests {
 
   #[test]
   fn test_render_title_light_border() {
-    let out = configured(table(["a", "b"], [["1", "2"]]), |options| {
+    let out = rendered(table(["a", "b"], [["1", "2"]]), |options| {
       options.border = Border::Light;
       options.color = ColorMode::Off;
       options.title = Some("foo".into());
       options.width = ResolvedWidth::Fixed(80);
-    })
-    .into_text();
+    });
     assert_eq!("   foo   \n─────────\n a    b  \n─────────\n  1    2 \n", out);
   }
 
   #[test]
   fn test_render_light_border_width_invariant() {
-    let out = configured(table(["a", "b"], [["1", "2"], ["3", "4"]]), |options| {
+    let out = rendered(table(["a", "b"], [["1", "2"], ["3", "4"]]), |options| {
       options.border = Border::Light;
       options.color = ColorMode::Off;
       options.row_numbers = true;
       options.title = Some("foo".into());
       options.footer = Some("done".into());
       options.width = ResolvedWidth::Fixed(80);
-    })
-    .into_text();
+    });
     let widths = out.lines().map(UnicodeWidthStr::width).collect::<Vec<_>>();
     assert!(widths.windows(2).all(|pair| pair[0] == pair[1]), "{widths:?}\n{out}");
   }
 
   #[test]
   fn test_render_empty() {
-    let out =
-      configured(table(["name"], [] as [[&str; 1]; 0]), |options| options.width = ResolvedWidth::Fixed(80)).into_text();
+    let out = rendered(table(["name"], [] as [[&str; 1]; 0]), |options| options.width = ResolvedWidth::Fixed(80));
     assert!(out.contains("empty table"));
     assert!(out.contains("no data"));
   }
 
   #[test]
   fn test_render_zero_columns_as_empty() {
-    let out = configured(table([] as [&str; 0], [[] as [&str; 0]]), |options| {
+    let out = rendered(table([] as [&str; 0], [[] as [&str; 0]]), |options| {
       options.width = ResolvedWidth::Fixed(80);
-    })
-    .into_text();
+    });
     assert!(out.contains("empty table"));
     assert!(out.contains("no data"));
   }
 
   #[test]
   fn test_render_empty_color_resets_chrome() {
-    let table = configured(table(["name"], [] as [[&str; 1]; 0]), |options| {
+    let out = rendered(table(["name"], [] as [[&str; 1]; 0]), |options| {
       options.border = Border::Basic;
       options.color = ColorMode::On;
       options.theme = ResolvedTheme::Dark;
       options.width = ResolvedWidth::Fixed(80);
     });
-    let first_row = table.into_text().lines().nth(1).unwrap().to_owned();
+    let first_row = out.lines().nth(1).unwrap().to_owned();
     assert!(first_row.starts_with("\x1b[38;5;243m|\x1b[0m "));
   }
 
   #[test]
   fn test_render_row_numbers() {
-    let out = configured(table(["name"], [["alice"]]), |options| {
+    let out = rendered(table(["name"], [["alice"]]), |options| {
       options.color = ColorMode::Off;
       options.row_numbers = true;
       options.width = ResolvedWidth::Fixed(80);
-    })
-    .into_text();
+    });
     assert!(out.contains("│ #  │ name  │"));
     assert!(out.contains("│  1 │ alice │"));
   }
@@ -625,12 +595,11 @@ mod tests {
   #[test]
   fn test_render_row_numbers_multiple_digits() {
     let rows = (0..14).map(|index| [format!("{index:.3}")]).collect::<Vec<_>>();
-    let out = configured(table(["carat"], rows), |options| {
+    let out = rendered(table(["carat"], rows), |options| {
       options.color = ColorMode::Off;
       options.row_numbers = true;
       options.width = ResolvedWidth::Fixed(80);
-    })
-    .into_text();
+    });
 
     assert!(out.contains("│ #  │ carat │"));
     assert!(out.contains("│  1 │"));
@@ -639,35 +608,32 @@ mod tests {
 
   #[test]
   fn test_render_truncates() {
-    let out = configured(table(["name"], [["abcdef"]]), |options| {
+    let out = rendered(table(["name"], [["abcdef"]]), |options| {
       options.color = ColorMode::Off;
       options.width = ResolvedWidth::Fixed(8);
-    })
-    .into_text();
+    });
     assert!(out.contains("…"));
   }
 
   #[test]
   fn test_render_sanitizes_cell_controls() {
-    let out = configured(table(["name"], [["a\tb\nc"]]), |options| {
+    let out = rendered(table(["name"], [["a\tb\nc"]]), |options| {
       options.color = ColorMode::Off;
       options.width = ResolvedWidth::Fixed(80);
-    })
-    .into_text();
+    });
     assert!(out.contains("a b c"));
     assert!(!out.contains("a\tb\nc"));
   }
 
   #[test]
   fn test_render_fixed_width() {
-    let out = configured(
+    let out = rendered(
       table(["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "bbbbbbbbbbbbbbbbbbbb", "cccccccccc"], [["x", "y", "z"]]),
       |options| {
         options.color = ColorMode::Off;
         options.width = ResolvedWidth::Fixed(37);
       },
-    )
-    .into_text();
+    );
 
     assert!(out.contains("aaaaaaa…"), "{out}");
     assert!(!out.contains("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
@@ -675,7 +641,7 @@ mod tests {
 
   #[test]
   fn test_render_unicode_cases() {
-    let out = configured(
+    let out = rendered(
       table(
         ["label", "text", "notes"],
         [
@@ -690,8 +656,7 @@ mod tests {
         options.color = ColorMode::Off;
         options.width = ResolvedWidth::Fixed(40);
       },
-    )
-    .into_text();
+    );
 
     assert!(out.contains("accent") && out.contains("café noir") && out.contains("combining…"), "{out}");
     assert!(out.contains("heart") && out.contains("I ❤️ Rust") && out.contains("variation…"), "{out}");
@@ -702,7 +667,7 @@ mod tests {
 
   #[test]
   fn test_render_cjk_cases() {
-    let out = configured(
+    let out = rendered(
       table(
         ["row", "name", "note"],
         [
@@ -716,8 +681,7 @@ mod tests {
         options.color = ColorMode::Off;
         options.width = ResolvedWidth::Fixed(80);
       },
-    )
-    .into_text();
+    );
 
     assert!(out.contains("香港"), "{out}");
     assert!(out.contains("英皇書院同學會小學"), "{out}");
@@ -731,42 +695,38 @@ mod tests {
     ];
     let headers = ["carat", "cut", "color", "clarity", "depth", "table", "price", "x", "y", "z"];
 
-    let default = configured(table(headers, rows), |options| {
+    let default = rendered(table(headers, rows), |options| {
       options.color = ColorMode::Off;
       options.width = ResolvedWidth::Fixed(80);
-    })
-    .into_text();
+    });
     assert!(default.contains("Ide…"), "{default}");
     assert!(!default.contains("Ideal"));
 
-    let big = configured(table(headers, rows), |options| {
+    let big = rendered(table(headers, rows), |options| {
       options.color = ColorMode::Off;
       options.width = ResolvedWidth::Fixed(80);
       options.bigs.push(("cut".to_owned(), ColumnBig::Big));
-    })
-    .into_text();
+    });
     assert!(big.contains("Ideal"), "{big}");
 
-    let bigger = configured(table(headers, rows), |options| {
+    let bigger = rendered(table(headers, rows), |options| {
       options.color = ColorMode::Off;
       options.width = ResolvedWidth::Fixed(80);
       options.bigs.push(("cut".to_owned(), ColumnBig::Bigger));
-    })
-    .into_text();
+    });
     assert!(bigger.contains("Ideal"), "{bigger}");
 
-    let biggest = configured(table(headers, rows), |options| {
+    let biggest = rendered(table(headers, rows), |options| {
       options.color = ColorMode::Off;
       options.width = ResolvedWidth::Fixed(80);
       options.bigs.push(("cut".to_owned(), ColumnBig::Biggest));
-    })
-    .into_text();
+    });
     assert!(biggest.contains("Very Good"), "{biggest}");
   }
 
   #[test]
   fn test_render_diamonds_color_snapshot_shape() {
-    let out = configured(
+    let out = rendered(
       table(
         ["carat", "cut", "color", "clarity", "depth", "table", "price", "x", "y", "z"],
         [
@@ -792,8 +752,7 @@ mod tests {
         options.title = Some("foo".into());
         options.width = ResolvedWidth::Fixed(80);
       },
-    )
-    .into_text();
+    );
 
     let first = out.lines().next().unwrap();
     assert!(first.starts_with("\x1b[38;5;243m╭"), "{first:?}");
@@ -812,14 +771,13 @@ mod tests {
 
   #[test]
   fn test_render_zebra() {
-    let out = configured(table(["name", "score"], [["alice", ""], ["bob", "5678"]]), |options| {
+    let out = rendered(table(["name", "score"], [["alice", ""], ["bob", "5678"]]), |options| {
       options.border = Border::Basic;
       options.color = ColorMode::On;
       options.theme = ResolvedTheme::Dark;
       options.zebra = true;
       options.width = ResolvedWidth::Fixed(80);
-    })
-    .into_text();
+    });
     let row = out.lines().find(|line| line.contains("alice")).unwrap();
     let row = row.strip_suffix(RESET).unwrap_or(row);
     assert!(!row.contains(RESET));
@@ -830,14 +788,13 @@ mod tests {
 
   #[test]
   fn test_render_zebra_uses_detected_background() {
-    let out = configured(table(["name"], [["alice"], ["bob"]]), |options| {
+    let out = rendered(table(["name"], [["alice"], ["bob"]]), |options| {
       options.color = ColorMode::On;
       options.termbg = Some(anstyle::RgbColor(48, 52, 70));
       options.theme = ResolvedTheme::Dark;
       options.zebra = true;
       options.width = ResolvedWidth::Fixed(80);
-    })
-    .into_text();
+    });
     let row = out.lines().find(|line| line.contains("alice")).unwrap();
 
     assert!(row.contains("\x1b[38;5;231m\x1b[48;2;69;72;89m"), "{row:?}");
@@ -845,33 +802,31 @@ mod tests {
 
   #[test]
   fn test_render_zebra_keeps_column_paint() {
-    let out = configured(table(["name", "score"], [["alice", "1234"], ["bob", "5678"]]), |options| {
+    let out = rendered(table(["name", "score"], [["alice", "1234"], ["bob", "5678"]]), |options| {
       options.border = Border::Basic;
       options.color = ColorMode::On;
       options.theme = ResolvedTheme::Dark;
       options.zebra = true;
       options.width = ResolvedWidth::Fixed(80);
-    })
-    .into_text();
+    });
     let row = out.lines().find(|line| line.contains("alice")).unwrap();
 
-    let number = crate::num_locale::NumLocale::current().format_int(1234);
+    let number = NumLocale::current().format_int(1234);
     assert!(row.contains(&format!("\x1b[38;5;209m{number:>5}\x1b[38;5;231m\x1b[48;5;235m")), "{row:?}");
   }
 
   #[test]
   fn test_render_zebra_restores_row_style_after_color_scale() {
-    let out = configured(table(["name", "score"], [["alice", "1234"], ["bob", "5678"]]), |options| {
+    let out = rendered(table(["name", "score"], [["alice", "1234"], ["bob", "5678"]]), |options| {
       options.border = Border::Basic;
       options.color = ColorMode::On;
       options.theme = ResolvedTheme::Dark;
       options.zebra = true;
       options.width = ResolvedWidth::Fixed(80);
-      options.color_scales.push(("score".to_owned(), crate::ColorScale::GreenRed));
-    })
-    .into_text();
+      options.color_scales.push(("score".to_owned(), ColorScale::GreenRed));
+    });
     let row = out.lines().find(|line| line.contains("alice")).unwrap();
-    let number = crate::num_locale::NumLocale::current().format_int(1234);
+    let number = NumLocale::current().format_int(1234);
     assert!(row.contains(&format!("\x1b[48;2;87;187;138m{number:>5}\x1b[38;5;231m\x1b[48;5;235m")), "{row:?}");
     assert!(row.contains("\x1b[38;2;"), "{row:?}");
   }

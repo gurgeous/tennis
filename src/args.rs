@@ -1,19 +1,15 @@
 use std::{ffi::OsString, path::PathBuf};
 
 use clap::{Command, CommandFactory, Error, Parser, ValueEnum, builder::styling, value_parser};
-use tennis::{Border, ColorMode, ThemeMode, WidthMode};
+
+use crate::{Border, ColorMode, ThemeMode, WidthMode};
 
 //
 // CLI arguments
 //
 
-// We only have one command
-pub fn command() -> Command {
-  Args::command()
-}
-
 pub fn help() -> String {
-  let mut command = command()
+  let mut command = Args::command()
     .styles(help_styles())
     .help_template("{usage-heading} {usage}\n\n{about-with-newline}\n{all-args}{after-help}")
     .hide_possible_values(true)
@@ -177,9 +173,6 @@ pub struct Args {
   /// Add a title to the table
   #[arg(help_heading=POP, short='t', long, value_name="string")]
   pub title: Option<String>,
-
-  #[arg(skip)]
-  pub footer: Option<String>,
 
   /// Table border style (rounded|thin|double|...).
   #[arg(help_heading=POP, long, value_name="border", value_parser = parse_border)]

@@ -16,7 +16,7 @@ pub enum Value {
 impl Value {
   // Parsing
 
-  pub(crate) fn parse(text: &str) -> Option<Self> {
+  pub fn parse(text: &str) -> Option<Self> {
     if let Some(text) = text.strip_suffix('%') {
       return text.parse().ok().filter(|x: &f64| x.is_finite()).map(Self::Percent);
     }

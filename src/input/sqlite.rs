@@ -4,12 +4,7 @@ use std::{
   process::Command,
 };
 
-use tennis::Grid;
-
-use crate::{
-  error::{Error, Result},
-  input::csv,
-};
+use crate::{Error, Grid, Result, input::csv};
 
 //
 // SQLite loading
@@ -95,7 +90,7 @@ mod tests {
   use super::*;
 
   fn fixture(name: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("tests").join(name)
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests").join(name)
   }
 
   #[test]

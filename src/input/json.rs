@@ -1,18 +1,14 @@
 use std::collections::HashMap;
 
 use simd_json::{Node, StaticNode};
-use tennis::Grid;
 
-use crate::{
-  error::{Error, Result},
-  util,
-};
+use crate::{Error, Grid, Result, util};
 
 //
 // JSON loading
 //
-// This path is tuned for big JSON/JSONL. Do not use the crate's serde_json
-// handling, that will be too slow for large files. Handles JSON arrays, JSON
+// This path is tuned for big JSON/JSONL. Do not replace simd-json with
+// serde_json; that is too slow for large files. Handles JSON arrays, JSON
 // objects, and JSONL.
 //
 

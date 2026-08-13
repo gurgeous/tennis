@@ -73,7 +73,7 @@ const TEXT_HEADERS: &[&str] = &[
 // infer
 //
 
-pub(crate) fn infer_column_type<'a>(header: &str, cells: impl IntoIterator<Item = &'a Cell>) -> ColumnType {
+pub fn infer_column_type<'a>(header: &str, cells: impl IntoIterator<Item = &'a Cell>) -> ColumnType {
   if header_forces_text(header) {
     return ColumnType::String;
   }

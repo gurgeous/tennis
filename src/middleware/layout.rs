@@ -26,10 +26,7 @@
 //!   wide       "Wide" columns split the leftover budget after narrow.
 
 use crate::{
-  builder::options::ColumnBig,
-  column::Column,
-  context::Context,
-  resolved::ResolvedWidth,
+  Column, ColumnBig, Context, ResolvedWidth,
   util::{self, display_width},
 };
 
@@ -37,7 +34,7 @@ use crate::{
 // main entrypoint
 //
 
-pub(crate) fn run(ctx: &mut Context<'_>) {
+pub fn run(ctx: &mut Context<'_>) {
   match ctx.options.width {
     ResolvedWidth::Fixed(width) => autolayout(ctx, width),
     ResolvedWidth::Header => natural_headers(ctx),
@@ -46,7 +43,7 @@ pub(crate) fn run(ctx: &mut Context<'_>) {
 }
 
 // columns are always at least 2 chars wide
-pub(crate) const MIN_COL: usize = 2;
+pub const MIN_COL: usize = 2;
 
 fn autolayout(ctx: &mut Context<'_>, width: usize) {
   let mut cols = ctx.columns.clone();
@@ -161,91 +158,73 @@ fn natural_widths(ctx: &mut Context<'_>) {
 mod tests {
   use super::*;
   use crate::{
-    Grid, IntoCells, Table,
-    border::get_border,
-    builder::types::Border,
-    context::Context,
-    middleware,
-    resolved::{Resolved, ResolvedWidth},
+    Border, Context, Grid, Resolved, ResolvedWidth,
+    middleware::{columns, format},
+    render::{border::get_border, test_grid, test_options},
   };
 
-  fn make_table<H, R>(headers: H, rows: impl IntoIterator<Item = R>) -> Table
-  where
-    H: IntoCells,
-    R: IntoCells,
-  {
-    let rows = rows.into_iter().map(IntoCells::into_cells).collect();
-    Table::builder().load_grid(Grid::new(headers.into_cells(), rows).expect("valid grid")).build().expect("valid table")
-  }
-
-  fn layout(mut table: Table) -> Vec<usize> {
-    table.options.color = crate::ColorMode::Off;
+  fn layout(grid: Grid, f: impl FnOnce(&mut Resolved)) -> Vec<usize> {
+    let mut options = test_options();
+    f(&mut options);
     let mut out = Vec::new();
-    let mut ctx = Context::new(table, &mut out);
-    middleware::columns::run(&mut ctx);
-    middleware::format::run(&mut ctx);
+    let mut ctx = Context::new(grid, options, &mut out);
+    columns::run(&mut ctx);
+    format::run(&mut ctx);
     run(&mut ctx);
     ctx.columns.iter().map(|column| column.nice).collect()
   }
 
-  fn configured(mut table: Table, f: impl FnOnce(&mut Resolved)) -> Table {
-    f(&mut table.options);
-    table
-  }
-
   #[test]
   fn test_layout_new() {
-    let table =
-      configured(make_table(["alpha", "b"], [["x", "longer"]]), |options| options.width = ResolvedWidth::Header);
-    assert_eq!(vec![5, 2], layout(table));
+    assert_eq!(
+      vec![5, 2],
+      layout(test_grid(["alpha", "b"], [["x", "longer"]]), |options| options.width = ResolvedWidth::Header)
+    );
 
-    let table =
-      configured(make_table(["alpha", "b"], [["x", "longer"]]), |options| options.width = ResolvedWidth::Natural);
-    assert_eq!(vec![5, 6], layout(table));
+    assert_eq!(
+      vec![5, 6],
+      layout(test_grid(["alpha", "b"], [["x", "longer"]]), |options| options.width = ResolvedWidth::Natural)
+    );
   }
 
   #[test]
   fn test_autolayout() {
-    let table = configured(make_table(["alpha", "beta"], [["short", "very very long"]]), |options| {
+    let widths = layout(test_grid(["alpha", "beta"], [["short", "very very long"]]), |options| {
       options.width = ResolvedWidth::Fixed(20);
       options.row_numbers = true;
     });
-    let widths = layout(table);
     assert_eq!(3, widths.len());
     assert!(widths.iter().sum::<usize>() + get_border(Border::Rounded).chrome_width(widths.len()) <= 20);
   }
 
   #[test]
   fn test_autolayout_tiny_width_target() {
-    let table =
-      configured(make_table(["alpha", "beta"], [["short", "long"]]), |options| options.width = ResolvedWidth::Fixed(4));
-    let widths = layout(table);
+    let widths =
+      layout(test_grid(["alpha", "beta"], [["short", "long"]]), |options| options.width = ResolvedWidth::Fixed(4));
     assert_eq!(vec![2, 2], widths);
     assert!(widths.iter().sum::<usize>() + get_border(Border::Rounded).chrome_width(widths.len()) > 4);
   }
 
   #[test]
   fn test_table_width_empty() {
-    let table = configured(make_table([] as [&str; 0], [] as [[&str; 0]; 0]), |options| {
+    let widths = layout(test_grid([] as [&str; 0], [] as [[&str; 0]; 0]), |options| {
       options.width = ResolvedWidth::Fixed(80);
     });
-    assert!(layout(table).is_empty());
+    assert!(widths.is_empty());
   }
 
   #[test]
   fn test_big_columns() {
-    let table = configured(make_table(["alpha", "beta"], [["short", "very very long"]]), |options| {
+    let biggest = layout(test_grid(["alpha", "beta"], [["short", "very very long"]]), |options| {
       options.width = ResolvedWidth::Fixed(18);
       options.bigs.push(("beta".to_owned(), ColumnBig::Biggest));
     });
-    let biggest = layout(table);
     assert_eq!(14, biggest[1]);
 
-    let table = configured(make_table(["alpha", "beta"], [["short", "very very long"]]), |options| {
+    let big = layout(test_grid(["alpha", "beta"], [["short", "very very long"]]), |options| {
       options.width = ResolvedWidth::Fixed(18);
       options.bigs.push(("beta".to_owned(), ColumnBig::Big));
     });
-    let big = layout(table);
     assert_eq!(vec![5, 5], big);
   }
 
@@ -258,11 +237,11 @@ mod tests {
     rows.push(["x", "medium"]);
     rows.push(["x", "very very very long"]);
 
-    let table = configured(make_table(["alpha", "beta"], rows), |options| {
+    let widths = layout(test_grid(["alpha", "beta"], rows), |options| {
       options.width = ResolvedWidth::Fixed(16);
       options.bigs.push(("beta".to_owned(), ColumnBig::Bigger));
     });
-    assert_eq!(vec![5, 4], layout(table));
+    assert_eq!(vec![5, 4], widths);
   }
 
   #[test]
@@ -274,11 +253,11 @@ mod tests {
     rows.push(["very very very long", "medium"]);
     rows.push(["very very very long", "medium"]);
 
-    let table = configured(make_table(["beta", "alpha"], rows), |options| {
+    let widths = layout(test_grid(["beta", "alpha"], rows), |options| {
       options.width = ResolvedWidth::Fixed(30);
       options.bigs.push(("alpha".to_owned(), ColumnBig::Bigger));
     });
-    assert_eq!(vec![17, 6], layout(table));
+    assert_eq!(vec![17, 6], widths);
   }
 
   #[test]

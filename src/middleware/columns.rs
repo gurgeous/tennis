@@ -1,8 +1,8 @@
 //! Populates ctx.columns.
 
-use crate::{column::Column, context::Context};
+use crate::{Column, Context};
 
-pub(crate) fn run(ctx: &mut Context<'_>) {
+pub fn run(ctx: &mut Context<'_>) {
   let mut columns: Vec<Column> = ctx.grid.headers.iter().enumerate().map(|(ii, _)| Column::new(ctx, ii)).collect();
 
   // prepend row numbers if required
@@ -23,29 +23,23 @@ pub(crate) fn run(ctx: &mut Context<'_>) {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::{Grid, IntoCells, Table, column::Column, context::Context, resolved::Resolved};
+  use crate::{
+    Cell, Grid,
+    render::{test_grid, test_options},
+  };
 
-  fn table<H, R>(headers: H, rows: impl IntoIterator<Item = R>) -> Table
-  where
-    H: IntoCells,
-    R: IntoCells,
-  {
-    let rows = rows.into_iter().map(IntoCells::into_cells).collect();
-    Table::builder().load_grid(Grid::new(headers.into_cells(), rows).expect("valid grid")).build().expect("valid table")
-  }
-
-  fn columns(mut table: Table, f: impl FnOnce(&mut Resolved)) -> (Vec<Column>, Vec<Vec<crate::Cell>>) {
-    f(&mut table.options);
-    table.options.color = crate::ColorMode::Off;
+  fn columns(grid: Grid) -> (Vec<Column>, Vec<Vec<Cell>>) {
+    let mut options = test_options();
+    options.row_numbers = true;
     let mut out = Vec::new();
-    let mut ctx = Context::new(table, &mut out);
+    let mut ctx = Context::new(grid, options, &mut out);
     run(&mut ctx);
     (ctx.columns, ctx.grid.rows)
   }
 
   #[test]
   fn test_row_numbers() {
-    let (columns, rows) = columns(table(["name"], [["alice"], ["bob"]]), |options| options.row_numbers = true);
+    let (columns, rows) = columns(test_grid(["name"], [["alice"], ["bob"]]));
     assert_eq!("#", columns[0].name);
     assert!(columns[0].row_number);
     assert_eq!(vec!["1".to_owned(), "alice".to_owned()], rows[0]);

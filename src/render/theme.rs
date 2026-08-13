@@ -2,28 +2,28 @@
 
 use anstyle::{Ansi256Color, Color as AnsiColor, RgbColor};
 
-use crate::{
+use super::{
   ansi256::Ansi256,
   resolved::{Resolved, ResolvedTheme},
 };
 
-pub(crate) const RESET: &str = "\x1b[0m";
-pub(crate) const BOLD: &str = "\x1b[1m";
+pub const RESET: &str = "\x1b[0m";
+pub const BOLD: &str = "\x1b[1m";
 
 const DARK_ZEBRA_BLEND: f64 = 0.10; // 10% lighter vs bg
 const LIGHT_ZEBRA_BLEND: f64 = 0.15; // 15% darker vs bg
 
 #[derive(Clone, Debug)]
-pub(crate) struct Theme {
-  pub(crate) cell: Ansi,         // cell fg
-  pub(crate) chrome: Ansi,       // borders, seps, placeholders, row num, footer
-  pub(crate) headers: Vec<Ansi>, // header colors
-  pub(crate) title: Ansi,        // title
-  pub(crate) zebra: Ansi,        // zebra fg
-  pub(crate) zebra_bg: Ansi,     // zebra bg
+pub struct Theme {
+  pub cell: Ansi,         // cell fg
+  pub chrome: Ansi,       // borders, seps, placeholders, row num, footer
+  pub headers: Vec<Ansi>, // header colors
+  pub title: Ansi,        // title
+  pub zebra: Ansi,        // zebra fg
+  pub zebra_bg: Ansi,     // zebra bg
 }
 
-pub(crate) type Ansi = String;
+pub type Ansi = String;
 
 impl Default for Theme {
   fn default() -> Self {
@@ -32,7 +32,7 @@ impl Default for Theme {
 }
 
 impl Theme {
-  pub(crate) fn new(options: &Resolved) -> Self {
+  pub fn new(options: &Resolved) -> Self {
     match options.theme {
       ResolvedTheme::Light => Self::light(options.termbg),
       ResolvedTheme::Dark => Self::dark(options.termbg),
@@ -110,10 +110,7 @@ fn zebra_bg(termbg: Option<RgbColor>, toward: RgbColor, amount: f64, fallback: A
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::builder::{
-    Options,
-    types::{ColorMode, ThemeMode},
-  };
+  use crate::{ColorMode, RenderOptions, ThemeMode};
 
   #[test]
   fn test_blend_rgb() {
@@ -130,9 +127,10 @@ mod tests {
 
   #[test]
   fn test_theme_dark() {
-    let options = Options { color: Some(ColorMode::On), theme: Some(ThemeMode::Dark), ..Options::default() };
+    let options =
+      RenderOptions { color: Some(ColorMode::On), theme: Some(ThemeMode::Dark), ..RenderOptions::default() };
 
-    let theme = Theme::new(&Resolved::new(options));
+    let theme = Theme::new(&options.resolve());
     assert!(theme.chrome.starts_with('\x1b'));
     assert!(theme.cell.starts_with('\x1b'));
     assert_eq!("\x1b[38;5;231m", theme.zebra);
@@ -144,9 +142,10 @@ mod tests {
 
   #[test]
   fn test_theme_light() {
-    let options = Options { color: Some(ColorMode::On), theme: Some(ThemeMode::Light), ..Options::default() };
+    let options =
+      RenderOptions { color: Some(ColorMode::On), theme: Some(ThemeMode::Light), ..RenderOptions::default() };
 
-    let theme = Theme::new(&Resolved::new(options));
+    let theme = Theme::new(&options.resolve());
     assert!(theme.chrome.starts_with('\x1b'));
     assert!(theme.cell.starts_with('\x1b'));
     assert_eq!("\x1b[38;5;16m", theme.zebra);
@@ -158,9 +157,10 @@ mod tests {
 
   #[test]
   fn test_theme_resolves() {
-    let options = Options { color: Some(ColorMode::On), theme: Some(ThemeMode::Auto), ..Options::default() };
+    let options =
+      RenderOptions { color: Some(ColorMode::On), theme: Some(ThemeMode::Auto), ..RenderOptions::default() };
 
-    let theme = Theme::new(&Resolved::new(options));
+    let theme = Theme::new(&options.resolve());
     assert!(theme.chrome.starts_with('\x1b'));
   }
 
@@ -170,8 +170,8 @@ mod tests {
       (ThemeMode::Dark, RgbColor(48, 52, 70), "\x1b[48;2;69;72;89m"),
       (ThemeMode::Light, RgbColor(255, 255, 255), "\x1b[48;2;217;217;217m"),
     ] {
-      let options = Options { color: Some(ColorMode::On), theme: Some(mode), ..Options::default() };
-      let mut resolved = Resolved::new(options);
+      let options = RenderOptions { color: Some(ColorMode::On), theme: Some(mode), ..RenderOptions::default() };
+      let mut resolved = options.resolve();
       resolved.termbg = Some(background);
 
       assert_eq!(expected, Theme::new(&resolved).zebra_bg);

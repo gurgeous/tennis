@@ -5,9 +5,9 @@
 
 use std::collections::BTreeMap;
 
-use crate::{ColorScale, column::ColumnType, context::Context, util};
+use crate::{ColorScale, ColumnType, Context, util};
 
-pub(crate) fn run(ctx: &mut Context<'_>) {
+pub fn run(ctx: &mut Context<'_>) {
   ctx.paint.title = ctx.theme.title.clone();
   ctx.paint.headers = (0..ctx.ncols()).map(|c| ctx.theme.headers[c % ctx.theme.headers.len()].clone()).collect();
   ctx.paint.footer = ctx.theme.chrome.clone();
@@ -75,7 +75,7 @@ fn paint_numeric_scale(ctx: &mut Context<'_>, c: usize, scale: ColorScale) {
     return;
   }
 
-  let (min, max) = util::minmax(values.iter().map(|(_, x)| *x)).expect("have values");
+  let (min, max) = util::minmax_by(values.iter().map(|(_, x)| *x), f64::total_cmp).expect("have values");
   if min == max {
     return;
   }
@@ -121,45 +121,31 @@ fn paint_string_scale(ctx: &mut Context<'_>, c: usize, scale: ColorScale) {
 mod tests {
   use super::*;
   use crate::{
-    Grid, IntoCells, Table,
-    builder::types::ColorMode,
-    context::{Context, PaintState},
-    middleware,
-    resolved::{Resolved, ResolvedTheme, ResolvedWidth},
+    ColorMode, Context, Grid, Resolved, ResolvedTheme, ResolvedWidth,
+    middleware::{columns, format, layout, truncate},
+    render::{context::PaintState, test_grid, test_options},
   };
 
-  fn table<H, R>(headers: H, rows: impl IntoIterator<Item = R>) -> Table
-  where
-    H: IntoCells,
-    R: IntoCells,
-  {
-    let rows = rows.into_iter().map(IntoCells::into_cells).collect();
-    Table::builder()
-      .load_grid(Grid::new(headers.into_cells(), rows).expect("valid grid"))
-      .color(ColorMode::Off)
-      .build()
-      .expect("valid table")
-  }
-
-  fn painted(mut table: Table, f: impl FnOnce(&mut Resolved)) -> PaintState {
-    table.options.color = ColorMode::On;
-    table.options.theme = ResolvedTheme::Dark;
-    table.options.width = ResolvedWidth::Fixed(80);
-    f(&mut table.options);
+  fn painted(grid: Grid, f: impl FnOnce(&mut Resolved)) -> PaintState {
+    let mut options = test_options();
+    options.color = ColorMode::On;
+    options.theme = ResolvedTheme::Dark;
+    options.width = ResolvedWidth::Fixed(80);
+    f(&mut options);
 
     let mut out = Vec::new();
-    let mut ctx = Context::new(table, &mut out);
-    middleware::columns::run(&mut ctx);
-    middleware::format::run(&mut ctx);
-    middleware::layout::run(&mut ctx);
+    let mut ctx = Context::new(grid, options, &mut out);
+    columns::run(&mut ctx);
+    format::run(&mut ctx);
+    layout::run(&mut ctx);
     run(&mut ctx);
-    middleware::truncate::run(&mut ctx);
+    truncate::run(&mut ctx);
     ctx.paint
   }
 
   #[test]
   fn test_paint_headers() {
-    let paint = painted(table(["name", "score"], [["alice", "1234"]]), |_| {});
+    let paint = painted(test_grid(["name", "score"], [["alice", "1234"]]), |_| {});
     assert_eq!(2, paint.headers.len());
     assert!(!paint.headers[0].is_empty());
     assert!(!paint.headers[1].is_empty());
@@ -168,7 +154,7 @@ mod tests {
 
   #[test]
   fn test_paint_row_numbers_are_chrome() {
-    let paint = painted(table(["name", "score"], [["alice", ""]]), |options| {
+    let paint = painted(test_grid(["name", "score"], [["alice", ""]]), |options| {
       options.row_numbers = true;
     });
     assert!(!paint.columns[0].is_empty());
@@ -176,13 +162,13 @@ mod tests {
 
   #[test]
   fn test_paint_numeric_cells_use_header_paint() {
-    let paint = painted(table(["name", "score"], [["alice", "1234"]]), |_| {});
+    let paint = painted(test_grid(["name", "score"], [["alice", "1234"]]), |_| {});
     assert_eq!(paint.headers[1], paint.columns[1]);
   }
 
   #[test]
   fn test_paint_zebra_rows() {
-    let paint = painted(table(["name"], [["alice"], ["bob"]]), |options| {
+    let paint = painted(test_grid(["name"], [["alice"], ["bob"]]), |options| {
       options.zebra = true;
     });
     assert!(!paint.rows[0].is_empty());
@@ -191,7 +177,7 @@ mod tests {
 
   #[test]
   fn test_paint_numeric_color_scale() {
-    let paint = painted(table(["name", "score"], [["alice", "1"], ["bob", "10"]]), |options| {
+    let paint = painted(test_grid(["name", "score"], [["alice", "1"], ["bob", "10"]]), |options| {
       options.color_scales.push(("score".to_owned(), ColorScale::RedGreen));
     });
     assert_eq!(2, paint.cells.len());
@@ -201,7 +187,7 @@ mod tests {
 
   #[test]
   fn test_paint_negative_numeric_color_scale() {
-    let paint = painted(table(["delta"], [["-10"], ["10"]]), |options| {
+    let paint = painted(test_grid(["delta"], [["-10"], ["10"]]), |options| {
       options.color_scales.push(("delta".to_owned(), ColorScale::GreenRed));
     });
     assert_eq!(2, paint.cells.len());
@@ -210,7 +196,7 @@ mod tests {
 
   #[test]
   fn test_paint_percent_color_scale() {
-    let paint = painted(table(["pct"], [["10%"], ["90%"]]), |options| {
+    let paint = painted(test_grid(["pct"], [["10%"], ["90%"]]), |options| {
       options.color_scales.push(("pct".to_owned(), ColorScale::GreenRed));
     });
     assert_eq!(2, paint.cells.len());
@@ -218,7 +204,7 @@ mod tests {
 
   #[test]
   fn test_paint_string_color_scale() {
-    let paint = painted(table(["status"], [["ok"], ["warn"], ["down"]]), |options| {
+    let paint = painted(test_grid(["status"], [["ok"], ["warn"], ["down"]]), |options| {
       options.color_scales.push(("status".to_owned(), ColorScale::GreenYellowRed));
     });
     assert_eq!(3, paint.cells.len());
@@ -226,7 +212,7 @@ mod tests {
 
   #[test]
   fn test_paint_string_color_scale_skips_empty() {
-    let paint = painted(table(["status"], [[""], ["warn"], ["down"]]), |options| {
+    let paint = painted(test_grid(["status"], [[""], ["warn"], ["down"]]), |options| {
       options.color_scales.push(("status".to_owned(), ColorScale::GreenYellowRed));
     });
     assert_eq!(2, paint.cells.len());
@@ -235,7 +221,7 @@ mod tests {
 
   #[test]
   fn test_paint_color_scale_uniform_numeric_is_empty() {
-    let paint = painted(table(["score"], [["10"], ["10"]]), |options| {
+    let paint = painted(test_grid(["score"], [["10"], ["10"]]), |options| {
       options.color_scales.push(("score".to_owned(), ColorScale::GreenRed));
     });
     assert!(paint.cells.is_empty());
@@ -243,7 +229,7 @@ mod tests {
 
   #[test]
   fn test_paint_color_scale_uniform_string_is_empty() {
-    let paint = painted(table(["status"], [["ok"], ["ok"]]), |options| {
+    let paint = painted(test_grid(["status"], [["ok"], ["ok"]]), |options| {
       options.color_scales.push(("status".to_owned(), ColorScale::GreenRed));
     });
     assert!(paint.cells.is_empty());

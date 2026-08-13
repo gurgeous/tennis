@@ -3,9 +3,10 @@
 //! header width and is always at least two chars wide. We never layout a col
 //! less than two wide.
 
-use crate::{column::ColumnType, context::Context, middleware::layout::MIN_COL, util};
+use super::layout::MIN_COL;
+use crate::{ColumnType, Context, util};
 
-pub(crate) fn run(ctx: &mut Context<'_>) {
+pub fn run(ctx: &mut Context<'_>) {
   let digits = ctx.options.digits;
 
   // `natural` includes the header and is always at least `MIN_COL_WIDTH` (two).
@@ -54,62 +55,53 @@ fn format_cell(ctx: &mut Context<'_>, r: usize, c: usize, digits: usize) -> Opti
 mod tests {
   use super::*;
   use crate::{
-    Grid, IntoCells, Table,
-    context::{Context, Links},
-    middleware,
-    resolved::Resolved,
+    Cell, Context, Grid, Resolved, Value,
+    middleware::columns,
+    num_locale::NumLocale,
+    render::{context::Links, test_grid, test_options},
   };
 
-  fn table<H, R>(headers: H, rows: impl IntoIterator<Item = R>) -> Table
-  where
-    H: IntoCells,
-    R: IntoCells,
-  {
-    let rows = rows.into_iter().map(IntoCells::into_cells).collect();
-    Table::builder().load_grid(Grid::new(headers.into_cells(), rows).expect("valid grid")).build().expect("valid table")
-  }
-
-  fn formatted(mut table: Table, f: impl FnOnce(&mut Resolved)) -> (Vec<Vec<crate::Cell>>, Links) {
-    f(&mut table.options);
-    table.options.color = crate::ColorMode::Off;
+  fn formatted(grid: Grid, f: impl FnOnce(&mut Resolved)) -> (Vec<Vec<Cell>>, Links) {
+    let mut options = test_options();
+    f(&mut options);
     let mut out = Vec::new();
-    let mut ctx = Context::new(table, &mut out);
-    middleware::columns::run(&mut ctx);
+    let mut ctx = Context::new(grid, options, &mut out);
+    columns::run(&mut ctx);
     run(&mut ctx);
     (ctx.grid.rows, ctx.links)
   }
 
   #[test]
   fn test_format_numbers_and_empty_cells() {
-    let (rows, _) = formatted(table(["a", "b"], [["1234", ""]]), |_| {});
-    assert_eq!(crate::num_locale::NumLocale::current().format_int(1234), rows[0][0]);
-    assert_eq!(Some(&crate::Value::Int(1234)), rows[0][0].value());
+    let (rows, _) = formatted(test_grid(["a", "b"], [["1234", ""]]), |_| {});
+    assert_eq!(NumLocale::current().format_int(1234), rows[0][0]);
+    assert_eq!(Some(&Value::Int(1234)), rows[0][0].value());
     assert_eq!("", rows[0][1]);
   }
 
   #[test]
   fn test_format_uses_digits_option() {
-    let (rows, _) = formatted(table(["a"], [["1234.567"]]), |options| options.digits = 2);
-    assert_eq!(crate::num_locale::NumLocale::current().format_float(1234.567, 2), rows[0][0]);
+    let (rows, _) = formatted(test_grid(["a"], [["1234.567"]]), |options| options.digits = 2);
+    assert_eq!(NumLocale::current().format_float(1234.567, 2), rows[0][0]);
   }
 
   #[test]
   fn test_format_extracts_markdown_links() {
-    let (rows, links) = formatted(table(["site"], [["[  search \t](https://google.com)"]]), |_| {});
+    let (rows, links) = formatted(test_grid(["site"], [["[  search \t](https://google.com)"]]), |_| {});
     assert_eq!("search", rows[0][0]);
     assert_eq!(Some("https://google.com"), links.get(&(0, 0)).map(String::as_str));
   }
 
   #[test]
   fn test_malformed_markdown_link_stays_raw() {
-    let (rows, links) = formatted(table(["site"], [["[search](world)"]]), |_| {});
+    let (rows, links) = formatted(test_grid(["site"], [["[search](world)"]]), |_| {});
     assert_eq!("[search](world)", rows[0][0]);
     assert!(!links.contains_key(&(0, 0)));
   }
 
   #[test]
   fn test_vanilla_still_extracts_markdown_links() {
-    let (rows, links) = formatted(table(["site"], [["[search](https://google.com)"]]), |options| {
+    let (rows, links) = formatted(test_grid(["site"], [["[search](https://google.com)"]]), |options| {
       options.vanilla = true;
     });
     assert_eq!("search", rows[0][0]);

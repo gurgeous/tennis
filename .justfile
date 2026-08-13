@@ -11,7 +11,7 @@ archive target asset:
 
 build *ARGS:
   just banner "build {{ARGS}}..."
-  cargo build --quiet -p tennis-cli {{ARGS}}
+  cargo build --quiet {{ARGS}}
 
 build-release: (build "--release")
   ls -lh target/release/tennis
@@ -31,7 +31,7 @@ gen:
   just banner "✓ gen ✓"
 
 run *ARGS:
-  cargo run -p tennis-cli -- {{ARGS}}
+  cargo run -- {{ARGS}}
 
 #
 # check/llm
@@ -69,26 +69,14 @@ lint:
   rustup --quiet component add --toolchain nightly rustfmt
   rustup --quiet component add clippy
   cargo +nightly fmt --all --check
-  cargo clippy --quiet --workspace --all-targets --all-features -- -D warnings
+  cargo clippy --quiet --all-targets --all-features -- -D warnings
 
 test *ARGS:
   just banner "test {{ARGS}}..."
-  cargo test --quiet --workspace --lib --bins {{ARGS}}
+  cargo test --quiet --bin tennis {{ARGS}}
 
 test-verbose *ARGS:
   TENNIS_VERBOSE=1 just test {{ARGS}} -- --nocapture
-
-#
-# lib
-#
-
-build-lib *ARGS:
-  just banner "build-lib {{ARGS}}..."
-  cargo build --quiet -p tennis {{ARGS}}
-
-test-lib *ARGS:
-  just banner "test-lib {{ARGS}}..."
-  cargo test --quiet -p tennis --lib {{ARGS}}
 
 #
 # dev
@@ -97,7 +85,7 @@ test-lib *ARGS:
 coverage:
   rm -rf tmp/coverage && mkdir -p tmp/coverage
   mise x cargo:cargo-llvm-cov -- \
-    cargo llvm-cov --all-targets --all-features --workspace --html --output-dir tmp/coverage
+    cargo llvm-cov --all-targets --all-features --html --output-dir tmp/coverage
   just banner "✓ coverage -> tmp/coverage/html/index.html ✓"
 
 callgrind *ARGS: (build "--release --config profile.release.debug=1")
@@ -105,10 +93,6 @@ callgrind *ARGS: (build "--release --config profile.release.debug=1")
   valgrind --tool=callgrind --callgrind-out-file=tmp/callgrind.out \
     target/release/tennis --color=on --width 120 {{ARGS}} tmp/bench.csv > /dev/null
   callgrind_annotate --auto=no --threshold=75 tmp/callgrind.out
-
-derive:
-  just banner "derive..."
-  cargo run --quiet -p tennis --example derive
 
 instrument: build-release
   just banner "gen-bench..."

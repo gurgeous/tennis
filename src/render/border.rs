@@ -1,6 +1,7 @@
 //! Border definitions.
 
-use crate::{builder::types::Border, util::display_width};
+use super::options::Border;
+use crate::util::display_width;
 
 //
 // entrypoints
@@ -8,18 +9,18 @@ use crate::{builder::types::Border, util::display_width};
 
 /// A fully parsed border definition for rendering
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct BorderDraw {
-  pub(crate) top: BorderRule,
-  pub(crate) header: BorderRule,
-  pub(crate) row: BorderRule,
-  pub(crate) bottom: BorderRule,
-  pub(crate) left: String,
-  pub(crate) mid: String,
-  pub(crate) right: String,
+pub struct BorderDraw {
+  pub top: BorderRule,
+  pub header: BorderRule,
+  pub row: BorderRule,
+  pub bottom: BorderRule,
+  pub left: String,
+  pub mid: String,
+  pub right: String,
 }
 
 impl BorderDraw {
-  pub(crate) fn chrome_width(&self, ncols: usize) -> usize {
+  pub fn chrome_width(&self, ncols: usize) -> usize {
     if ncols == 0 {
       return 0;
     }
@@ -32,14 +33,14 @@ impl BorderDraw {
 
 /// Definition for a "rule", which is a horizontal line
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) enum BorderRule {
+pub enum BorderRule {
   None,
   Continuous { left: String, fill: String, right: String },
   Segmented { left: String, fill: String, mid: String, right: String },
 }
 
 impl BorderRule {
-  pub(crate) fn title_rule(&self, header: &Self) -> Self {
+  pub fn title_rule(&self, header: &Self) -> Self {
     match (self, header) {
       (BorderRule::Segmented { mid, .. }, BorderRule::Segmented { left, fill, right, .. }) => {
         BorderRule::Segmented { left: left.clone(), fill: fill.clone(), mid: mid.clone(), right: right.clone() }
@@ -48,7 +49,7 @@ impl BorderRule {
     }
   }
 
-  pub(crate) fn span(&self) -> Self {
+  pub fn span(&self) -> Self {
     match self {
       BorderRule::None => BorderRule::None,
       BorderRule::Continuous { .. } => self.clone(),
@@ -58,7 +59,7 @@ impl BorderRule {
     }
   }
 
-  pub(crate) fn footer_rule(&self, bottom: &Self) -> Self {
+  pub fn footer_rule(&self, bottom: &Self) -> Self {
     match (self, bottom) {
       (BorderRule::Segmented { left, fill, right, .. }, BorderRule::Segmented { mid, .. }) => {
         BorderRule::Segmented { left: left.clone(), fill: fill.clone(), mid: mid.clone(), right: right.clone() }
@@ -81,7 +82,7 @@ impl BorderRule {
 //
 
 /// Lookup a Border so we can draw it
-pub(crate) fn get_border(name: Border) -> BorderDraw {
+pub fn get_border(name: Border) -> BorderDraw {
   #[rustfmt::skip]
   let specimen = match name {
     Border::AsciiRounded  => ".-----.\n|A|B|C|\n|D|E|F|\n|G|H|I|\n'-----'",

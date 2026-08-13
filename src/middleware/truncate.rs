@@ -1,8 +1,8 @@
 //! Cell and header truncation after layout.
 
-use crate::{context::Context, util};
+use crate::{Context, util};
 
-pub(crate) fn run(ctx: &mut Context<'_>) {
+pub fn run(ctx: &mut Context<'_>) {
   for (c, col) in ctx.columns.iter_mut().enumerate() {
     // `nice` is our final layout width
     let nice = col.nice;
@@ -34,36 +34,26 @@ pub(crate) fn run(ctx: &mut Context<'_>) {
 mod tests {
   use super::*;
   use crate::{
-    Grid, IntoCells, Table,
-    context::Context,
-    middleware,
-    resolved::{Resolved, ResolvedWidth},
+    Cell, Context, Grid, Resolved, ResolvedWidth,
+    middleware::{columns, format, layout},
+    render::{test_grid, test_options},
   };
 
-  fn table<H, R>(headers: H, rows: impl IntoIterator<Item = R>) -> Table
-  where
-    H: IntoCells,
-    R: IntoCells,
-  {
-    let rows = rows.into_iter().map(IntoCells::into_cells).collect();
-    Table::builder().load_grid(Grid::new(headers.into_cells(), rows).expect("valid grid")).build().expect("valid table")
-  }
-
-  fn truncated(mut table: Table, f: impl FnOnce(&mut Resolved)) -> (Vec<String>, Vec<Vec<crate::Cell>>) {
-    f(&mut table.options);
-    table.options.color = crate::ColorMode::Off;
+  fn truncated(grid: Grid, f: impl FnOnce(&mut Resolved)) -> (Vec<String>, Vec<Vec<Cell>>) {
+    let mut options = test_options();
+    f(&mut options);
     let mut out = Vec::new();
-    let mut ctx = Context::new(table, &mut out);
-    middleware::columns::run(&mut ctx);
-    middleware::format::run(&mut ctx);
-    middleware::layout::run(&mut ctx);
+    let mut ctx = Context::new(grid, options, &mut out);
+    columns::run(&mut ctx);
+    format::run(&mut ctx);
+    layout::run(&mut ctx);
     run(&mut ctx);
     (ctx.columns.into_iter().map(|column| column.name).collect(), ctx.grid.rows)
   }
 
   #[test]
   fn test_truncate_headers_and_cells() {
-    let (headers, rows) = truncated(table(["long_header"], [["abcdef"]]), |options| {
+    let (headers, rows) = truncated(test_grid(["long_header"], [["abcdef"]]), |options| {
       options.width = ResolvedWidth::Fixed(8);
     });
     assert_eq!("lon…", headers[0]);
@@ -73,7 +63,7 @@ mod tests {
   #[test]
   fn test_truncate_leaves_cells_that_already_fit() {
     let (_headers, rows) =
-      truncated(table(["long_header"], [["a"], ["abcdef"]]), |options| options.width = ResolvedWidth::Fixed(8));
+      truncated(test_grid(["long_header"], [["a"], ["abcdef"]]), |options| options.width = ResolvedWidth::Fixed(8));
     assert_eq!("a", rows[0][0]);
     assert_eq!("abc…", rows[1][0]);
   }

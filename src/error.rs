@@ -17,9 +17,8 @@ pub enum Error {
   FileRead,
   JaggedCsv,
   Json,
-  MissingColumn { column: String, operation: Option<tennis::ColumnOperation>, headers: Vec<String> },
+  MissingColumn { column: String, operation: Option<ColumnOperation>, headers: Vec<String> },
   PagerStart,
-  TableBuild,
   SqliteCliFailed,
   SqliteCliMissing,
   SqliteInvalidTable(String, Vec<String>),
@@ -27,6 +26,14 @@ pub enum Error {
   SqliteRequiresFile,
   SqliteTableRequiresSqlite,
   StdinRead,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ColumnOperation {
+  Big,
+  Bigger,
+  Biggest,
+  ColorScale,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -38,17 +45,6 @@ impl fmt::Display for Error {
 }
 
 impl std::error::Error for Error {}
-
-impl From<tennis::Error> for Error {
-  fn from(error: tennis::Error) -> Self {
-    match error {
-      tennis::Error::HeaderLength { .. } | tennis::Error::Jagged { .. } => Self::JaggedCsv,
-      tennis::Error::JsonArrayExpected | tennis::Error::JsonObjectExpected => Self::Json,
-      tennis::Error::MissingColumn { column, operation, headers } => Self::MissingColumn { column, operation, headers },
-      _ => Self::TableBuild,
-    }
-  }
-}
 
 // Plain top-level error without usage guidance.
 pub fn message(message: &str) -> String {
@@ -78,7 +74,6 @@ fn format(error: &Error) -> String {
     Error::PagerStart => return message("Could not start pager"),
     Error::SqliteCliFailed => "Could not read that file with sqlite3",
     Error::SqliteCliMissing => "`sqlite3` is required, but I couldn't find it.",
-    Error::TableBuild => "Failed to build table",
     Error::SqliteInvalidTable(table, tables) => return sqlite_table_error(table, tables),
     Error::SqliteNoTables => "That db has no tables",
     Error::SqliteRequiresFile => "Sqlite requires a file (not a pipe)",
@@ -103,13 +98,11 @@ fn bad_column_name(flag: &str, name: &str, headers: &[String]) -> String {
   usage(out.trim_end())
 }
 
-fn missing_column(column: &str, operation: Option<tennis::ColumnOperation>, headers: &[String]) -> String {
+fn missing_column(column: &str, operation: Option<ColumnOperation>, headers: &[String]) -> String {
   let label = match operation {
-    Some(tennis::ColumnOperation::Big | tennis::ColumnOperation::Bigger | tennis::ColumnOperation::Biggest) => {
-      "-b/-bb/-bbb"
-    }
-    Some(tennis::ColumnOperation::ColorScale) => "color scale",
-    None | Some(_) => "column option",
+    Some(ColumnOperation::Big | ColumnOperation::Bigger | ColumnOperation::Biggest) => "-b/-bb/-bbb",
+    Some(ColumnOperation::ColorScale) => "color scale",
+    None => "column option",
   };
   bad_column_name(label, column, headers)
 }
@@ -154,7 +147,7 @@ mod tests {
   fn test_missing_column() {
     let out = format(&Error::MissingColumn {
       column: "bogus".to_owned(),
-      operation: Some(tennis::ColumnOperation::Big),
+      operation: Some(ColumnOperation::Big),
       headers: vec!["carat".to_owned(), "cut".to_owned()],
     });
     assert!(out.contains("tennis: -b/-bb/-bbb didn't look right"));

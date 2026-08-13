@@ -14,7 +14,7 @@ pub struct Cell {
 
 impl Cell {
   // Cells parse immediately; Grid later normalizes the column.
-  pub(crate) fn parse(text: String) -> Self {
+  pub fn parse(text: String) -> Self {
     let value = Value::parse(&text);
     Self { text, value }
   }
@@ -27,7 +27,7 @@ impl Cell {
     self.value.as_ref()
   }
 
-  pub(crate) fn squish(&mut self) {
+  pub fn squish(&mut self) {
     if let Cow::Owned(text) = util::squish(&self.text) {
       self.value = Value::parse(&text);
       self.text = text;
@@ -35,19 +35,19 @@ impl Cell {
   }
 
   // A string column discards numeric candidates but retains their text.
-  pub(crate) fn convert_to_text(&mut self) {
+  pub fn convert_to_text(&mut self) {
     self.value = None;
   }
 
   // Mixed int/float columns store one consistent value type.
-  pub(crate) fn convert_to_float(&mut self) {
+  pub fn convert_to_float(&mut self) {
     if let Some(Value::Int(value)) = self.value {
       self.value = Some(Value::Float(value as f64));
     }
   }
 
   // Render-time formatting changes text without losing the numeric value.
-  pub(crate) fn set_text(&mut self, text: String) {
+  pub fn set_text(&mut self, text: String) {
     self.text = text;
   }
 }

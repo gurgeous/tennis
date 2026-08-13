@@ -3,8 +3,8 @@
 use std::process::Command;
 
 fn main() {
-  println!("cargo:rerun-if-changed=../.git/HEAD");
-  println!("cargo:rerun-if-changed=../.git/refs");
+  println!("cargo:rerun-if-changed=.git/HEAD");
+  println!("cargo:rerun-if-changed=.git/refs");
 
   let output = Command::new("git").args(["rev-parse", "--short=7", "HEAD"]).output();
   let sha = match output {

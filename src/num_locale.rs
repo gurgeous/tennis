@@ -7,23 +7,23 @@ use num_format::{Buffer, Locale};
 static CURRENT: LazyLock<NumLocale> = LazyLock::new(NumLocale::load);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct NumLocale(Locale);
+pub struct NumLocale(Locale);
 
 impl NumLocale {
   /// Returns the process locale captured on first use.
-  pub(crate) fn current() -> &'static Self {
+  pub fn current() -> &'static Self {
     &CURRENT
   }
 
   /// Formats an integer with locale grouping.
-  pub(crate) fn format_int(&self, value: i64) -> String {
+  pub fn format_int(&self, value: i64) -> String {
     let mut buffer = Buffer::default();
     buffer.write_formatted(&value, &self.0);
     buffer.as_str().to_owned()
   }
 
   /// Rounds to a fixed precision, then localizes separators.
-  pub(crate) fn format_float(&self, value: f64, digits: usize) -> String {
+  pub fn format_float(&self, value: f64, digits: usize) -> String {
     let rounded = format!("{value:.digits$}");
     let (whole, frac) = rounded.split_once('.').unwrap_or((rounded.as_str(), ""));
     let suffix_len = if digits > 0 { self.0.decimal().len() + frac.len() } else { 0 };
@@ -44,7 +44,7 @@ impl NumLocale {
     out
   }
 
-  pub(crate) fn format_percent(&self, value: f64, digits: usize) -> String {
+  pub fn format_percent(&self, value: f64, digits: usize) -> String {
     format!("{}%", self.format_float(value, digits))
   }
 

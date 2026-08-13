@@ -1,11 +1,10 @@
 use std::collections::HashSet;
 
-#[cfg(test)]
-use tennis::Value;
-use tennis::{Cell, ColumnType, Grid};
 use unicode_width::UnicodeWidthStr;
 
-use crate::{args::Args, error::Result, util};
+use crate::{Cell, ColumnBig, ColumnType, Grid, RenderOptions, Result, args::Args, render, util};
+#[cfg(test)]
+use crate::{Error, Value, WidthMode};
 
 //
 // `tennis --peek`
@@ -36,41 +35,24 @@ fn render_sample(input: &Grid, args: &Args) -> Result<String> {
     (input.rows().len() > n).then(|| format!("… {} …", util::pluralize("more row", input.rows().len() - n, true)));
 
   let grid = input.clone().head(n);
-  let mut builder =
-    tennis::Table::builder().load_grid(grid).row_numbers(args.row_numbers).vanilla(args.vanilla).zebra(args.zebra);
-
-  // optionals
-  builder = builder.title(title);
-  if let Some(border) = args.border {
-    builder = builder.border(border);
-  }
-  if let Some(color) = args.color {
-    builder = builder.color(color);
-  }
-  if let Some(digits) = args.digits {
-    builder = builder.digits(digits as usize);
-  }
-  if let Some(footer) = footer {
-    builder = builder.footer(footer);
-  }
-  if let Some(theme) = args.theme {
-    builder = builder.theme(theme);
-  }
-  if let Some(width) = args.width {
-    builder = builder.width(width);
-  }
-
-  // big
-  for raw in &args.big1 {
-    builder = builder.big(raw);
-  }
-  for raw in &args.big2 {
-    builder = builder.bigger(raw);
-  }
-  for raw in &args.big3 {
-    builder = builder.biggest(raw);
-  }
-  builder.build().map(|table| table.into_text()).map_err(crate::error::Error::from)
+  let mut options = RenderOptions {
+    border: args.border.unwrap_or_default(),
+    color: args.color,
+    digits: args.digits.unwrap_or(3) as usize,
+    footer,
+    row_numbers: args.row_numbers,
+    theme: args.theme,
+    title: Some(title),
+    vanilla: args.vanilla,
+    width: args.width.unwrap_or_default(),
+    zebra: args.zebra,
+    ..RenderOptions::default()
+  };
+  options.bigs.extend(args.big1.iter().cloned().map(|column| (column, ColumnBig::Big)));
+  options.bigs.extend(args.big2.iter().cloned().map(|column| (column, ColumnBig::Bigger)));
+  options.bigs.extend(args.big3.iter().cloned().map(|column| (column, ColumnBig::Biggest)));
+  options.validate(&grid)?;
+  Ok(render::text(grid, options.resolve()))
 }
 
 fn sample_title(input: &Grid, title: Option<&str>) -> String {
@@ -86,26 +68,17 @@ fn sample_title(input: &Grid, title: Option<&str>) -> String {
 fn render_stats(input: &Grid, args: &Args) -> Result<String> {
   let stats_rows = stats_rows(input, args);
   let grid = Grid::new(stats_rows[0].clone(), stats_rows[1..].to_vec()).expect("peek stats rows match stats headers");
-  let mut builder = tennis::Table::builder().load_grid(grid).vanilla(args.vanilla);
-
-  builder = builder.title("stats");
-  if let Some(border) = args.border {
-    builder = builder.border(border);
-  }
-  if let Some(color) = args.color {
-    builder = builder.color(color);
-  }
-  if let Some(digits) = args.digits {
-    builder = builder.digits(digits as usize);
-  }
-  if let Some(theme) = args.theme {
-    builder = builder.theme(theme);
-  }
-  if let Some(width) = args.width {
-    builder = builder.width(width);
-  }
-
-  builder.build().map(|table| table.into_text()).map_err(crate::error::Error::from)
+  let options = RenderOptions {
+    border: args.border.unwrap_or_default(),
+    color: args.color,
+    digits: args.digits.unwrap_or(3) as usize,
+    theme: args.theme,
+    title: Some("stats".to_owned()),
+    vanilla: args.vanilla,
+    width: args.width.unwrap_or_default(),
+    ..RenderOptions::default()
+  };
+  Ok(render::text(grid, options.resolve()))
 }
 
 fn stats_rows(input: &Grid, args: &Args) -> Vec<Vec<String>> {
@@ -171,7 +144,7 @@ fn numeric_minmax(rows: &[Vec<Cell>], index: usize, digits: usize) -> (String, S
 }
 
 fn len_minmax(fields: &[&str]) -> (String, String) {
-  let Some((min, max)) = util::minmax(fields.iter().map(|f| f.width())) else {
+  let Some((min, max)) = util::minmax_by(fields.iter().map(|f| f.width()), Ord::cmp) else {
     return placeholders();
   };
   (util::pluralize("width", min, true), util::pluralize("width", max, true))
@@ -285,7 +258,7 @@ mod tests {
 
   #[test]
   fn test_peek_render() {
-    let args = Args { width: Some(tennis::WidthMode::Fixed(80)), ..Args::default() };
+    let args = Args { width: Some(WidthMode::Fixed(80)), ..Args::default() };
     let input = make_input(&[vec!["name", "score"], vec!["alice", "10"], vec!["bob", "20"]]);
     let out = render(&input, &args).unwrap();
     assert!(out.contains("\n\n"));
@@ -297,9 +270,9 @@ mod tests {
 
   #[test]
   fn test_peek_render_empty_shape() {
-    let args = Args { width: Some(tennis::WidthMode::Fixed(80)), ..Args::default() };
+    let args = Args { width: Some(WidthMode::Fixed(80)), ..Args::default() };
     let input = make_input(&[vec!["name", "score"], vec!["alice", "10"]]);
-    let args = Args { filter: Some("missing".to_owned()), width: Some(tennis::WidthMode::Fixed(80)), ..args };
+    let args = Args { filter: Some("missing".to_owned()), width: Some(WidthMode::Fixed(80)), ..args };
     // empty transform result means 0 data rows but headers remain
     let input = Grid::new(input.headers().to_vec(), Vec::new()).unwrap();
     let out = render(&input, &args).unwrap();
@@ -308,7 +281,7 @@ mod tests {
 
   #[test]
   fn test_peek_render_footer() {
-    let args = Args { width: Some(tennis::WidthMode::Fixed(80)), ..Args::default() };
+    let args = Args { width: Some(WidthMode::Fixed(80)), ..Args::default() };
     let input = make_input(&[
       vec!["customer_name_or_identifier"],
       vec!["alice"],
@@ -324,8 +297,8 @@ mod tests {
 
   #[test]
   fn test_peek_render_bad_big() {
-    let args = Args { big1: vec!["missing".to_owned()], width: Some(tennis::WidthMode::Fixed(80)), ..Args::default() };
+    let args = Args { big1: vec!["missing".to_owned()], width: Some(WidthMode::Fixed(80)), ..Args::default() };
     let input = make_input(&[vec!["name", "score"], vec!["alice", "10"]]);
-    assert!(matches!(render(&input, &args), Err(crate::error::Error::MissingColumn { .. })));
+    assert!(matches!(render(&input, &args), Err(Error::MissingColumn { .. })));
   }
 }

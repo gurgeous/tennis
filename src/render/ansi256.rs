@@ -1,7 +1,7 @@
 // Ansi256 colors, see https://ansi.md.
 #[allow(dead_code)] // Full palette; themes use a subset.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum Ansi256 {
+pub enum Ansi256 {
   Black,
   Navy,
   Darkblue,

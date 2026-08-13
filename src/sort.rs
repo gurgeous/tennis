@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use tennis::{Cell, ColumnType, Grid};
+use crate::{Cell, ColumnType, Grid, Result};
 
 //
 // Natural comparison
@@ -29,7 +29,7 @@ enum SortKind {
 }
 
 // Plan sort columns once so numeric-vs-text behavior cannot vary by row pair.
-pub fn sort_keys(grid: &Grid, names: &[String]) -> tennis::Result<Vec<SortKey>> {
+pub fn sort_keys(grid: &Grid, names: &[String]) -> Result<Vec<SortKey>> {
   names
     .iter()
     .map(|name| {

@@ -1,8 +1,8 @@
 use std::fmt::Write as _;
 
-use clap::Arg;
+use clap::{Arg, CommandFactory};
 
-use crate::args::{self, CompletionShell};
+use crate::args::{Args, CompletionShell};
 
 //
 // Shell completion generation
@@ -32,7 +32,7 @@ pub fn script(shell: CompletionShell) -> String {
 }
 
 fn options() -> Vec<OptionSpec> {
-  let command = args::command();
+  let command = Args::command();
   let mut options = Vec::new();
 
   for arg in command.get_arguments() {
