@@ -81,9 +81,10 @@ impl Main {
     Self { args }
   }
 
-  pub fn run(&self) -> Result<()> {
+  pub fn run(mut self) -> Result<()> {
     // read input
     let input = self.load()?;
+    self.resolve_columns(&input);
 
     // --peek
     if self.args.peek {
@@ -123,6 +124,23 @@ impl Main {
   //
   // data transformation
   //
+
+  fn resolve_columns(&mut self, grid: &Grid) {
+    for columns in [
+      &mut self.args.big1,
+      &mut self.args.big2,
+      &mut self.args.big3,
+      &mut self.args.deselect,
+      &mut self.args.rscale,
+      &mut self.args.scale,
+      &mut self.args.select,
+      &mut self.args.sort,
+    ] {
+      for column in columns {
+        *column = grid.resolve_header(column).to_owned();
+      }
+    }
+  }
 
   fn transform(&self, mut grid: Grid) -> Result<Grid> {
     // --filter

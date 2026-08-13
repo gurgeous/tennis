@@ -85,6 +85,16 @@ impl Grid {
     self.types[index]
   }
 
+  /// Convert a 1-based column index to its header, leaving names unchanged.
+  pub fn resolve_header<'a>(&'a self, reference: &'a str) -> &'a str {
+    reference
+      .parse::<usize>()
+      .ok()
+      .and_then(|index| index.checked_sub(1))
+      .and_then(|index| self.headers.get(index))
+      .map_or(reference, String::as_str)
+  }
+
   pub fn position(&self, name: &str) -> Result<usize> {
     self.headers.iter().position(|str| str.eq_ignore_ascii_case(name)).ok_or_else(|| Error::MissingColumn {
       column: name.to_owned(),
@@ -104,22 +114,29 @@ impl Grid {
   /// Keep only the columns with the given names, in the given order.
   pub fn select(self, names: &[String]) -> Result<Self> {
     let positions = self.positions(names)?;
-    let project = |source: &[String]| positions.iter().map(|&i| source[i].clone()).collect();
-    let project_cells = |source: &[Cell]| positions.iter().map(|&i| source[i].clone()).collect();
-    let types = positions.iter().map(|&index| self.types[index]).collect();
-    Ok(Self::from_parts(project(&self.headers), self.rows.iter().map(|row| project_cells(row)).collect(), types))
+    Ok(self.project(&positions))
   }
 
   /// Remove the columns with the given names.
   pub fn deselect(self, names: &[String]) -> Result<Self> {
-    let positions = self.positions(names)?;
-    let keep = self
+    let names = names
+      .iter()
+      .map(|name| self.position(name).map(|index| self.headers[index].as_str()))
+      .collect::<Result<Vec<_>>>()?;
+    let positions = self
       .headers
       .iter()
       .enumerate()
-      .filter_map(|(ii, header)| (!positions.contains(&ii)).then_some(header.clone()))
+      .filter_map(|(index, header)| (!names.iter().any(|name| header.eq_ignore_ascii_case(name))).then_some(index))
       .collect::<Vec<_>>();
-    self.select(&keep)
+    Ok(self.project(&positions))
+  }
+
+  fn project(self, positions: &[usize]) -> Self {
+    let headers = positions.iter().map(|&index| self.headers[index].clone()).collect();
+    let types = positions.iter().map(|&index| self.types[index]).collect();
+    let rows = self.rows.iter().map(|row| positions.iter().map(|&index| row[index].clone()).collect()).collect();
+    Self::from_parts(headers, rows, types)
   }
 
   //
@@ -286,6 +303,19 @@ mod tests {
   }
 
   #[test]
+  fn test_resolve_header() {
+    let grid = abc();
+    assert_eq!("name", grid.resolve_header("1"));
+    assert_eq!("score", grid.resolve_header("02"));
+    assert_eq!("SCORE", grid.resolve_header("SCORE"));
+    assert_eq!("0", grid.resolve_header("0"));
+    assert_eq!("3", grid.resolve_header("3"));
+
+    let numeric = Grid::new(vec!["2".to_owned(), "name".to_owned()], Vec::new()).unwrap();
+    assert_eq!("name", numeric.resolve_header("2"));
+  }
+
+  #[test]
   fn test_select() {
     let grid = abc().select(&["score".to_owned(), "name".to_owned()]).unwrap();
     assert_eq!(["score", "name"], grid.headers());
@@ -298,6 +328,9 @@ mod tests {
     let grid = abc().deselect(&["score".to_owned()]).unwrap();
     assert_eq!(["name"], grid.headers());
     assert_eq!(["bob"], grid.rows()[0].as_slice());
+
+    let grid = abc().select(&["score".to_owned(), "name".to_owned(), "score".to_owned()]).unwrap();
+    assert_eq!(["name"], grid.deselect(&["score".to_owned()]).unwrap().headers());
   }
 
   #[test]
