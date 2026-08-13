@@ -139,6 +139,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 - improve zebra, blend with terminal bg #64 (@RVC2020)
 - store typed cells, honor locale #66 (@RVC2020)
 - support col args by index #66 (@RVC2020)
+- merged unreleased crate back into app
 
 #### 0.7.1 (Jul '26)
 
