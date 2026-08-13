@@ -162,7 +162,7 @@ std::thread_local! {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::render::options::{RenderOptions, WidthMode};
+  use crate::{RenderOptions, WidthMode};
 
   fn reset_theme_probe_count() {
     THEME_PROBE_COUNT.with(|count| count.set(0));

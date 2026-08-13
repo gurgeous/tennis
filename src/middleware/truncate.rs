@@ -1,6 +1,6 @@
 //! Cell and header truncation after layout.
 
-use crate::{render::context::Context, util};
+use crate::{Context, util};
 
 pub fn run(ctx: &mut Context<'_>) {
   for (c, col) in ctx.columns.iter_mut().enumerate() {
@@ -34,14 +34,9 @@ pub fn run(ctx: &mut Context<'_>) {
 mod tests {
   use super::*;
   use crate::{
-    cell::Cell,
-    grid::Grid,
+    Cell, Context, Grid, ResolvedOptions, ResolvedWidth,
     middleware::{columns, format, layout},
-    render::{
-      context::Context,
-      resolved::{ResolvedOptions, ResolvedWidth},
-      test_grid, test_options,
-    },
+    render::{test_grid, test_options},
   };
 
   fn truncated(grid: Grid, f: impl FnOnce(&mut ResolvedOptions)) -> (Vec<String>, Vec<Vec<Cell>>) {

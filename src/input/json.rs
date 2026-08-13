@@ -2,11 +2,7 @@ use std::collections::HashMap;
 
 use simd_json::{Node, StaticNode};
 
-use crate::{
-  error::{Error, Result},
-  grid::Grid,
-  util,
-};
+use crate::{Error, Grid, Result, util};
 
 //
 // JSON loading

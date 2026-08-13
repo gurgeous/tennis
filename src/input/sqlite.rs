@@ -4,11 +4,7 @@ use std::{
   process::Command,
 };
 
-use crate::{
-  error::{Error, Result},
-  grid::Grid,
-  input::csv,
-};
+use crate::{Error, Grid, Result, input::csv};
 
 //
 // SQLite loading

@@ -5,10 +5,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::{
-  render::{color_scale::ColorScale, column::ColumnType, context::Context},
-  util,
-};
+use crate::{ColorScale, ColumnType, Context, util};
 
 pub fn run(ctx: &mut Context<'_>) {
   ctx.paint.title = ctx.theme.title.clone();
@@ -124,13 +121,9 @@ fn paint_string_scale(ctx: &mut Context<'_>, c: usize, scale: ColorScale) {
 mod tests {
   use super::*;
   use crate::{
-    grid::Grid,
+    Context, Grid, ResolvedOptions, ResolvedTheme, ResolvedWidth,
     middleware::{columns, format, layout, truncate},
-    render::{
-      context::{Context, PaintState},
-      resolved::{ResolvedOptions, ResolvedTheme, ResolvedWidth},
-      test_grid, test_options,
-    },
+    render::{context::PaintState, test_grid, test_options},
   };
 
   fn painted(grid: Grid, f: impl FnOnce(&mut ResolvedOptions)) -> PaintState {

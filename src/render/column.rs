@@ -1,8 +1,7 @@
 //! Display column metadata used by the render pipeline.
 
 use super::{color_scale::ColorScale, context::Context, options::ColumnBig};
-pub use crate::infer::ColumnType;
-use crate::util;
+use crate::{ColumnType, util};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Align {
@@ -70,7 +69,10 @@ impl Column {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::render::{context::Context, test_grid, test_options};
+  use crate::{
+    Context,
+    render::{test_grid, test_options},
+  };
 
   #[test]
   fn test_new() {

@@ -1,8 +1,4 @@
-use crate::{
-  cell::Cell,
-  error::{Error, Result},
-  grid::Grid,
-};
+use crate::{Cell, Error, Grid, Result};
 
 //
 // CSV loading

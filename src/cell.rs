@@ -2,7 +2,7 @@
 
 use std::{borrow::Cow, ops::Deref};
 
-use crate::{util, value::Value};
+use crate::{Value, util};
 
 /// Display text plus its normalized numeric value, when the column is numeric.
 /// Formatting may change `text`; `value` remains stable for sorting and scales.

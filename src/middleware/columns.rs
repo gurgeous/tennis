@@ -1,6 +1,6 @@
 //! Populates ctx.columns.
 
-use crate::render::{column::Column, context::Context};
+use crate::{Column, Context};
 
 pub fn run(ctx: &mut Context<'_>) {
   let mut columns: Vec<Column> = ctx.grid.headers.iter().enumerate().map(|(ii, _)| Column::new(ctx, ii)).collect();
@@ -23,10 +23,13 @@ pub fn run(ctx: &mut Context<'_>) {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::{cell::Cell, grid::Grid};
+  use crate::{
+    Cell, Grid,
+    render::{test_grid, test_options},
+  };
 
   fn columns(grid: Grid) -> (Vec<Column>, Vec<Vec<Cell>>) {
-    let mut options = crate::render::test_options();
+    let mut options = test_options();
     options.row_numbers = true;
     let mut out = Vec::new();
     let mut ctx = Context::new(grid, options, &mut out);
@@ -36,7 +39,7 @@ mod tests {
 
   #[test]
   fn test_row_numbers() {
-    let (columns, rows) = columns(crate::render::test_grid(["name"], [["alice"], ["bob"]]));
+    let (columns, rows) = columns(test_grid(["name"], [["alice"], ["bob"]]));
     assert_eq!("#", columns[0].name);
     assert!(columns[0].row_number);
     assert_eq!(vec!["1".to_owned(), "alice".to_owned()], rows[0]);

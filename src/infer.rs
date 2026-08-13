@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use crate::{cell::Cell, value::Value};
+use crate::{Cell, Value};
 
 /// What kind of column is this?
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]

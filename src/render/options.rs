@@ -4,10 +4,7 @@ use super::{
   color_scale::ColorScale,
   resolved::{ResolvedOptions, ResolvedWidth, resolve_color, resolve_theme, terminal_width},
 };
-use crate::{
-  error::{ColumnOperation, Error, Result},
-  grid::Grid,
-};
+use crate::{ColumnOperation, Error, Grid, Result};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RenderOptions {

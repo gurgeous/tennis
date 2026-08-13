@@ -365,16 +365,10 @@ mod tests {
 
   use super::*;
   use crate::{
-    grid::Grid,
+    Border, ColorScale, ColumnBig, Grid, ResolvedOptions, ResolvedTheme, ResolvedWidth,
     middleware::MIDDLEWARE,
     num_locale::NumLocale,
-    render::{
-      self,
-      color_scale::ColorScale,
-      options::{Border, ColumnBig},
-      resolved::{ResolvedOptions, ResolvedTheme, ResolvedWidth},
-      test_grid, test_options,
-    },
+    render::{self, test_grid, test_options},
   };
 
   #[derive(Default)]

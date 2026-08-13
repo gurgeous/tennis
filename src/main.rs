@@ -20,13 +20,22 @@ use std::{
   process::{Child, ChildStdin, Command, ExitCode, Stdio},
 };
 
-use crate::{
-  args::Args,
-  error::{Error, Result},
-  grid::Grid,
-  input::{csv, detect, detect::InputFormat, json, sniffer, sqlite},
-  render::{color_scale::ColorScale, resolved::ResolvedOptions},
+use args::Args;
+use cell::Cell;
+use error::{ColumnOperation, Error, Result};
+use grid::Grid;
+use infer::ColumnType;
+use input::{csv, detect, detect::InputFormat, json, sniffer, sqlite};
+#[cfg(test)]
+use render::resolved::ResolvedTheme;
+use render::{
+  color_scale::ColorScale,
+  column::Column,
+  context::Context,
+  options::{Border, ColorMode, ColumnBig, RenderOptions, ThemeMode, WidthMode},
+  resolved::{ResolvedOptions, ResolvedWidth},
 };
+use value::Value;
 
 //
 // main/main0 around Main
@@ -327,7 +336,7 @@ mod tests {
   use std::path::PathBuf;
 
   use super::*;
-  use crate::render::options::{ColorMode, ThemeMode, WidthMode};
+  use crate::{ColorMode, ThemeMode, WidthMode};
 
   fn fixture(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests").join(name)

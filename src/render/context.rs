@@ -8,7 +8,7 @@ use super::{
   resolved::ResolvedOptions,
   theme::{Ansi, Theme},
 };
-use crate::grid::Grid;
+use crate::Grid;
 
 pub type Links = HashMap<(usize, usize), String>;
 

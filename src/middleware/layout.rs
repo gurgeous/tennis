@@ -26,7 +26,7 @@
 //!   wide       "Wide" columns split the leftover budget after narrow.
 
 use crate::{
-  render::{column::Column, context::Context, options::ColumnBig, resolved::ResolvedWidth},
+  Column, ColumnBig, Context, ResolvedWidth,
   util::{self, display_width},
 };
 
@@ -158,15 +158,9 @@ fn natural_widths(ctx: &mut Context<'_>) {
 mod tests {
   use super::*;
   use crate::{
-    grid::Grid,
+    Border, Context, Grid, ResolvedOptions, ResolvedWidth,
     middleware::{columns, format},
-    render::{
-      border::get_border,
-      context::Context,
-      options::Border,
-      resolved::{ResolvedOptions, ResolvedWidth},
-      test_grid, test_options,
-    },
+    render::{border::get_border, test_grid, test_options},
   };
 
   fn layout(grid: Grid, f: impl FnOnce(&mut ResolvedOptions)) -> Vec<usize> {

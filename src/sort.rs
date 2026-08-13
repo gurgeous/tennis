@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use crate::{cell::Cell, error::Result, grid::Grid, infer::ColumnType};
+use crate::{Cell, ColumnType, Grid, Result};
 
 //
 // Natural comparison

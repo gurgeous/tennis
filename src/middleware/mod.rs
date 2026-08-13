@@ -1,6 +1,6 @@
 //! Internal render pipeline middleware.
 
-use crate::render::context::Context;
+use crate::Context;
 
 pub mod columns;
 pub mod format;

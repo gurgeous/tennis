@@ -4,10 +4,7 @@
 //! less than two wide.
 
 use super::layout::MIN_COL;
-use crate::{
-  render::{column::ColumnType, context::Context},
-  util,
-};
+use crate::{ColumnType, Context, util};
 
 pub fn run(ctx: &mut Context<'_>) {
   let digits = ctx.options.digits;
@@ -58,18 +55,13 @@ fn format_cell(ctx: &mut Context<'_>, r: usize, c: usize, digits: usize) -> Opti
 mod tests {
   use super::*;
   use crate::{
-    cell::Cell,
+    Cell, Context, Grid, ResolvedOptions, Value,
     middleware::columns,
     num_locale::NumLocale,
-    render::{
-      context::{Context, Links},
-      resolved::ResolvedOptions,
-      test_grid, test_options,
-    },
-    value::Value,
+    render::{context::Links, test_grid, test_options},
   };
 
-  fn formatted(grid: crate::grid::Grid, f: impl FnOnce(&mut ResolvedOptions)) -> (Vec<Vec<Cell>>, Links) {
+  fn formatted(grid: Grid, f: impl FnOnce(&mut ResolvedOptions)) -> (Vec<Vec<Cell>>, Links) {
     let mut options = test_options();
     f(&mut options);
     let mut out = Vec::new();

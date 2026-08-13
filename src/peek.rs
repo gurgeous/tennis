@@ -2,9 +2,9 @@ use std::collections::HashSet;
 
 use unicode_width::UnicodeWidthStr;
 
-use crate::{args::Args, cell::Cell, error::Result, grid::Grid, infer::ColumnType, render, util};
+use crate::{Cell, ColumnType, Grid, Result, args::Args, render, util};
 #[cfg(test)]
-use crate::{render::options::WidthMode, value::Value};
+use crate::{Error, Value, WidthMode};
 
 //
 // `tennis --peek`
@@ -278,6 +278,6 @@ mod tests {
   fn test_peek_render_bad_big() {
     let args = Args { big1: vec!["missing".to_owned()], width: Some(WidthMode::Fixed(80)), ..Args::default() };
     let input = make_input(&[vec!["name", "score"], vec!["alice", "10"]]);
-    assert!(matches!(render(&input, &args), Err(crate::error::Error::MissingColumn { .. })));
+    assert!(matches!(render(&input, &args), Err(Error::MissingColumn { .. })));
   }
 }

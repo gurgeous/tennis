@@ -110,7 +110,7 @@ fn zebra_bg(termbg: Option<RgbColor>, toward: RgbColor, amount: f64, fallback: A
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::render::options::{ColorMode, RenderOptions, ThemeMode};
+  use crate::{ColorMode, RenderOptions, ThemeMode};
 
   #[test]
   fn test_blend_rgb() {

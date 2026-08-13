@@ -8,7 +8,7 @@ use anstream::{
 };
 
 use self::{context::Context, resolved::ResolvedOptions};
-use crate::{grid::Grid, middleware::MIDDLEWARE, verbose};
+use crate::{Grid, middleware::MIDDLEWARE, verbose};
 
 pub mod ansi256;
 pub mod border;

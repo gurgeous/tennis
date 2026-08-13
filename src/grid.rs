@@ -5,8 +5,7 @@ use std::{borrow::Cow, cmp::Ordering};
 use rand::seq::SliceRandom;
 
 use crate::{
-  cell::Cell,
-  error::{Error, Result},
+  Cell, Error, Result,
   infer::{self, ColumnType},
   util,
 };
@@ -185,7 +184,7 @@ impl Grid {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::value::Value;
+  use crate::Value;
 
   fn abc() -> Grid {
     Grid::new(

@@ -2,7 +2,7 @@ use std::{ffi::OsString, path::PathBuf};
 
 use clap::{Command, CommandFactory, Error, Parser, ValueEnum, builder::styling, value_parser};
 
-use crate::render::options::{Border, ColorMode, ColumnBig, RenderOptions, ThemeMode, WidthMode};
+use crate::{Border, ColorMode, ColumnBig, RenderOptions, ThemeMode, WidthMode};
 
 //
 // CLI arguments
