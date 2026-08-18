@@ -13,6 +13,7 @@ anstyle = "1"
 anstream = "1"
 clap = { version = "4", features = ["derive"] }
 csv = "1"
+memchr = "2"
 natord = "1"
 num-format = "0.4"
 rand = "0.8"

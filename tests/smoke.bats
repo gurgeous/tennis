@@ -81,6 +81,22 @@ run_tty() {
   [[ "$output" == *"344"* ]]
 }
 
+@test "incoming ANSI cell style" {
+  run bash -lc "printf 'name,status,detail\nAlice,\\033[31mfailed,boom\\033[0m\n' | '$BIN' --color=on --theme dark --width 80"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *$'\033[31mfailed'* ]]
+  [[ "$output" == *$'\033[31mboom'* ]]
+
+  local plain
+  plain="$(sed $'s/\033\\[[0-9;]*m//g' <<<"$output")"
+  [[ "$plain" == *"│ Alice │ failed │ boom   │"* ]]
+
+  run bash -lc "printf 'name,status\nAlice,\\033[31mfailed\\033[0m\n' | '$BIN' --color=off --width 80"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"failed"* ]]
+  [[ "$output" != *$'\033['* ]]
+}
+
 # bats test_tags=skipwin
 @test "numeric locale" {
   run bash -lc "printf 'n\n1234.5\n' | LC_ALL=de_DE.UTF-8 '$BIN' --color=off --width 80"
