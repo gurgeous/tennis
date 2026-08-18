@@ -469,6 +469,7 @@ dependencies = [
  "anstyle",
  "clap",
  "csv",
+ "memchr",
  "natord",
  "num-format",
  "rand",

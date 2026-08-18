@@ -168,6 +168,8 @@ impl<'w, 'ctx> Render<'w, 'ctx> {
       self.ctx.paint.cells.get(&(row, col)).or_else(|| self.ctx.paint.columns.get(col).filter(|c| !c.is_empty()))
     {
       custom
+    } else if let Some(style) = text.style().filter(|_| !self.ctx.options.zebra) {
+      style
     } else if self.row_style.is_empty() {
       self.ctx.theme.cell.as_str()
     } else {
@@ -368,6 +370,7 @@ mod tests {
   use super::*;
   use crate::{
     Border, ColorMode, ColorScale, ColumnBig, Grid, Resolved, ResolvedTheme, ResolvedWidth,
+    input::csv,
     middleware::MIDDLEWARE,
     num_locale::NumLocale,
     render::{self, test_grid, test_options},
@@ -469,6 +472,70 @@ mod tests {
     });
 
     assert!(out.contains("\x1b[38;2;"), "{out:?}");
+  }
+
+  #[test]
+  fn test_render_string_scale_replaces_incoming_style() {
+    let out = rendered(csv::load(b"status\n\x1b[31mdown\x1b[0m\n\x1b[32mok\x1b[0m\n", b',').unwrap(), |options| {
+      options.color = ColorMode::On;
+      options.theme = ResolvedTheme::Dark;
+      options.width = ResolvedWidth::Fixed(80);
+      options.color_scales.push(("status".to_owned(), ColorScale::GreenRed));
+    });
+
+    assert!(!out.contains("\x1b[31m"), "{out:?}");
+    assert!(!out.contains("\x1b[32m"), "{out:?}");
+    assert!(out.contains("\x1b[38;2;"), "{out:?}");
+  }
+
+  #[test]
+  fn test_render_incoming_style() {
+    let out = rendered(csv::load(b"a,b,c\n\x1b[31mone,two\x1b[0m,three\n", b',').unwrap(), |options| {
+      options.color = ColorMode::On;
+      options.theme = ResolvedTheme::Dark;
+      options.width = ResolvedWidth::Fixed(80);
+    });
+
+    assert_eq!(2, out.matches("\x1b[31m").count(), "{out:?}");
+    assert!(out.contains("one"));
+    assert!(out.contains("two"));
+    assert!(out.contains("three"));
+  }
+
+  #[test]
+  fn test_render_zebra_replaces_incoming_style() {
+    let out = rendered(csv::load(b"name\n\x1b[31malice\x1b[0m\n\x1b[32mbob\x1b[0m\n", b',').unwrap(), |options| {
+      options.color = ColorMode::On;
+      options.theme = ResolvedTheme::Dark;
+      options.width = ResolvedWidth::Fixed(80);
+      options.zebra = true;
+    });
+
+    assert!(!out.contains("\x1b[31m"), "{out:?}");
+    assert!(!out.contains("\x1b[32m"), "{out:?}");
+  }
+
+  #[test]
+  fn test_render_numeric_paint_replaces_incoming_style() {
+    let out = rendered(csv::load(b"count\n\x1b[31m1234\x1b[0m\n", b',').unwrap(), |options| {
+      options.color = ColorMode::On;
+      options.theme = ResolvedTheme::Dark;
+      options.width = ResolvedWidth::Fixed(80);
+    });
+
+    assert!(!out.contains("\x1b[31m"), "{out:?}");
+    assert!(out.contains(&NumLocale::current().format_int(1234)));
+  }
+
+  #[test]
+  fn test_render_truncation_preserves_incoming_style() {
+    let out = rendered(csv::load(b"name\n\x1b[31mabcdef\x1b[0m\n", b',').unwrap(), |options| {
+      options.color = ColorMode::On;
+      options.theme = ResolvedTheme::Dark;
+      options.width = ResolvedWidth::Fixed(8);
+    });
+
+    assert!(out.contains("\x1b[31mabc…"), "{out:?}");
   }
 
   #[test]

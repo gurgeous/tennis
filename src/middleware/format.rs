@@ -53,6 +53,8 @@ fn format_cell(ctx: &mut Context<'_>, r: usize, c: usize, digits: usize) -> Opti
 
 #[cfg(test)]
 mod tests {
+  use std::rc::Rc;
+
   use super::*;
   use crate::{
     Cell, Context, Grid, Resolved, Value,
@@ -83,6 +85,14 @@ mod tests {
   fn test_format_uses_digits_option() {
     let (rows, _) = formatted(test_grid(["a"], [["1234.567"]]), |options| options.digits = 2);
     assert_eq!(NumLocale::current().format_float(1234.567, 2), rows[0][0]);
+  }
+
+  #[test]
+  fn test_format_preserves_style() {
+    let cell = Cell::parse_styled("1234".to_owned(), Some(Rc::new("\x1b[31m".to_owned())));
+    let grid = Grid::from_cells(vec!["a".to_owned()], vec![vec![cell]]).unwrap();
+    let (rows, _) = formatted(grid, |_| {});
+    assert_eq!(Some("\x1b[31m"), rows[0][0].style());
   }
 
   #[test]

@@ -1,22 +1,27 @@
-//! Table cell text and value.
+//! Table cell text, style, and value.
 
-use std::{borrow::Cow, ops::Deref};
+use std::{borrow::Cow, ops::Deref, rc::Rc};
 
 use crate::{Value, util};
 
-/// Display text plus its normalized numeric value, when the column is numeric.
+/// Display text plus an optional incoming style and normalized numeric value.
 /// Formatting may change `text`; `value` remains stable for sorting and scales.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Cell {
   text: String,
+  style: Option<Rc<String>>,
   value: Option<Value>,
 }
 
 impl Cell {
-  // Cells parse immediately; Grid later normalizes the column.
+  // Numeric values parse immediately; Grid later normalizes the column.
   pub fn parse(text: String) -> Self {
+    Self::parse_styled(text, None)
+  }
+
+  pub fn parse_styled(text: String, style: Option<Rc<String>>) -> Self {
     let value = Value::parse(&text);
-    Self { text, value }
+    Self { text, style, value }
   }
 
   pub fn as_str(&self) -> &str {
@@ -25,6 +30,10 @@ impl Cell {
 
   pub fn value(&self) -> Option<&Value> {
     self.value.as_ref()
+  }
+
+  pub fn style(&self) -> Option<&str> {
+    self.style.as_deref().map(String::as_str)
   }
 
   pub fn squish(&mut self) {
@@ -107,5 +116,18 @@ impl PartialEq<Cell> for &str {
 impl PartialEq<Cell> for String {
   fn eq(&self, other: &Cell) -> bool {
     self == &other.text
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn test_squish_preserves_style() {
+    let mut cell = Cell::parse_styled(" alice  smith ".to_owned(), Some(Rc::new("\x1b[31m".to_owned())));
+    cell.squish();
+    assert_eq!("alice smith", cell.as_str());
+    assert_eq!(Some("\x1b[31m"), cell.style());
   }
 }
