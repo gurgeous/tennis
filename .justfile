@@ -37,12 +37,19 @@ run *ARGS:
 # check/llm
 #
 
+check target="":
+  if [ -n "{{target}}" ]; then \
+    rustup target add "{{target}}" || exit $?; \
+    export CARGO_BUILD_TARGET="{{target}}"; \
+  fi; \
+  just _check
+
 [windows]
-check: build test (bats "--filter-tags" "!skipwin")
+_check: build test (bats "--filter-tags" "!skipwin")
   just banner "✓ check ✓"
 
 [unix]
-check: build lint test bats
+_check: build lint test bats
   just banner "✓ check ✓"
 
 llm:

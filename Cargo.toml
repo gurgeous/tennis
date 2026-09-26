@@ -1,6 +1,6 @@
 [package]
 name = "tennis"
-version = "0.7.1"
+version = "0.8.0"
 edition = "2024"
 rust-version = "1.96"
 license = "MIT"
@@ -23,6 +23,9 @@ terminal-colorsaurus = { version = "1", features = ["anstyle"] }
 terminal_size = "0.4"
 unicode-truncate = "2"
 unicode-width = "0.2"
+
+[target.'cfg(all(target_os = "linux", target_env = "musl"))'.dependencies]
+mimalloc = "0.1"
 
 #
 # haven't decided which release is preferred yet

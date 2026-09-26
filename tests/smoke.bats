@@ -6,7 +6,7 @@
 
 setup() {
   ROOT="$BATS_TEST_DIRNAME/.."
-  BIN="$ROOT/target/debug/tennis"
+  BIN="$ROOT/target/${CARGO_BUILD_TARGET:+$CARGO_BUILD_TARGET/}debug/tennis"
 }
 
 # Strip \r before comparing to paper over unix/win newline issues
