@@ -58,6 +58,16 @@ esac
 bin="target/${target}/release/${bin}"
 [[ -f "$bin" ]] || fatal "missing ${bin}"
 
+# Musl releases must run without a system loader or shared libraries.
+case "$target" in
+*-linux-musl*)
+  elf="$(LC_ALL=C readelf --program-headers --dynamic "$bin")" || fatal "cannot inspect ${bin}"
+  if grep -Eq 'INTERP|\(NEEDED\)' <<<"$elf"; then
+    fatal "musl binary must be statically linked: ${bin}"
+  fi
+  ;;
+esac
+
 #
 # assemble $staging
 #

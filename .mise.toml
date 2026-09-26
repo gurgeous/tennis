@@ -6,3 +6,6 @@ bats = "latest"
 just = "latest"
 ruby = "latest"
 rust = "1.96.0"
+
+[bootstrap.packages]
+"apt:musl-tools" = "latest"

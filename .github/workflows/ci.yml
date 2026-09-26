@@ -15,12 +15,19 @@ concurrency:
 jobs:
   test:
     strategy:
-      matrix: { platform: [ubuntu-22.04, macos-15, macos-latest, windows-latest] }
+      matrix:
+        include:
+          - { platform: macos-15, target: aarch64-apple-darwin }
+          - { platform: macos-latest, target: aarch64-apple-darwin }
+          - { platform: ubuntu-22.04, target: x86_64-unknown-linux-gnu }
+          - { platform: ubuntu-22.04, target: x86_64-unknown-linux-musl }
+          - { platform: windows-latest, target: x86_64-pc-windows-msvc }
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v4
+        with: { bootstrap: true }
       - uses: bats-core/bats-action@4.0.0
         # mise can't install bats on win; lint installs its own Rust components on Unix.
         if: runner.os == 'Windows'
-      - run: just check
+      - run: just check ${{ matrix.target }}

@@ -134,12 +134,13 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 ### Changelog
 
-#### 0.8.0 (unreleased)
+#### 0.8.0 (Sep '26)
 
 - improve zebra, blend with terminal bg #64 (@RVC2020)
 - store typed cells, honor locale #66 (@RVC2020)
 - support col args by index #66 (@RVC2020)
 - crude support for ansi in cells #72 (@RVC2020)
+- static linux builds with musl and mimalloc #74 (@jlorince)
 - merged unreleased crate back into app
 
 #### 0.7.1 (Jul '26)

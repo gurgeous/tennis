@@ -37,6 +37,10 @@ use render::{
 };
 use value::Value;
 
+#[cfg(all(target_os = "linux", target_env = "musl"))]
+#[global_allocator]
+static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 //
 // main/main0 around Main
 //
