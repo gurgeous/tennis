@@ -10,10 +10,10 @@
 
 ### Installation
 
-#### Brew/macOS
+#### Homebrew (Linux/macOS)
 
 ```sh
-$ brew install gurgeous/tap/tennis
+$ brew install tennis
 ```
 
 #### Linux tarball
