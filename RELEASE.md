@@ -24,24 +24,13 @@
    tennis_X.X.X_windows_amd64.zip
    ```
 
-1. Update our homebrew tap:
-
-   ```sh
-   bin/homebrew-update
-   ```
-
-1. Review and publish the tap update:
-
-   ```sh
-   cd ../homebrew-tap
-   git diff
-   git add tennis.rb && git commit -m "release vX.X.X" && git push
-   ```
+1. Homebrew autobumps `homebrew-core` (usually within a day). Or run
+   `brew bump-formula-pr tennis --tag vX.X.X`.
 
 1. Test the Homebrew install:
    ```sh
    brew update
-   brew install gurgeous/tap/tennis
+   brew upgrade tennis
    tennis --version
    ```
 
