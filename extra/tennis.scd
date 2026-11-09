@@ -50,8 +50,7 @@ $ tennis diamonds.csv
 	Show row numbers.
 
 *-p*, *--pager*
-	Send output through *$PAGER* or *less*. If *LESS* is unset, it defaults to
-	*FRX*.
+	Send output through *$PAGER* or *less*.
 
 *-t*, *--title* <string>
 	Add a title above the table.

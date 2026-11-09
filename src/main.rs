@@ -7,6 +7,7 @@ mod infer;
 mod input;
 mod middleware;
 mod num_locale;
+mod pager;
 mod peek;
 mod render;
 mod sort;
@@ -17,7 +18,7 @@ mod verbose;
 use std::{
   io::{self, IsTerminal, Read, Write},
   path::Path,
-  process::{Child, ChildStdin, Command, ExitCode, Stdio},
+  process::ExitCode,
 };
 
 use args::Args;
@@ -26,6 +27,7 @@ use error::{ColumnOperation, Error, Result};
 use grid::Grid;
 use infer::ColumnType;
 use input::{csv, detect, detect::InputFormat, json, sniffer, sqlite};
+use pager::Pager;
 #[cfg(test)]
 use render::resolved::ResolvedTheme;
 use render::{
@@ -252,7 +254,7 @@ impl Main {
   // write table somewhere based on args
   fn write(&self, grid: Grid, options: Resolved) -> Result<()> {
     if self.args.pager {
-      let mut pager = self.pager()?;
+      let mut pager = Pager::spawn(&grid, &options)?;
       let _ = render::write(grid, options, &mut pager.stdin as &mut dyn Write);
       pager.finish();
       return Ok(());
@@ -261,47 +263,6 @@ impl Main {
     let mut stdout = io::BufWriter::new(io::stdout().lock());
     let _ = render::write(grid, options, &mut stdout as &mut dyn Write);
     Ok(())
-  }
-
-  fn pager(&self) -> Result<Pager> {
-    let pager = env_pager();
-    let mut parts = shell_words::split(&pager).map_err(|_| Error::PagerStart)?.into_iter();
-    let program = parts.next().ok_or(Error::PagerStart)?;
-
-    let mut child = Command::new(program)
-      .args(parts)
-      .stdin(Stdio::piped())
-      .stdout(Stdio::inherit())
-      .stderr(Stdio::inherit())
-      .spawn()
-      .map_err(|_| Error::PagerStart)?; // pager not found
-
-    let stdin = child.stdin.take().ok_or(Error::PagerStart)?;
-
-    Ok(Pager { child, stdin })
-  }
-}
-
-//
-// simple Pager struct
-//
-
-struct Pager {
-  child: Child,
-  stdin: ChildStdin,
-}
-
-impl Pager {
-  fn finish(mut self) {
-    drop(self.stdin);
-    let _ = self.child.wait();
-  }
-}
-
-fn env_pager() -> String {
-  match std::env::var("PAGER") {
-    Ok(v) if !v.is_empty() => v,
-    _ => "less -RS".to_string(),
   }
 }
 
