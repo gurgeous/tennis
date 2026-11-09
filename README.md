@@ -76,6 +76,7 @@ Other options:
       --digits <int>      Digits after decimal for float columns
       --scale <headers>   Add red-to-green color scale
       --rscale <headers>  Like --scale, but green-to-red
+      --skip <int>        Skip first N lines, e.g. metadata above the header
       --table <table>     Select the db table (for sqlite)
       --theme <theme>     Select color theme (auto|dark|light)
       --vanilla           Disable numeric formatting
@@ -139,6 +140,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 #### 0.8.1 (unreleased)
 
 - moved to homebrew-core, thanks @chenrui333 and @chrisfinazzo #79
+- add --skip for skipping lines above the header #78 (@igorshubovych)
 
 #### 0.8.0 (Sep '26)
 

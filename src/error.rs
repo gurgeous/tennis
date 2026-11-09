@@ -19,6 +19,7 @@ pub enum Error {
   Json,
   MissingColumn { column: String, operation: Option<ColumnOperation>, headers: Vec<String> },
   PagerStart,
+  SkipRequiresText,
   SqliteCliFailed,
   SqliteCliMissing,
   SqliteInvalidTable(String, Vec<String>),
@@ -72,6 +73,7 @@ fn format(error: &Error) -> String {
       return missing_column(column, *operation, headers);
     }
     Error::PagerStart => return message("Could not start pager"),
+    Error::SkipRequiresText => "--skip doesn't work with sqlite files",
     Error::SqliteCliFailed => "Could not read that file with sqlite3",
     Error::SqliteCliMissing => "`sqlite3` is required, but I couldn't find it.",
     Error::SqliteInvalidTable(table, tables) => return sqlite_table_error(table, tables),
@@ -82,7 +84,7 @@ fn format(error: &Error) -> String {
   };
 
   match error {
-    Error::SqliteTableRequiresSqlite => usage(message),
+    Error::SkipRequiresText | Error::SqliteTableRequiresSqlite => usage(message),
     _ => self::message(message),
   }
 }

@@ -22,12 +22,13 @@ _tennis() {
     --digits) COMPREPLY=($(compgen -W "1 2 3 4 5 6" -- "${cur}")) ; return ;;
     --scale) COMPREPLY=() ; return ;;
     --rscale) COMPREPLY=() ; return ;;
+    --skip) COMPREPLY=() ; return ;;
     --table) COMPREPLY=() ; return ;;
     --theme) COMPREPLY=() ; return ;;
   esac
 
   if [[ "${cur}" == -* ]]; then
-    COMPREPLY=($(compgen -W "-n --row-numbers -t --title --border -p --pager --peek -z --zebra --deselect --select --sort -r --reverse --shuffle --shuf --head --tail --filter -b -bb -bbb --width --color -d --delimiter --digits --scale --rscale --table --theme --vanilla -h --help -v --version" -- "${cur}"))
+    COMPREPLY=($(compgen -W "-n --row-numbers -t --title --border -p --pager --peek -z --zebra --deselect --select --sort -r --reverse --shuffle --shuf --head --tail --filter -b -bb -bbb --width --color -d --delimiter --digits --scale --rscale --skip --table --theme --vanilla -h --help -v --version" -- "${cur}"))
   else
     _filedir '@(csv|tsv|db|json|jsonl|ndjson|sqlite|sqlite3)'
     [[ ${#COMPREPLY[@]} -eq 0 ]] && _filedir

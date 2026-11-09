@@ -32,6 +32,7 @@ _tennis() {
     '--digits[Digits after decimal for float columns]:int:(1 2 3 4 5 6)' \
     '--scale[Add red-to-green color scale]:headers:' \
     '--rscale[Like --scale, but green-to-red]:headers:' \
+    '--skip[Skip first N lines, e.g. metadata above the header]:int:' \
     '--table[Select the db table (for sqlite)]:table:' \
     '--theme[Select color theme (auto|dark|light)]:theme:' \
     '--vanilla[Disable numeric formatting]' \

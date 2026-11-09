@@ -270,6 +270,10 @@ pub struct Args {
   #[arg(help_heading=OTHER, long, value_name="headers", value_delimiter=',')]
   pub rscale: Vec<String>,
 
+  /// Skip first N lines, e.g. metadata above the header
+  #[arg(help_heading=OTHER, long, value_name="int", value_parser=value_parser!(u32).range(1..))]
+  pub skip: Option<u32>,
+
   /// Select the db table (for sqlite)
   #[arg(help_heading=OTHER, long, value_name="table")]
   pub table: Option<String>,
