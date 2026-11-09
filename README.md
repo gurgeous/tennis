@@ -13,8 +13,10 @@
 #### Brew/macOS
 
 ```sh
-$ brew install gurgeous/tap/tennis
+$ brew install tennis
 ```
+
+If you previously used `gurgeous/tap/tennis`, run `brew update && brew upgrade` to switch to the homebrew-core formula.
 
 #### Linux tarball
 
@@ -133,6 +135,10 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 - [visidata](https://www.visidata.org) - the best for poking around large files, it does everything
 
 ### Changelog
+
+#### 0.8.1 (unreleased)
+
+- moved to homebrew-core, thanks @chenrui333
 
 #### 0.8.0 (Sep '26)
 
