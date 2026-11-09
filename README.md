@@ -16,7 +16,11 @@
 $ brew install tennis
 ```
 
-If you previously used `gurgeous/tap/tennis`, run `brew update && brew upgrade` to switch to the homebrew-core formula.
+#### mise
+
+```sh
+$ mise use -g github:gurgeous/tennis
+```
 
 #### Linux tarball
 
