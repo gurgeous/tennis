@@ -137,6 +137,9 @@ $ tennis diamonds.csv
 *--rscale* <headers>
 	Just like --scale, but use green-to-red instead.
 
+*--skip* <int>
+	Skip the first N lines of input, e.g. metadata above the CSV header.
+
 *--theme* <theme>
 	Select the color theme. Valid values: *auto*, *dark*, *light*. The default
 	is *auto*.

@@ -312,6 +312,7 @@ fn env_pager() -> String {
 fn load_bytes(args: &Args, filename: Option<&Path>, bytes: &[u8]) -> Result<Grid> {
   // skip BOM
   let bytes = bytes.strip_prefix(b"\xef\xbb\xbf").unwrap_or(bytes);
+  let bytes = args.skip.map_or(bytes, |n| skip_lines(bytes, n));
 
   match detect::detect_format(filename, bytes) {
     InputFormat::Sqlite => Err(Error::SqliteRequiresFile),
@@ -332,6 +333,9 @@ fn load_path(args: &Args) -> Result<Grid> {
     std::io::ErrorKind::NotFound => Error::FileNotFound(path.to_owned()),
     _ => Error::FileRead,
   })? {
+    if args.skip.is_some() {
+      return Err(Error::SkipRequiresText);
+    }
     return verbose::time("sqlite", || sqlite::load(path, args.table.as_deref()));
   }
 
@@ -340,6 +344,14 @@ fn load_path(args: &Args) -> Result<Grid> {
     _ => Error::FileRead,
   })?;
   verbose::time("parse input", || load_bytes(args, Some(path), &bytes))
+}
+
+// drop the first n raw lines (not csv records, so a stray quote can't eat the header)
+fn skip_lines(bytes: &[u8], n: u32) -> &[u8] {
+  match memchr::memchr_iter(b'\n', bytes).nth(n as usize - 1) {
+    Some(ix) => &bytes[ix + 1..],
+    None => &[],
+  }
 }
 
 #[cfg(test)]
@@ -372,6 +384,29 @@ mod tests {
 
     let args = Args::default();
     assert_eq!(Err(Error::SqliteRequiresFile), load_bytes(&args, Some(&fixture("test.db")), b"SQLite format 3\0"));
+  }
+
+  #[test]
+  fn test_skip_lines() {
+    for (bytes, n, expected) in [
+      (&b"x\na,b\n1,2\n"[..], 1, &b"a,b\n1,2\n"[..]),
+      (b"x\ny\na,b\n", 2, b"a,b\n"),
+      (b"x\r\na,b\r\n", 1, b"a,b\r\n"),
+      (b"x\na,b", 1, b"a,b"),
+      (b"x\n", 1, b""),
+      (b"x", 1, b""),
+      (b"x\ny\n", 5, b""),
+    ] {
+      assert_eq!(expected, skip_lines(bytes, n), "{:?} skip {n}", String::from_utf8_lossy(bytes));
+    }
+
+    let args = Args { skip: Some(3), ..Args::default() };
+    let input = load_bytes(&args, None, b"meta 1\nmeta 2\nmeta 3\na,b\n1,2\n").unwrap();
+    assert_eq!(["a", "b"], input.headers());
+    assert_eq!("1", input.rows()[0][0]);
+
+    let args = Args { file: Some(fixture("sqlite-single.db")), skip: Some(1), ..Args::default() };
+    assert_eq!(Err(Error::SkipRequiresText), load_path(&args));
   }
 
   #[test]
