@@ -29,6 +29,14 @@ impl BorderDraw {
       + display_width(&self.mid) * ncols.saturating_sub(1)
       + 2 * ncols
   }
+
+  /// Lines above the first data row, used to freeze headers in less. Mirrors
+  /// the render pass: top rule, title + title rule, header + header rule.
+  pub fn header_lines(&self, title: bool) -> usize {
+    let has = |rule: &BorderRule| usize::from(*rule != BorderRule::None);
+    let title = if title { 1 + has(&self.header) } else { 0 };
+    has(&self.top) + title + 1 + has(&self.header)
+  }
 }
 
 /// Definition for a "rule", which is a horizontal line
@@ -178,6 +186,7 @@ fn glyph_range(line: &str, start: usize, end: usize) -> String {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::render::{resolved::Resolved, test_grid, test_options, text};
 
   const BORDERS: &[Border] = &[
     Border::AsciiRounded,
@@ -205,6 +214,24 @@ mod tests {
     for border in BORDERS {
       let draw = get_border(*border);
       assert_valid_border(*border, &draw);
+    }
+  }
+
+  #[test]
+  fn test_header_lines() {
+    for border in BORDERS {
+      for title in [None, Some("title".to_owned())] {
+        let options = Resolved { border: *border, title: title.clone(), ..test_options() };
+        let out = text(test_grid(["head"], [["data"]]), options);
+        let expected = out.lines().position(|line| line.contains("data")).unwrap();
+        assert_eq!(expected, get_border(*border).header_lines(title.is_some()), "{border:?} title={title:?}");
+      }
+
+      // empty tables put the title where headers go, same layout as no title
+      let options = Resolved { border: *border, title: Some("title".to_owned()), ..test_options() };
+      let out = text(test_grid(["head"], Vec::<[&str; 1]>::new()), options);
+      let expected = out.lines().position(|line| line.contains("no data")).unwrap();
+      assert_eq!(expected, get_border(*border).header_lines(false), "{border:?} empty");
     }
   }
 

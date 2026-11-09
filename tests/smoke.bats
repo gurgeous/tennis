@@ -443,6 +443,38 @@ run_tty() {
   [[ "$output" == *"Could not start pager"* ]]
 }
 
+# bats test_tags=skipwin
+@test "--pager freezes headers with less 608+" {
+  # fake less records its version probe and pager args
+  local fake="$BATS_TEST_TMPDIR/bin" log="$BATS_TEST_TMPDIR/less.log"
+  mkdir -p "$fake"
+  cat >"$fake/less" <<'EOF'
+#!/usr/bin/env bash
+if [ "$1" = --version ]; then
+  echo version >>"$FAKE_LESS_LOG"
+  echo "$FAKE_LESS_VERSION"
+  exit 0
+fi
+echo "$*" >>"$FAKE_LESS_LOG"
+cat >/dev/null
+EOF
+  chmod +x "$fake/less"
+
+  for case in "less 608|-RS --header=3" "less 607|-RS" "garbage|-RS"; do
+    rm -f "$log"
+    run env -u PAGER PATH="$fake:$PATH" FAKE_LESS_LOG="$log" FAKE_LESS_VERSION="${case%%|*}" \
+      "$BIN" --color=off --pager "$ROOT/tests/test.csv"
+    [ "$status" -eq 0 ]
+    [ "$(cat "$log")" = "$(printf 'version\n%s' "${case#*|}")" ]
+  done
+
+  # explicit PAGER never probes less
+  rm -f "$log"
+  run env PAGER=cat PATH="$fake:$PATH" FAKE_LESS_LOG="$log" "$BIN" --color=off --pager "$ROOT/tests/test.csv"
+  [ "$status" -eq 0 ]
+  [ ! -e "$log" ]
+}
+
 @test "--peek" {
   # sample stats
   run_ok --color=off --width 80 --peek "$ROOT/tests/test.json"
