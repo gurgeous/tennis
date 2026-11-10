@@ -27,6 +27,10 @@ unicode-width = "0.2"
 [target.'cfg(all(target_os = "linux", target_env = "musl"))'.dependencies]
 mimalloc = "0.1"
 
+# termios check before probing the terminal theme (wait_for_pager), not needed on windows
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 #
 # haven't decided which release is preferred yet
 #
