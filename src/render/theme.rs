@@ -9,6 +9,11 @@ use super::{
 
 pub const RESET: &str = "\x1b[0m";
 pub const BOLD: &str = "\x1b[1m";
+// faint default fg for borders, placeholders, row numbers, footer. Adapts to
+// any terminal palette, light or dark.
+pub const FAINT: &str = "\x1b[2;39m";
+// end FAINT. Faint isn't a color, so the next fg code won't clear it
+pub const UNFAINT: &str = "\x1b[22m";
 
 const DARK_ZEBRA_BLEND: f64 = 0.10; // 10% lighter vs bg
 const LIGHT_ZEBRA_BLEND: f64 = 0.15; // 15% darker vs bg
@@ -16,7 +21,6 @@ const LIGHT_ZEBRA_BLEND: f64 = 0.15; // 15% darker vs bg
 #[derive(Clone, Debug)]
 pub struct Theme {
   pub cell: Ansi,         // cell fg
-  pub chrome: Ansi,       // borders, seps, placeholders, row num, footer
   pub headers: Vec<Ansi>, // header colors
   pub title: Ansi,        // title
   pub zebra: Ansi,        // zebra fg
@@ -42,7 +46,6 @@ impl Theme {
   /// dark theme
   fn dark(termbg: Option<RgbColor>) -> Self {
     Self {
-      chrome: fg(Ansi256::Gray12),
       cell: fg(Ansi256::Gray23),
       zebra: fg(Ansi256::White),
       zebra_bg: zebra_bg(termbg, RgbColor(255, 255, 255), DARK_ZEBRA_BLEND, Ansi256::Gray4),
@@ -61,7 +64,6 @@ impl Theme {
   /// light theme
   fn light(termbg: Option<RgbColor>) -> Self {
     Self {
-      chrome: fg(Ansi256::Gray12),
       cell: fg(Ansi256::Gray4),
       zebra: fg(Ansi256::Black),
       zebra_bg: zebra_bg(termbg, RgbColor(0, 0, 0), LIGHT_ZEBRA_BLEND, Ansi256::Gray23),
@@ -131,7 +133,6 @@ mod tests {
       RenderOptions { color: Some(ColorMode::On), theme: Some(ThemeMode::Dark), ..RenderOptions::default() };
 
     let theme = Theme::new(&options.resolve());
-    assert!(theme.chrome.starts_with('\x1b'));
     assert!(theme.cell.starts_with('\x1b'));
     assert_eq!("\x1b[38;5;231m", theme.zebra);
     assert_eq!("\x1b[48;5;235m", theme.zebra_bg);
@@ -146,7 +147,6 @@ mod tests {
       RenderOptions { color: Some(ColorMode::On), theme: Some(ThemeMode::Light), ..RenderOptions::default() };
 
     let theme = Theme::new(&options.resolve());
-    assert!(theme.chrome.starts_with('\x1b'));
     assert!(theme.cell.starts_with('\x1b'));
     assert_eq!("\x1b[38;5;16m", theme.zebra);
     assert_eq!("\x1b[48;5;254m", theme.zebra_bg);
@@ -161,7 +161,7 @@ mod tests {
       RenderOptions { color: Some(ColorMode::On), theme: Some(ThemeMode::Auto), ..RenderOptions::default() };
 
     let theme = Theme::new(&options.resolve());
-    assert!(theme.chrome.starts_with('\x1b'));
+    assert!(theme.cell.starts_with('\x1b'));
   }
 
   #[test]
