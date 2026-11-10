@@ -146,7 +146,8 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 - moved to homebrew-core, thanks @chenrui333 and @chrisfinazzo #79
 - add --skip for skipping lines above the header #78 (@igorshubovych)
 - freeze table headers with less #80 (@gigaimage)
-- fix rare tty leak (-icanon -echo) when piping to less #76 (@forthrin)
+- ansi faint borders (instead of gray) #76 (@forthrin)
+- fix rare tty leak when piping to less #76 (@forthrin)
 
 #### 0.8.0 (Sep '26)
 

@@ -9,7 +9,7 @@ use crate::{
     border::{BorderDraw, BorderRule},
     column::Align,
     context::Context,
-    theme::{BOLD, RESET},
+    theme::{BOLD, FAINT, RESET},
   },
   util::PLACEHOLDER,
 };
@@ -49,7 +49,7 @@ impl<'w, 'ctx> Render<'w, 'ctx> {
     // title and title rule below
     if let Some(title) = self.ctx.options.title.clone() {
       let code = self.ctx.paint.title.clone();
-      self.text_row(&code, &title)?;
+      self.text_row(&code, &title, true)?;
       let rule = self.ctx.border.top.title_rule(&self.ctx.border.header);
       self.rule(&rule)?;
     }
@@ -60,7 +60,7 @@ impl<'w, 'ctx> Render<'w, 'ctx> {
     self.rule(&header)?;
 
     // rows
-    let row_rule = rendered_rule(&self.ctx.theme.chrome, &self.ctx.border, &self.ctx.border.row, &self.nice);
+    let row_rule = rendered_rule(&self.ctx.border, &self.ctx.border.row, &self.nice);
     for index in 0..self.ctx.nrows() {
       self.body_row(index)?;
       if index + 1 < self.ctx.nrows()
@@ -76,8 +76,9 @@ impl<'w, 'ctx> Render<'w, 'ctx> {
         if matches!(self.ctx.border.row, BorderRule::None) { &self.ctx.border.header } else { &self.ctx.border.row };
       let footer_top = above.footer_rule(&self.ctx.border.bottom);
       self.rule(&footer_top)?;
+      // footer is faint, and bold + faint renders inconsistently
       let code = self.ctx.paint.footer.clone();
-      self.text_row(&code, &footer)?;
+      self.text_row(&code, &footer, false)?;
     }
 
     // bottom rule
@@ -96,14 +97,14 @@ impl<'w, 'ctx> Render<'w, 'ctx> {
     let width = title.width().max(body.width());
     let widths = [width];
     let top = self.ctx.border.top.clone();
-    write_rule(self.ctx.writer, &self.ctx.theme.chrome, &self.ctx.border, &top, &widths)?;
+    write_rule(self.ctx.writer, &self.ctx.border, &top, &widths)?;
     let code = self.ctx.theme.cell.clone();
     self.centered_row(&title, width, &code, false, true)?;
     let header = self.ctx.border.header.clone();
-    write_rule(self.ctx.writer, &self.ctx.theme.chrome, &self.ctx.border, &header, &widths)?;
+    write_rule(self.ctx.writer, &self.ctx.border, &header, &widths)?;
     self.centered_row(body, width, &code, false, true)?;
     let bottom = self.ctx.border.bottom.clone();
-    write_rule(self.ctx.writer, &self.ctx.theme.chrome, &self.ctx.border, &bottom, &widths)
+    write_rule(self.ctx.writer, &self.ctx.border, &bottom, &widths)
   }
 
   //
@@ -159,11 +160,11 @@ impl<'w, 'ctx> Render<'w, 'ctx> {
     let width = column.nice;
     let text = &self.ctx.grid.rows[row][col];
 
-    // Empty cells render as placeholders and use chrome paint.
+    // Empty cells render as faint placeholders.
     let empty = text.is_empty();
     let display_text = if empty { PLACEHOLDER } else { text.as_str() };
     let code = if empty {
-      self.ctx.theme.chrome.as_str()
+      FAINT
     } else if let Some(custom) =
       self.ctx.paint.cells.get(&(row, col)).or_else(|| self.ctx.paint.columns.get(col).filter(|c| !c.is_empty()))
     {
@@ -188,9 +189,9 @@ impl<'w, 'ctx> Render<'w, 'ctx> {
   //
 
   // Render a centered title or footer row.
-  fn text_row(&mut self, code: &str, text: &str) -> io::Result<()> {
+  fn text_row(&mut self, code: &str, text: &str, bold: bool) -> io::Result<()> {
     let width = content_width(&self.nice, &self.ctx.border).saturating_sub(2);
-    self.centered_row(text, width, code, true, false)
+    self.centered_row(text, width, code, bold, false)
   }
 
   fn centered_row(&mut self, text: &str, width: usize, code: &str, bold: bool, restore: bool) -> io::Result<()> {
@@ -209,7 +210,7 @@ impl<'w, 'ctx> Render<'w, 'ctx> {
 
   // Write one border rule line.
   fn rule(&mut self, rule: &BorderRule) -> io::Result<()> {
-    write_rule(self.ctx.writer, &self.ctx.theme.chrome, &self.ctx.border, rule, &self.nice)
+    write_rule(self.ctx.writer, &self.ctx.border, rule, &self.nice)
   }
 
   // Close one cell with mid or right chrome.
@@ -234,28 +235,22 @@ impl<'w, 'ctx> Render<'w, 'ctx> {
 //
 
 // Write one rendered rule if this border uses one.
-fn write_rule(
-  writer: &mut dyn io::Write,
-  chrome: &str,
-  border: &BorderDraw,
-  rule: &BorderRule,
-  widths: &[usize],
-) -> io::Result<()> {
-  if let Some(rule) = rendered_rule(chrome, border, rule, widths) {
+fn write_rule(writer: &mut dyn io::Write, border: &BorderDraw, rule: &BorderRule, widths: &[usize]) -> io::Result<()> {
+  if let Some(rule) = rendered_rule(border, rule, widths) {
     writer.write_all(rule.as_bytes())?;
   }
   Ok(())
 }
 
 // Build one fully rendered border rule line.
-fn rendered_rule(chrome: &str, border: &BorderDraw, rule: &BorderRule, widths: &[usize]) -> Option<String> {
+fn rendered_rule(border: &BorderDraw, rule: &BorderRule, widths: &[usize]) -> Option<String> {
   let mut out = String::new();
   match rule {
     BorderRule::None => return None,
 
     // Continuous rules span the full inner table width.
     BorderRule::Continuous { left, fill, right } => {
-      out.push_str(chrome);
+      out.push_str(FAINT);
       out.push_str(left);
       for _ in 0..content_width(widths, border) {
         out.push_str(fill);
@@ -266,7 +261,7 @@ fn rendered_rule(chrome: &str, border: &BorderDraw, rule: &BorderRule, widths: &
     // Segmented rules track per-column widths, including cell padding.
     BorderRule::Segmented { left, fill, mid, right } => {
       debug_assert!(!widths.is_empty());
-      out.push_str(chrome);
+      out.push_str(FAINT);
       for (index, width) in widths.iter().enumerate() {
         out.push_str(if index == 0 { left } else { mid });
         for _ in 0..width + 2 {
@@ -439,7 +434,7 @@ mod tests {
   }
 
   #[test]
-  fn test_render_colored_rule_has_single_chrome_prefix() {
+  fn test_render_colored_rule_has_single_faint_prefix() {
     let out = rendered(table(["a", "b"], [["1", "2"]]), |options| {
       options.border = Border::Basic;
       options.color = ColorMode::On;
@@ -448,18 +443,18 @@ mod tests {
     });
     let top = out.lines().next().unwrap();
 
-    assert_eq!("\x1b[38;5;243m+----+----+\x1b[0m", top);
+    assert_eq!("\x1b[2;39m+----+----+\x1b[0m", top);
   }
 
   #[test]
-  fn test_render_placeholder_uses_chrome_paint() {
+  fn test_render_placeholder_is_faint() {
     let out = rendered(table(["name", "score"], [["alice", ""]]), |options| {
       options.color = ColorMode::On;
       options.theme = ResolvedTheme::Dark;
       options.width = ResolvedWidth::Fixed(80);
     });
 
-    assert!(out.contains("\x1b[38;5;243m—    \x1b[0m"), "{out:?}");
+    assert!(out.contains("\x1b[2;39m—    \x1b[0m"), "{out:?}");
   }
 
   #[test]
@@ -637,7 +632,7 @@ mod tests {
   }
 
   #[test]
-  fn test_render_empty_color_resets_chrome() {
+  fn test_render_empty_color_resets_faint() {
     let out = rendered(table(["name"], [] as [[&str; 1]; 0]), |options| {
       options.border = Border::Basic;
       options.color = ColorMode::On;
@@ -645,7 +640,7 @@ mod tests {
       options.width = ResolvedWidth::Fixed(80);
     });
     let first_row = out.lines().nth(1).unwrap().to_owned();
-    assert!(first_row.starts_with("\x1b[38;5;243m|\x1b[0m "));
+    assert!(first_row.starts_with("\x1b[2;39m|\x1b[22m\x1b[0m "), "{first_row:?}");
   }
 
   #[test]
@@ -822,12 +817,12 @@ mod tests {
     );
 
     let first = out.lines().next().unwrap();
-    assert!(first.starts_with("\x1b[38;5;243m╭"), "{first:?}");
+    assert!(first.starts_with("\x1b[2;39m╭"), "{first:?}");
     assert!(first.ends_with("╮\x1b[0m"), "{first:?}");
     assert!(out.contains("\x1b[1m\x1b[38;5;75m"));
     assert!(out.contains("foo"));
     assert!(out.contains("\x1b[38;5;204m0.230"));
-    assert!(out.contains("\x1b[38;5;243m"));
+    assert!(out.contains("\x1b[2;39m"));
     assert!(out.contains("—"));
     let last = out.lines().last().unwrap();
     assert!(last.contains("╰"));
@@ -848,7 +843,8 @@ mod tests {
     let row = out.lines().find(|line| line.contains("alice")).unwrap();
     let row = row.strip_suffix(RESET).unwrap_or(row);
     assert!(!row.contains(RESET));
-    assert!(row.starts_with("\x1b[38;5;231m\x1b[48;5;235m\x1b[38;5;243m|\x1b[38;5;231m\x1b[48;5;235m "), "{row:?}");
+    // faint ends at the separator, so it can't leak into zebra cells
+    assert!(row.starts_with("\x1b[38;5;231m\x1b[48;5;235m\x1b[2;39m|\x1b[22m\x1b[38;5;231m\x1b[48;5;235m "), "{row:?}");
     assert!(row.contains(PLACEHOLDER));
     assert!(!row.contains("\x1b[38;5;254m"), "{row:?}");
   }

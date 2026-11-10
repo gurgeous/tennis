@@ -5,12 +5,12 @@
 
 use std::collections::BTreeMap;
 
-use crate::{ColorScale, ColumnType, Context, util};
+use crate::{ColorScale, ColumnType, Context, render::theme::FAINT, util};
 
 pub fn run(ctx: &mut Context<'_>) {
   ctx.paint.title = ctx.theme.title.clone();
   ctx.paint.headers = (0..ctx.ncols()).map(|c| ctx.theme.headers[c % ctx.theme.headers.len()].clone()).collect();
-  ctx.paint.footer = ctx.theme.chrome.clone();
+  ctx.paint.footer = FAINT.to_owned();
 
   paint_color_scales(ctx);
   paint_columns(ctx);
@@ -39,7 +39,7 @@ fn paint_columns(ctx: &mut Context<'_>) {
     .iter()
     .map(|col| {
       if col.row_number {
-        ctx.theme.chrome.clone()
+        FAINT.to_owned()
       } else if matches!(col.ty, ColumnType::Int | ColumnType::Float | ColumnType::Percent) {
         ctx.theme.headers[col.index % ctx.theme.headers.len()].clone()
       } else {
@@ -153,11 +153,11 @@ mod tests {
   }
 
   #[test]
-  fn test_paint_row_numbers_are_chrome() {
+  fn test_paint_row_numbers_are_faint() {
     let paint = painted(test_grid(["name", "score"], [["alice", ""]]), |options| {
       options.row_numbers = true;
     });
-    assert!(!paint.columns[0].is_empty());
+    assert_eq!(FAINT, paint.columns[0]);
   }
 
   #[test]

@@ -6,7 +6,7 @@ use super::{
   border::{self, BorderDraw},
   column::Column,
   resolved::Resolved,
-  theme::{Ansi, Theme},
+  theme::{Ansi, FAINT, Theme, UNFAINT},
 };
 use crate::Grid;
 
@@ -46,9 +46,9 @@ impl<'w> Context<'w> {
     // ordered
     let theme = Theme::new(&options);
     let border = border::get_border(options.border);
-    let left = theme.chrome.clone() + &border.left;
-    let mid = theme.chrome.clone() + &border.mid;
-    let right = theme.chrome.clone() + &border.right;
+    let left = format!("{FAINT}{}{UNFAINT}", border.left);
+    let mid = format!("{FAINT}{}{UNFAINT}", border.mid);
+    let right = format!("{FAINT}{}{UNFAINT}", border.right);
 
     Self {
       border,
