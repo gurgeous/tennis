@@ -509,6 +509,7 @@ dependencies = [
  "anstyle",
  "clap",
  "csv",
+ "libc",
  "memchr",
  "mimalloc",
  "natord",

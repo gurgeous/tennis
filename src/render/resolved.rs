@@ -125,7 +125,11 @@ pub(super) fn resolve_theme(color: ColorMode, theme: Option<ThemeMode>) -> (Reso
 fn terminal_theme() -> (ResolvedTheme, Option<RgbColor>) {
   #[cfg(not(test))]
   {
-    use std::time::Duration;
+    use std::{io::IsTerminal, time::Duration};
+
+    if !std::io::stdout().is_terminal() {
+      wait_for_pager();
+    }
 
     let mut options = terminal_colorsaurus::QueryOptions::default();
     options.timeout = Duration::from_millis(200);
@@ -151,6 +155,38 @@ fn terminal_theme() -> (ResolvedTheme, Option<RgbColor>) {
     (ResolvedTheme::Dark, Some(RgbColor(0, 0, 0)))
   }
 }
+
+// Piped stdout often means a pager (less) is starting up on the same tty. Our
+// probe briefly puts the tty in raw mode, and if the pager starts mid-probe it
+// saves raw as "original" and leaves the terminal at -icanon -echo on exit.
+// Pagers clear ICANON once they own the tty, so wait for that (or give up
+// after 20ms, e.g. `| head` never touches the tty) and probe after.
+#[cfg(all(unix, not(test)))]
+fn wait_for_pager() {
+  use std::{os::fd::AsRawFd, time::Duration};
+
+  let Ok(tty) = std::fs::File::open("/dev/tty") else { return };
+  let icanon = || {
+    // zeroed, not uninit: on musl the kernel only fills a prefix of termios
+    let mut termios = std::mem::MaybeUninit::<libc::termios>::zeroed();
+    // SAFETY: termios is zeroed (valid for plain ints), tcgetattr fills it on success
+    let ok = unsafe { libc::tcgetattr(tty.as_raw_fd(), termios.as_mut_ptr()) } == 0;
+    ok && unsafe { termios.assume_init() }.c_lflag & libc::ICANON != 0
+  };
+  let start = std::time::Instant::now();
+  for _ in 0..2 {
+    if !icanon() {
+      crate::verbose::log(format_args!("Resolved.wait_for_pager() => pager is up after {:?}", start.elapsed()));
+      return;
+    }
+    std::thread::sleep(Duration::from_millis(10));
+  }
+  crate::verbose::log(format_args!("Resolved.wait_for_pager() => gave up"));
+}
+
+// no shared termios to race over on windows
+#[cfg(all(not(unix), not(test)))]
+fn wait_for_pager() {}
 
 pub(super) fn terminal_width() -> usize {
   terminal_size::terminal_size().map_or(80, |(width, _)| width.0 as usize)
