@@ -13,10 +13,17 @@ pub enum Value {
   Percent(f64),
 }
 
+// Long digit runs are usually IDs or timestamps (Apple ns, unix ms), not
+// amounts. Treat them as text so they skip grouping and f64 precision loss.
+const MAX_INT_DIGITS: usize = 12;
+
 impl Value {
   // Parsing
 
   pub fn parse(text: &str) -> Option<Self> {
+    if text.len() > MAX_INT_DIGITS && text.bytes().all(|b| b.is_ascii_digit()) {
+      return None;
+    }
     if let Some(text) = text.strip_suffix('%') {
       return text.parse().ok().filter(|x: &f64| x.is_finite()).map(Self::Percent);
     }
@@ -69,10 +76,12 @@ mod tests {
       ("1.", Value::Float(1.0)),
       ("+1", Value::Int(1)),
       ("1e3", Value::Float(1000.0)),
+      ("123456789012", Value::Int(123_456_789_012)),
+      ("1.2345678901234", Value::Float(1.2345678901234)),
     ] {
       assert_eq!(Some(value), Value::parse(text));
     }
-    for text in ["", "abc"] {
+    for text in ["", "abc", "1234567890123", "99999999999999999999"] {
       assert_eq!(None, Value::parse(text), "{text}");
     }
   }
