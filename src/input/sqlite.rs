@@ -14,7 +14,7 @@ use crate::{Error, Grid, Result, input::csv};
 pub fn load(path: &Path, selected_table: Option<&str>) -> Result<Grid> {
   let tables = list_tables(path)?;
   let table = choose_table(path, &tables, selected_table)?;
-  let sql = format!("SELECT * FROM {};", quote_identifier(&table));
+  let sql = format!("SELECT {} FROM {};", select_list(path, &table)?, quote_identifier(&table));
   let stdout = run(path, &["-batch", "-header", "-csv"], &sql)?;
   csv::load(&stdout, b',')
 }
@@ -42,6 +42,25 @@ fn choose_table(path: &Path, tables: &[String], selected_table: Option<&str>) ->
 
   let sql = "SELECT name FROM (SELECT sm.name AS name, COALESCE(SUM(ds.pgsize), 0) AS total_size FROM sqlite_master AS sm LEFT JOIN dbstat AS ds ON ds.name = sm.name WHERE sm.type = 'table' AND sm.name NOT LIKE 'sqlite_%' GROUP BY sm.name) ORDER BY total_size DESC, name ASC LIMIT 1;";
   Ok(query_scalar(path, sql).unwrap_or_else(|_| tables[0].clone()))
+}
+
+/// sqlite3 -csv writes blobs as raw unquoted bytes, which breaks the CSV, so
+/// render each blob value as its length instead. Checks typeof per value since
+/// any column can hold a blob. table_xinfo keeps generated columns; hidden = 1
+/// is virtual-table internals, which SELECT * also skips.
+fn select_list(path: &Path, table: &str) -> Result<String> {
+  let sql = format!("SELECT name FROM pragma_table_xinfo({}) WHERE hidden != 1;", quote_literal(table));
+  let stdout = run(path, &["-batch", "-noheader"], &sql)?;
+  let text = String::from_utf8_lossy(&stdout);
+  let cols: Vec<String> = text
+    .lines()
+    .filter(|line| !line.is_empty())
+    .map(|name| {
+      let col = quote_identifier(name);
+      format!("CASE WHEN typeof({col}) = 'blob' THEN '<blob ' || length({col}) || ' bytes>' ELSE {col} END AS {col}")
+    })
+    .collect();
+  if cols.is_empty() { Err(Error::SqliteNoTables) } else { Ok(cols.join(", ")) }
 }
 
 /// Run a query expected to return one text value.
@@ -83,6 +102,11 @@ fn quote_identifier(text: &str) -> String {
   format!("\"{}\"", text.replace('"', "\"\""))
 }
 
+/// Quote a sqlite string literal with doubled internal quotes.
+fn quote_literal(text: &str) -> String {
+  format!("'{}'", text.replace('\'', "''"))
+}
+
 #[cfg(all(test, not(windows)))]
 mod tests {
   use std::path::PathBuf;
@@ -112,5 +136,23 @@ mod tests {
     assert_eq!(["name", "score"], input.headers());
     assert_eq!("alice", input.rows()[0][0]);
     assert!(matches!(load(&fixture("sqlite-single.db"), Some("missing")), Err(Error::SqliteInvalidTable(..))));
+  }
+
+  #[test]
+  fn test_load_blobs() {
+    // blobs with newline/comma/quote bytes, a blob in an INTEGER column, and a generated column
+    let input = load(&fixture("sqlite-blob.db"), None).unwrap();
+    assert_eq!(["name", "data", "odd \"col\"", "upper"], input.headers());
+    let rows: Vec<Vec<&str>> = input.rows().iter().map(|row| row.iter().map(|cell| cell.as_str()).collect()).collect();
+    assert_eq!(
+      vec![vec!["a", "<blob 3 bytes>", "1", "A"], vec!["b", "", "<blob 2 bytes>", "B"], vec!["c", "text", "3", "C"]],
+      rows
+    );
+  }
+
+  #[test]
+  fn test_quote_literal() {
+    assert_eq!("'users'", quote_literal("users"));
+    assert_eq!("'it''s'", quote_literal("it's"));
   }
 }

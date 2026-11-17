@@ -148,6 +148,8 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 - freeze table headers with less #80 (@gigaimage)
 - ansi faint borders (instead of gray) #76 (@forthrin)
 - fix rare tty leak when piping to less #76 (@forthrin)
+- dodge escaping issues with sqlite blobs #76 & #86 (@forthrin)
+- put a cap on length of ints, so chat.db displays nicely
 
 #### 0.8.0 (Sep '26)
 

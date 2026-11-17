@@ -251,7 +251,7 @@ mod tests {
         ColumnType::String,
         ColumnType::String,
         ColumnType::String,
-        ColumnType::Float
+        ColumnType::String
       ],
       grid.types.as_slice()
     );
@@ -260,8 +260,8 @@ mod tests {
     assert_eq!(Some(&Value::Percent(12.0)), grid.rows[0][1].value());
     assert_eq!(None, grid.rows[0][2].value());
     assert_eq!(None, grid.rows[0][3].value());
-    assert!(matches!(grid.rows[0][5].value(), Some(Value::Float(_))));
-    assert_eq!(Some(&Value::Float(1.0)), grid.rows[1][5].value());
+    assert_eq!(None, grid.rows[0][5].value());
+    assert_eq!(None, grid.rows[1][5].value());
   }
 
   #[test]

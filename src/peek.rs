@@ -208,14 +208,11 @@ mod tests {
   }
 
   #[test]
-  fn test_stats_rows_oversized_ints_are_floats() {
+  fn test_stats_rows_oversized_ints_are_strings() {
     let args = Args::default();
     let input = make_input(&[vec!["count"], vec!["99999999999999999999"]]);
     let rows = stats_rows(&input, &args);
-    let formatted = Value::Float(1e20).format(3);
-    assert_eq!(["count", "float", "100%", "1"], rows[1][..4]);
-    assert_eq!(formatted, rows[1][4]);
-    assert_eq!(formatted, rows[1][5]);
+    assert_eq!(["count", "string", "100%", "1"], rows[1][..4]);
   }
 
   #[test]

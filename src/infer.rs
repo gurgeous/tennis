@@ -67,6 +67,8 @@ const TEXT_HEADERS: &[&str] = &[
   "sic",
   "sku",
   "upc",
+  // years are labels, not amounts
+  "year",
 ];
 
 //
@@ -125,7 +127,6 @@ mod tests {
       ("score", &["12%", "-3.5%"], ColumnType::Percent),
       ("score", &["1", "2%"], ColumnType::String),
       ("score", &["", ""], ColumnType::String),
-      ("year", &["2024"], ColumnType::Int),
     ] {
       assert_eq!(want, infer(header, values), "{header}");
     }
@@ -133,14 +134,14 @@ mod tests {
 
   #[test]
   fn test_text_headers_skip_infer() {
-    for header in ["ZIPCODE", "phone_number", "sku"] {
+    for header in ["ZIPCODE", "phone_number", "sku", "Year"] {
       assert_eq!(ColumnType::String, infer(header, &["90210"]), "{header}");
     }
   }
 
   #[test]
   fn test_text_headers_do_not_match_substrings() {
-    for header in ["grid", "zipcode_extra", "home zip", "phone_number_alt", "id", "year"] {
+    for header in ["grid", "zipcode_extra", "home zip", "phone_number_alt", "id", "fiscal_year"] {
       assert_eq!(ColumnType::Int, infer(header, &["90210"]), "{header}");
     }
   }
