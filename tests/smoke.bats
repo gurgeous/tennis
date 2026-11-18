@@ -487,7 +487,10 @@ EOF
   run_ok --color=off --width 80 --peek "$ROOT/tests/test.csv"
   [[ "$output" == *"14 rows × 10 cols"* ]]
   [[ "$output" == *"… 9 more rows …"* ]]
-  [[ "$output" == *"stats"* ]]
+  [[ "$output" == *"columns"* ]]
+  [[ "$output" == *"numerics"* ]]
+  [[ "$output" == *"│ p50      │"* ]]
+  [[ "$output" == *"│ outliers │"* ]]
 
   # sample honors presentation flags
   run_ok --color=off --width 80 --peek --digits 1 -n "$ROOT/tests/test.csv"
