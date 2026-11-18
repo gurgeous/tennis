@@ -33,7 +33,7 @@ impl Value {
     text.parse().ok().filter(|x: &f64| x.is_finite()).map(Self::Float)
   }
 
-  /// convert to f64 if possible (only used for colorscale)
+  /// convert to f64 (for color scales and peek numerics)
   pub fn as_f64(self) -> f64 {
     match self {
       Self::Int(x) => x as f64,
