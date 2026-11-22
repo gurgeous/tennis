@@ -15,8 +15,8 @@ pub fn load(path: &Path, selected_table: Option<&str>) -> Result<Grid> {
   let tables = list_tables(path)?;
   let table = choose_table(path, &tables, selected_table)?;
   let sql = format!("SELECT {} FROM {};", select_list(path, &table)?, quote_identifier(&table));
-  // keep -csv before -header! sqlite 3.52-3.53 (and macOS /usr/bin/sqlite3) reset -header on a later
-  // mode flag, fixed upstream in d8f6cc7ea4 (bug 2026-06-13T11:49:18Z). see tennis #90
+  // keep -csv before -header! sqlite 3.52-3.53 (and macOS /usr/bin/sqlite3) reset -header on a
+  // later mode flag, fixed upstream in d8f6cc7ea4 (bug 2026-06-13T11:49:18Z). see tennis #90
   let stdout = run(path, &["-batch", "-csv", "-header"], &sql)?;
   csv::load(&stdout, b',')
 }
