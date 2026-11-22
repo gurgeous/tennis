@@ -152,6 +152,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 - --peek numerics table with percentiles & outliers #88 (@forthrin)
 - put a cap on length of ints, so chat.db displays nicely
 - fix missing minus between -1 and 0 #91 (@kawarimidoll)
+- fix missing headers with sqlite 3.52-53 / macOS 27 #90 (@kawarimidoll)
 
 #### 0.8.0 (Sep '26)
 
