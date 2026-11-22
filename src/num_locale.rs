@@ -24,19 +24,22 @@ impl NumLocale {
 
   /// Rounds to a fixed precision, then localizes separators.
   pub fn format_float(&self, value: f64, digits: usize) -> String {
-    let rounded = format!("{value:.digits$}");
+    // num-format only does ints, so group the whole part of |value| and add the sign back
+    let rounded = format!("{:.digits$}", value.abs());
     let (whole, frac) = rounded.split_once('.').unwrap_or((rounded.as_str(), ""));
-    let suffix_len = if digits > 0 { self.0.decimal().len() + frac.len() } else { 0 };
-    let mut out = whole.parse::<i64>().map_or_else(
-      |_| whole.to_owned(),
-      |whole| {
+    let mut out = String::new();
+    // -0.0001 rounds to 0.000, so it gets no sign
+    if value < 0.0 && rounded.bytes().any(|b| matches!(b, b'1'..=b'9')) {
+      out.push_str(self.0.minus_sign());
+    }
+    match whole.parse::<u64>() {
+      Ok(whole) => {
         let mut buffer = Buffer::default();
         buffer.write_formatted(&whole, &self.0);
-        let mut out = String::with_capacity(buffer.as_str().len() + suffix_len);
         out.push_str(buffer.as_str());
-        out
-      },
-    );
+      }
+      Err(_) => out.push_str(whole),
+    }
     if digits > 0 {
       out.push_str(self.0.decimal());
       out.push_str(frac);
@@ -97,6 +100,15 @@ mod tests {
       ("2.000", locale.format_float(1.9999, 3)),
       ("10.0", locale.format_float(9.99, 1)),
       ("0.000", locale.format_float(-0.0001, 3)),
+      ("-0.500", locale.format_float(-0.5, 3)),
+      ("-1,234.50", locale.format_float(-1234.5, 2)),
+      ("-1", locale.format_float(-0.6, 0)),
+      ("0.000", locale.format_float(-0.0, 3)),
+      ("0", locale.format_float(-0.4, 0)),
+      ("-1,000", locale.format_float(-999.6, 0)),
+      ("-100000000000000000000.0", locale.format_float(-1e20, 1)),
+      ("-0.1%", locale.format_percent(-0.06, 1)),
+      ("0.0%", locale.format_percent(-0.04, 1)),
       ("12.5%", locale.format_percent(12.5, 1)),
     ] {
       assert_eq!(formatted, actual);
@@ -105,8 +117,19 @@ mod tests {
 
   #[test]
   fn test_format_locale() {
-    assert_eq!("1.234,57", NumLocale::from_name(Some("de_DE")).format_float(1234.567, 2));
-    assert_eq!("1234.57", NumLocale::from_name(Some("C")).format_float(1234.567, 2));
-    assert_eq!("1,23,45,678.90", NumLocale::from_name(Some("en_IN")).format_float(12345678.9, 2));
+    let [de, c, en_in] = ["de_DE", "C", "en_IN"].map(|name| NumLocale::from_name(Some(name)));
+    for (formatted, actual) in [
+      ("1.234,57", de.format_float(1234.567, 2)),
+      ("-0,5", de.format_float(-0.5, 1)),
+      ("-1.234", de.format_int(-1234)),
+      ("1234.57", c.format_float(1234.567, 2)),
+      ("-1234.57", c.format_float(-1234.567, 2)),
+      ("-1234", c.format_int(-1234)),
+      ("1,23,45,678.90", en_in.format_float(12345678.9, 2)),
+      ("-1,23,45,678.90", en_in.format_float(-12345678.9, 2)),
+      ("-12,34,567", en_in.format_int(-1234567)),
+    ] {
+      assert_eq!(formatted, actual);
+    }
   }
 }
