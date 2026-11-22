@@ -4,7 +4,6 @@ _.path = ["{{config_root}}/target/debug", '{{config_root}}/bin']
 [tools]
 bats = "latest"
 just = "latest"
-ruby = "latest"
 rust = "1.96.0"
 
 [bootstrap.packages]
