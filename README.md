@@ -141,7 +141,7 @@ We love CSV tools and use them all the time! Here are a few that we rely on:
 
 ### Changelog
 
-#### 0.8.1 (unreleased)
+#### 0.8.1 (Nov '26)
 
 - moved to homebrew-core, thanks @chenrui333 and @chrisfinazzo #79
 - add --skip for skipping lines above the header #78 (@igorshubovych)

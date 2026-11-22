@@ -2,9 +2,9 @@
 
 1. Update the repo
    1. `just check`
-   2. Update `README.md` changelog
-   3. Update version in `Cargo.toml`
-   4. commit/push
+   2. Update `README.md` changelog, replace "(unreleased)" with "(Mon 'YY)"
+   3. Update version in `Cargo.toml` and `Cargo.lock` (homebrew builds with `--locked`)
+   4. commit/push, wait for CI to pass
 
 1. Tag:
 
